@@ -1,5 +1,5 @@
 {
-  "version": "2.1.0",
+  "version": "2.2.0",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "New key screen: Paste key, then Confirm key. A first-time tour now walks through set-up and every page (replay it from Settings)."
+  "notes": "The key screen is now just the key box: paste, Confirm key, Enter. And a cinematic \"Welcome to Lantern Client\" greets you each time it opens (Settings > Startup turns it off)."
 }

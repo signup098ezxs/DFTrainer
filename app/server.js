@@ -14,7 +14,7 @@
 //
 //   node server.js [--package "<...>\versions\1.6.2"] [--no-open] [--port 61777]
 'use strict';
-const fs = require('fs'), path = require('path'), http = require('http'), net = require('net'), crypto = require('crypto');
+const fs = require('fs'), path = require('path'), http = require('http'), net = require('net'), crypto = require('crypto'), os = require('os');
 const { execFile, spawn } = require('child_process');
 
 const HERE = __dirname;
@@ -473,11 +473,12 @@ let lastRunning = false, lastProcCount = 0, lastToggleText = '';
 async function buildState() {
   const p = places();
   const license = LIC.status();
-  if (!p.pkg) return { found: false, license, app: { version: VERSION, managed: !!LAUNCHER, update: updateReady, checking: updateChecking }, guess: process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, 'DauntlessForever', 'versions', '1.6.2') : '' };
+  const user = (() => { try { return process.env.USERNAME || os.userInfo().username; } catch { return ''; } })();
+  if (!p.pkg) return { found: false, license, user, app: { version: VERSION, managed: !!LAUNCHER, update: updateReady, checking: updateChecking }, guess: process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, 'DauntlessForever', 'versions', '1.6.2') : '' };
   const running = await backendUp();
   const procs = modProcesses(p);
   return {
-    found: true, license, pkg: p.pkg, gameDir: p.gameDir, running, playingAs,
+    found: true, license, user, pkg: p.pkg, gameDir: p.gameDir, running, playingAs,
     app: { version: VERSION, managed: !!LAUNCHER, update: updateReady, checking: updateChecking },
     ue4ss: !!(p.ue4ssDll && fs.existsSync(p.ue4ssDll)),
     modInstalled: !!(p.modDir && fs.existsSync(path.join(p.modDir, 'Scripts', 'main.lua'))),
@@ -620,7 +621,7 @@ const routes = {
   'GET /api/prefs': async () => settings.prefs || {},
   'POST /api/prefs': async (b) => {
     const p = {}, ok = (k, test) => { if (b[k] !== undefined && test(b[k])) p[k] = b[k]; };
-    ok('sfx', (v) => typeof v === 'boolean'); ok('intro', (v) => typeof v === 'boolean'); ok('onboarded', (v) => typeof v === 'boolean');
+    ok('sfx', (v) => typeof v === 'boolean'); ok('intro', (v) => typeof v === 'boolean'); ok('onboarded', (v) => typeof v === 'boolean'); ok('welcome', (v) => typeof v === 'boolean');
     ok('vol', (v) => typeof v === 'number' && v >= 0 && v <= 1);
     ok('scale', (v) => [0.9, 1, 1.1, 1.25].includes(v));
     ok('fps', (v) => ['display', '60', '30', 'off'].includes(v));

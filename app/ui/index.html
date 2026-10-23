@@ -186,11 +186,12 @@ select option { background: var(--hull); }
 @keyframes shake { 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
 
 #lock .card .view { display: none; width: 100%; justify-items: center; gap: 10px; animation: rise .45s var(--ease); }
-#lock .card[data-view="paste"] .v-paste, #lock .card[data-view="confirm"] .v-confirm, #lock .card[data-view="ok"] .v-ok { display: grid; }
+#lock .card[data-view="paste"] .v-paste, #lock .card[data-view="ok"] .v-ok { display: grid; }
 #lock .card[data-view="ok"] .owner { display: none; }
 #lock .btn.big { height: 46px; padding: 0 26px; font-size: 15px; margin-top: 8px; }
 #lock .btn.big svg { width: 19px; height: 19px; }
-#lock .row { justify-content: center; }
+#lock .row { justify-content: center; margin-top: 12px; }
+#lock .keyin.bad { border-color: rgba(255, 90, 116, .6); }
 .keyprev { display: flex; align-items: center; gap: 10px; width: 100%; margin-top: 8px; padding: 12px 14px; border-radius: 12px; border: 1px dashed rgba(var(--a-rgb), .45); background: rgba(var(--a-rgb), .05); text-align: left; }
 .keyprev svg { width: 20px; height: 20px; flex: none; color: var(--aether); }
 .keyprev code { flex: 1; min-width: 0; overflow-wrap: anywhere; font: 500 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace; color: var(--a-pale); }
@@ -200,6 +201,46 @@ select option { background: var(--hull); }
 @keyframes okdraw { to { stroke-dashoffset: 0; } }
 #lock #okText { color: var(--frost); font-size: 14.5px; }
 #lock.leaving .card { transform: scale(1.03); opacity: 0; transition: transform .5s var(--ease), opacity .4s var(--ease); }
+
+
+/* ------------------------------------------------ welcome: plays every time the main menu opens
+   Letterbox bars close in, a lantern-light bloom rises with slow rays and embers, the title resolves out of a blur
+   with a light sweep, the name follows, then it all fades into the panel. Transform and opacity only, except a
+   short blur on the title and one sweep of its gradient. */
+#welcome { position: fixed; inset: 0; z-index: 97; display: grid; place-items: center; overflow: hidden; background: radial-gradient(70% 70% at 50% 50%, #08131b, var(--void) 72%); opacity: 0; pointer-events: none; transition: opacity .45s var(--ease); cursor: pointer; }
+#welcome.in { opacity: 1; pointer-events: auto; }
+#welcome.out { opacity: 0; transition: opacity 1s cubic-bezier(.4, 0, .2, 1); pointer-events: none; }
+#welcome .wbar { position: absolute; top: 0; left: 0; right: 0; height: 11vh; background: #000; z-index: 3; transform: translateY(-101%); transition: transform .9s cubic-bezier(.7, 0, .2, 1); }
+#welcome .wbar.b { top: auto; bottom: 0; transform: translateY(101%); }
+#welcome.in .wbar { transform: none; }
+#welcome.out .wbar { transform: translateY(-101%); transition-duration: .8s; } #welcome.out .wbar.b { transform: translateY(101%); }
+#welcome .wglow { position: absolute; width: 90vmin; height: 90vmin; border-radius: 50%; background: radial-gradient(circle, rgba(var(--a-rgb), .32) 0%, rgba(var(--a-rgb), .12) 32%, transparent 66%); opacity: 0; transform: scale(.45); }
+#welcome.in .wglow { animation: wbloom 1.8s .15s cubic-bezier(.2, .8, .2, 1) forwards, wbreathe 2.4s 1.95s ease-in-out infinite alternate; }
+@keyframes wbloom { 0% { opacity: 0; transform: scale(.45); } 55% { opacity: 1; transform: scale(1.12); } 100% { opacity: .8; transform: scale(1); } }
+@keyframes wbreathe { to { opacity: 1; transform: scale(1.05); } }
+#welcome .wrays { position: absolute; width: 150vmax; height: 150vmax; background: repeating-conic-gradient(from 0deg, rgba(var(--a-rgb), .045) 0deg 3deg, transparent 3deg 15deg); -webkit-mask: radial-gradient(circle, #000 0%, transparent 42%); mask: radial-gradient(circle, #000 0%, transparent 42%); opacity: 0; }
+#welcome.in .wrays { animation: wrays 1.6s .3s ease forwards, wspin 40s linear infinite; }
+@keyframes wrays { to { opacity: 1; } }
+@keyframes wspin { to { transform: rotate(1turn); } }
+#welcome .ember { position: absolute; left: 50%; top: 62%; width: 4px; height: 4px; border-radius: 50%; background: var(--a-pale); box-shadow: 0 0 8px 2px rgba(var(--a-rgb), .8); opacity: 0; }
+#welcome.in .ember { animation: wember var(--d) var(--t) cubic-bezier(.2, .6, .3, 1) infinite; }
+@keyframes wember { 0% { opacity: 0; transform: translate(var(--x), 0) scale(1); } 15% { opacity: .95; } 100% { opacity: 0; transform: translate(calc(var(--x) + var(--dx)), -44vh) scale(.3); } }
+#welcome .wtext { position: relative; z-index: 2; display: grid; justify-items: center; text-align: center; }
+#welcome .wk { font: 600 15px/1 var(--display); letter-spacing: .5em; text-transform: uppercase; color: var(--a-pale); opacity: 0; transform: translateY(8px); margin-right: -.5em; }
+#welcome.in .wk { animation: wfade .8s .4s var(--ease) forwards; }
+#welcome h1 { margin: 14px 0 0; font: 700 clamp(40px, 7vw, 78px)/1 var(--display); letter-spacing: .16em; margin-right: -.16em; color: transparent; background: linear-gradient(100deg, var(--frost) 0%, var(--frost) 42%, #fff 50%, var(--frost) 58%, var(--frost) 100%); background-size: 260% 100%; background-position: 100% 0; -webkit-background-clip: text; background-clip: text; filter: drop-shadow(0 0 22px rgba(var(--a-rgb), .45)); opacity: 0; }
+#welcome.in h1 { animation: wtitle 1.25s .6s cubic-bezier(.2, .7, .2, 1) forwards, wsheen 1.3s 1.55s ease-in-out forwards; }
+@keyframes wtitle { 0% { opacity: 0; letter-spacing: .55em; transform: scale(1.06); filter: blur(12px) drop-shadow(0 0 22px rgba(var(--a-rgb), .45)); } 100% { opacity: 1; letter-spacing: .16em; transform: none; filter: blur(0) drop-shadow(0 0 22px rgba(var(--a-rgb), .45)); } }
+@keyframes wsheen { to { background-position: 0 0; } }
+#welcome .wname { margin-top: 22px; font: 600 clamp(22px, 3vw, 32px)/1.1 var(--display); letter-spacing: .06em; color: var(--aether); text-shadow: 0 0 18px rgba(var(--a-rgb), .7); opacity: 0; transform: translateY(12px); }
+#welcome.in .wname { animation: wfade .9s 1.45s var(--ease) forwards; }
+#welcome .wline { width: min(340px, 60vw); height: 2px; margin-top: 16px; background: linear-gradient(90deg, transparent, var(--aether), transparent); box-shadow: 0 0 12px rgba(var(--a-rgb), .8); transform: scaleX(0); }
+#welcome.in .wline { animation: wline 1.1s 1.6s cubic-bezier(.2, .8, .2, 1) forwards; }
+@keyframes wline { to { transform: scaleX(1); } }
+@keyframes wfade { to { opacity: 1; transform: none; } }
+#welcome.out .wtext { transform: scale(1.04); opacity: 0; transition: transform 1.1s cubic-bezier(.4, 0, .2, 1), opacity .8s ease; }
+#welcome .wskip { position: absolute; bottom: calc(11vh + 14px); z-index: 3; color: var(--ash2); font-size: 12px; opacity: 0; }
+#welcome.in .wskip { animation: wfade .6s 1.2s forwards; }
 
 /* ------------------------------------------------ guided tour */
 #tour { position: fixed; inset: 0; z-index: 95; }
@@ -678,6 +719,7 @@ input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border: 0; bord
         </div>
         <div class="setcard"><h3>Startup</h3>
           <div class="setrow"><div class="lbl"><b>Guided tour</b><small>How to set up and what every page does.</small></div><div class="ctl"><button class="btn" id="tourAgain">Show the tour</button></div></div>
+          <div class="setrow"><div class="lbl"><b>Welcome greeting</b><small>"Welcome to Lantern Client" each time it opens.</small></div><div class="ctl"><label class="sw sm"><input type="checkbox" id="welcomeOn" checked><span class="track"></span><span class="knob"></span></label></div></div>
           <div class="setrow"><div class="lbl"><b>Play the intro</b><small>The Lantern Client logo when the panel opens.</small></div><div class="ctl"><label class="sw sm"><input type="checkbox" id="introOn" checked><span class="track"></span><span class="knob"></span></label></div></div>
         </div>
         <div class="setcard"><h3>About</h3>
@@ -705,15 +747,9 @@ input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border: 0; bord
   <div class="card" id="lockCard" data-view="paste">
     <svg class="emb" id="lockEmb" viewBox="0 0 120 120" aria-hidden="true"></svg>
     <h2 id="lockTitle">Enter your key</h2>
-    <p id="lockText">Lantern Client needs a key. Copy the one you were given, then paste it here.</p>
+    <p id="lockText">Paste the key you were given into the box (Ctrl+V), then confirm it.</p>
     <div class="view v-paste">
-      <button class="btn primary big" id="keyPaste"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="3" width="8" height="4" rx="1"/><path d="M16 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2"/></svg>Paste key</button>
-      <button class="link" id="keyTypeBtn">Type or paste it by hand</button>
-      <div class="row" id="keyTypeRow" hidden><input class="keyin" id="keyIn" placeholder="LANTERN-..." spellcheck="false" autocomplete="off"><button class="btn" id="keyNext">Next</button></div>
-    </div>
-    <div class="view v-confirm">
-      <div class="keyprev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 9.8-9.8M17 6l3 3M14.5 8.5l2.5 2.5"/></svg><code id="keyPrev"></code></div>
-      <div class="row"><button class="btn" id="keyBack">Paste a different key</button><button class="btn primary" id="keyGo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>Confirm key</button></div>
+      <div class="row"><input class="keyin" id="keyIn" placeholder="LANTERN-..." spellcheck="false" autocomplete="off" aria-label="Your key"><button class="btn primary" id="keyGo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>Confirm key</button></div>
     </div>
     <div class="view v-ok">
       <div class="okring"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></div>
@@ -723,6 +759,12 @@ input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border: 0; bord
     <div class="msg" id="keyMsg" aria-live="polite"></div>
     <button class="link owner" id="ownerImport">I'm the owner: import owner key</button>
   </div>
+</div>
+<div id="welcome" aria-live="polite" hidden>
+  <div class="wbar"></div><div class="wbar b"></div>
+  <div class="wrays"></div><div class="wglow"></div>
+  <div class="wtext"><div class="wk">Welcome to</div><h1>Lantern Client</h1><div class="wname" id="wName"></div><div class="wline"></div></div>
+  <div class="wskip">Click to skip</div>
 </div>
 <div id="tour" aria-live="polite" hidden>
   <div class="tspot" id="tSpot"></div>
@@ -817,6 +859,17 @@ const SFX = (() => {
     error() { tone({ f: 220, f2: 150, type: 'square', d: 0.22, g: 0.05 }); tone({ f: 233, f2: 160, type: 'sine', d: 0.25, g: 0.12 }); },
     introLand() { tone({ f: 98, f2: 41, type: 'sine', d: 0.9, g: 0.32 }); noise({ d: 0.5, g: 0.06, f1: 200, f2: 900, q: 0.7, p1: 0, p2: 0 }); [1318.5, 1760, 2637].forEach((f, i) => tone({ f, type: 'sine', t: 0.55 + i * 0.09, d: 1.2, g: 0.045, wet: 0.9 })); },
     claude() { tone({ f: 73.4, type: 'sine', d: 3, g: 0.2, a: 0.7 }); tone({ f: 110, type: 'sine', d: 2.8, g: 0.08, a: 0.8 }); tone({ f: 146.8, type: 'triangle', t: 0.08, d: 1.8, g: 0.025, a: 0.6, wet: 0.4 }); },
+    welcome() {
+      // a low swell under the bars, air rising with the light, a chord as the name lands
+      tone({ f: 55, type: 'sine', d: 3.4, g: 0.24, a: 1.1 }); tone({ f: 82.4, type: 'sine', d: 3.2, g: 0.1, a: 1.2 });
+      noise({ d: 1.6, g: 0.1, f1: 180, f2: 2600, q: 0.8, p1: -0.6, p2: 0.6 });
+      tone({ f: 164.8, f2: 220, type: 'triangle', t: 0.55, d: 1.4, g: 0.035, a: 0.5, wet: 0.5 });
+      [659.3, 987.8, 1318.5, 1975.5].forEach((f, i) => tone({ f, type: 'sine', t: 1.45 + i * 0.07, d: 2.2, g: 0.05 - i * 0.008, a: 0.02, wet: 0.9 }));
+      tone({ f: 2637, type: 'triangle', t: 1.75, d: 1.4, g: 0.018, wet: 1 });
+    },
+    welcomeOut() { noise({ d: 1, g: 0.08, f1: 2400, f2: 300, q: 0.9, p1: 0.5, p2: -0.5 }); tone({ f: 220, f2: 110, type: 'sine', d: 1, g: 0.06, a: 0.05 }); },
+    // demos only: everything the panel plays, as a stream (used to record a test video with its sound)
+    capture() { const c = init(); if (!c) return null; const dst = c.createMediaStreamDestination(); master.connect(dst); return dst.stream; },
     whoosh() { noise({ d: 0.75, g: 0.28, f1: 260, f2: 5200, q: 1.1, p1: -0.9, p2: 0.9 }); tone({ f: 180, f2: 520, type: 'sine', d: 0.55, g: 0.06 }); tone({ f: 2093, type: 'sine', t: 0.62, d: 0.9, g: 0.05, wet: 0.9 }); },
   };
 })();
@@ -991,10 +1044,10 @@ function renderLicense(l) {
   else if (!show && lock.classList.contains('on') && !lockHold) lock.classList.remove('on');
   if (show && $('#lockCard').dataset.view === 'paste') {
     $('#lockTitle').textContent = l.state === 'expired' ? 'Your key ran out' : l.state === 'revoked' ? 'Your key was revoked' : 'Enter your key';
-    $('#lockText').textContent = l.state === 'expired' ? `The key for ${l.name} ran out on ${fmtDate(l.expires)}. Copy a new one, then paste it here.`
-      : l.state === 'revoked' ? 'This key no longer works. Ask the owner for a new one, copy it, then paste it here.'
-      : l.state === 'invalid' ? 'The saved key is not valid. Copy the one you were given, then paste it here.'
-      : 'Lantern Client needs a key. Copy the one you were given, then paste it here.';
+    $('#lockText').textContent = l.state === 'expired' ? `The key for ${l.name} ran out on ${fmtDate(l.expires)}. Paste a new one below, then confirm it.`
+      : l.state === 'revoked' ? 'This key no longer works. Ask the owner for a new one and paste it below.'
+      : l.state === 'invalid' ? 'The saved key is not valid. Paste the one you were given below, then confirm it.'
+      : 'Paste the key you were given into the box (Ctrl+V), then confirm it.';
   }
   $('#keysTab').hidden = !l.owner;
   if (!l.owner && activeTab() === 'keys') $('nav > button[data-tab="cheats"]').click();
@@ -1005,54 +1058,33 @@ function renderLicense(l) {
   if (l.owner && (!was || !was.owner)) loadKeys();
   if (l.ok) setTimeout(maybeTour, 900);
 }
-// the key screen: Paste key -> Confirm key (checked) -> Key accepted -> main menu
-let lockHold = false, pendingKey = '';
+// the key screen: key box -> Confirm key (checked) -> Key accepted -> Enter -> welcome -> main menu
+let lockHold = false;
 function lockView(v) {
-  $('#lockCard').dataset.view = v; $('#keyMsg').textContent = '';
-  if (v === 'paste') { $('#keyTypeRow').hidden = true; $('#keyTypeBtn').hidden = false; setTimeout(() => $('#keyPaste').focus(), 60); }
-  if (v === 'confirm') { $('#lockTitle').textContent = 'Confirm your key'; $('#lockText').textContent = 'Check this is the key you were given, then confirm it.'; setTimeout(() => $('#keyGo').focus(), 60); }
+  $('#lockCard').dataset.view = v; $('#keyMsg').textContent = ''; $('#keyIn').classList.remove('bad');
+  if (v === 'paste') setTimeout(() => $('#keyIn').focus(), 80);
 }
-function lockError(msg) { SFX.error(); $('#keyMsg').textContent = msg; const c = $('#lockCard'); c.classList.remove('shake'); void c.offsetWidth; c.classList.add('shake'); }
-const maskKey = (k) => k.length > 34 ? `${k.slice(0, 18)}...${k.slice(-10)}` : k;
-async function readClipboard() {
-  if (window.dftClipboard) { try { return String(await window.dftClipboard()); } catch {} }   // Lantern Client's own window
-  try { return await navigator.clipboard.readText(); } catch { return null; }
+function lockError(msg) {
+  SFX.error(); $('#keyMsg').textContent = msg; $('#keyIn').classList.add('bad');
+  const c = $('#lockCard'); c.classList.remove('shake'); void c.offsetWidth; c.classList.add('shake'); $('#keyIn').focus();
 }
-function takeKey(text) {
-  const k = String(text || '').replace(/\s+/g, '');
-  if (!k) return lockError('Nothing to paste: copy your key first.');
-  if (!/^LANTERN-/i.test(k)) return lockError("That isn't a Lantern key. Copy the whole key you were given (it starts with LANTERN-), then try again.");
-  pendingKey = k; SFX.select(true);
-  $('#keyPrev').textContent = maskKey(k); $('#keyPrev').title = k;
-  lockView('confirm');
-}
-$('#keyPaste').onclick = async () => {
-  SFX.tick();
-  const t = await readClipboard();
-  if (t === null) { $('#keyTypeRow').hidden = false; $('#keyTypeBtn').hidden = true; $('#keyIn').focus(); $('#keyMsg').textContent = 'Press Ctrl+V to paste your key here.'; return; }
-  takeKey(t);
-};
-$('#keyTypeBtn').onclick = () => { SFX.tick(); $('#keyTypeRow').hidden = false; $('#keyTypeBtn').hidden = true; $('#keyIn').focus(); };
-$('#keyNext').onclick = () => takeKey($('#keyIn').value);
-$('#keyIn').addEventListener('keydown', (e) => { if (e.key === 'Enter') takeKey($('#keyIn').value); });
-$('#keyIn').addEventListener('input', () => { $('#keyMsg').textContent = ''; });
-// Ctrl+V anywhere on the key screen pastes too
-addEventListener('paste', (e) => {
-  if (!$('#lock').classList.contains('on') || $('#lockCard').dataset.view !== 'paste' || e.target === $('#keyIn')) return;
-  e.preventDefault(); takeKey(e.clipboardData && e.clipboardData.getData('text'));
-});
-$('#keyBack').onclick = () => { SFX.tick(); pendingKey = ''; $('#keyIn').value = ''; lockView('paste'); if (LIC) renderLicense(LIC); };
-$('#keyGo').onclick = async () => {
-  if (!pendingKey || $('#keyGo').classList.contains('busy')) return;
-  $('#keyGo').classList.add('busy'); $('#keyBack').disabled = true;
+async function confirmKey() {
+  const k = $('#keyIn').value.replace(/\s+/g, '');
+  if (!k) return lockError('Paste your key into the box first.');
+  if (!/^LANTERN-/i.test(k)) return lockError("That isn't a Lantern key. Copy the whole key you were given (it starts with LANTERN-).");
+  if ($('#keyGo').classList.contains('busy')) return;
+  SFX.tick(); $('#keyGo').classList.add('busy'); $('#keyIn').disabled = true;
   lockHold = true;   // the live state may report the key before this answer comes back: keep the screen until Enter
-  const [r] = await Promise.all([api('/api/license', { key: pendingKey }).catch(() => ({ ok: false, error: 'Could not reach the panel. Try again.' })), new Promise((res) => setTimeout(res, 650))]);
-  $('#keyGo').classList.remove('busy'); $('#keyBack').disabled = false;
+  const [r] = await Promise.all([api('/api/license', { key: k }).catch(() => ({ ok: false, error: 'Could not reach the panel. Try again.' })), new Promise((res) => setTimeout(res, 650))]);
+  $('#keyGo').classList.remove('busy'); $('#keyIn').disabled = false;
   if (!r.ok) { lockHold = false; return lockError(r.error); }
   keyAccepted(r.status, r.status.expires ? `Welcome, ${r.status.name}. Your key runs until ${fmtDate(r.status.expires)} (${daysLeft(r.status.expires)} days).` : `Welcome, ${r.status.name}. Your key never runs out.`);
-};
+}
+$('#keyGo').onclick = confirmKey;
+$('#keyIn').addEventListener('keydown', (e) => { if (e.key === 'Enter') confirmKey(); });
+$('#keyIn').addEventListener('input', () => { $('#keyMsg').textContent = ''; $('#keyIn').classList.remove('bad'); });
 function keyAccepted(status, text) {
-  lockHold = true; pendingKey = ''; $('#keyIn').value = '';
+  lockHold = true; $('#keyIn').value = '';
   $('#lockCard').dataset.view = 'ok'; $('#keyMsg').textContent = '';
   $('#lockTitle').textContent = 'Key accepted'; $('#lockText').textContent = ''; $('#okText').textContent = text;
   SFX.deliver(); setTimeout(() => $('#keyEnter').focus(), 80);
@@ -1061,7 +1093,7 @@ function keyAccepted(status, text) {
 $('#keyEnter').onclick = () => {
   SFX.switchOn(); lockHold = false;
   const lock = $('#lock'); lock.classList.add('leaving');
-  setTimeout(() => { lock.classList.remove('on'); setTimeout(() => lock.classList.remove('leaving'), 500); maybeTour(); }, 380);
+  playWelcome(() => {}, () => { lock.classList.remove('on'); lock.classList.remove('leaving'); });
 };
 $('#ownerImport').onclick = $('#licOwner').onclick = () => { SFX.tick(); $('#ownerFile').value = ''; $('#ownerFile').click(); };
 $('#ownerFile').onchange = async (e) => {
@@ -1137,6 +1169,52 @@ $('#kList').addEventListener('click', async (e) => {
 });
 
 
+
+/* ================================================= welcome */
+// Every time the main menu opens (after the intro, or after a key is accepted): "Welcome to Lantern Client" and the
+// name on the key. covered() runs once the screen is fully covered, done() when it has faded out.
+let welcomeOn = false, menuReady = false;
+function welcomeName() {
+  if (!LIC) return '';
+  return LIC.owner ? (S && S.user) || 'Owner' : LIC.name || '';
+}
+function playWelcome(done = () => {}, covered = () => {}) {
+  const w = $('#welcome');
+  if (welcomeOn) return;
+  if (!store.get('welcome', true) || reduced || store.get('fps', 'display') === 'off') { covered(); menuReady = true; done(); setTimeout(maybeTour, 400); return; }
+  welcomeOn = true; menuReady = false;
+  $('#wName').textContent = welcomeName();
+  if (!w.dataset.embers) {   // a few embers drifting up from the light, made once
+    w.dataset.embers = 1;
+    w.insertAdjacentHTML('beforeend', Array.from({ length: 16 }, (_, i) => `<i class="ember" style="--x:${Math.round((Math.random() - 0.5) * 46)}vw;--dx:${Math.round((Math.random() - 0.5) * 10)}vw;--d:${(2.6 + Math.random() * 1.6).toFixed(2)}s;--t:${(0.4 + (i / 16) * 2.2).toFixed(2)}s"></i>`).join(''));
+  }
+  w.classList.remove('in', 'out'); w.hidden = false; void w.offsetWidth;
+  SFX.unlock(); SFX.welcome();
+  requestAnimationFrame(() => w.classList.add('in'));
+  setTimeout(covered, 480);
+  let left = false;
+  const leave = () => {
+    if (left) return; left = true; clearTimeout(timer);
+    SFX.welcomeOut(); w.classList.add('out');
+    setTimeout(() => { done(); }, 150);   // the panel assembles itself while the welcome fades
+    setTimeout(() => { w.classList.remove('in', 'out'); w.hidden = true; welcomeOn = false; menuReady = true; setTimeout(maybeTour, 350); }, 1050);
+    w.removeEventListener('pointerdown', leave); removeEventListener('keydown', key, true);
+  };
+  const key = (e) => { if (['Escape', 'Enter', ' '].includes(e.key)) { e.preventDefault(); leave(); } };
+  const timer = setTimeout(leave, 3900);
+  w.addEventListener('pointerdown', leave); addEventListener('keydown', key, true);
+}
+// after the intro: welcome (with a key) or the key screen
+function afterIntro() {
+  introDone = true;
+  let waited = 0;
+  (function go() {
+    if (!LIC && waited < 3000) { waited += 100; setTimeout(go, 100); return; }
+    if (LIC && LIC.ok) playWelcome(() => reveal());
+    else { reveal(); menuReady = true; }
+  })();
+}
+
 /* ================================================= first-time tour */
 // Walks through set-up and every page once, the first time a key is accepted (Settings > Show the tour plays it again).
 let introDone = false, tourOn = false, tourI = 0, TOUR = [];
@@ -1170,7 +1248,7 @@ function endTour() {
   const b = $('nav > button[data-tab="cheats"]'); if (!b.classList.contains('on')) b.click();
 }
 function maybeTour() {
-  if (tourOn || !introDone || !LIC || !LIC.ok || lockHold || $('#lock').classList.contains('on') || store.get('onboarded', false)) return;
+  if (tourOn || !introDone || !menuReady || welcomeOn || !LIC || !LIC.ok || lockHold || $('#lock').classList.contains('on') || store.get('onboarded', false)) return;
   startTour();
 }
 function showStep(first) {
@@ -1611,7 +1689,7 @@ function applyWindow(v, announce) {
   if (announce && !window.dftResize) setTimeout(() => { if (Math.abs(window.outerWidth - W) > 40) toast('Window size saved', 'It applies the next time Lantern Client opens.'); }, 400);
 }
 function initSettings() {
-  $('#sfxOn').checked = SFX.on; $('#sfxVol').value = SFX.vol; $('#introOn').checked = store.get('intro', true);
+  $('#sfxOn').checked = SFX.on; $('#sfxVol').value = SFX.vol; $('#introOn').checked = store.get('intro', true); $('#welcomeOn').checked = store.get('welcome', true);
   $('#setScale').value = String(store.get('scale', 1)); $('#setFps').value = store.get('fps', 'display'); $('#setWin').value = store.get('win', 'auto');
   paintVol(); applyTheme(store.get('theme', 'aether')); applyFont(store.get('font', 'aether')); applyScale(store.get('scale', 1)); FPS.set(store.get('fps', 'display'));
   // a window taller or wider than the screen (high display scaling) is brought back inside it
@@ -1623,6 +1701,7 @@ $('#setWin').onchange = (e) => { SFX.tick(); store.set('win', e.target.value); a
 $('#sfxOn').onchange = (e) => { SFX.setOn(e.target.checked); if (e.target.checked) SFX.switchOn(); };
 $('#sfxVol').oninput = (e) => { SFX.setVol(Number(e.target.value)); paintVol(); };
 $('#sfxVol').onchange = () => SFX.select(true);
+$('#welcomeOn').onchange = (e) => { store.set('welcome', e.target.checked); e.target.checked ? SFX.switchOn() : SFX.switchOff(); };
 $('#introOn').onchange = (e) => { store.set('intro', e.target.checked); e.target.checked ? SFX.switchOn() : SFX.switchOff(); };
 addEventListener('pointerdown', () => SFX.unlock(), { once: true });
 
@@ -1633,7 +1712,7 @@ updateNotifBtn();
   SFX.setOn(store.get('sfx', true)); SFX.setVol(store.get('vol', 0.6));
   initSettings();
   connect();
-  runIntro(() => { reveal(); introDone = true; setTimeout(maybeTour, 1100); });
+  runIntro(afterIntro);
 })();
 </script>
 </body>
