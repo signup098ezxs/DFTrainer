@@ -24,7 +24,9 @@ FIRST TIME
      and made a character.
   2. Close the game. Run Lantern-Client-Setup.exe. It installs Lantern Client for you (no admin rights needed), adds it to
      the Start Menu and the Desktop, and opens it. From then on, open "Lantern Client" like any other app.
-  3. Paste the key you were given (LANTERN-...) and press Unlock. It is kept: you enter it once.
+  3. After the intro: copy the key you were given (LANTERN-...), press Paste key, then Confirm key. Once it is
+     accepted, Enter takes you in. The key is kept: you enter it once.
+  4. The first time, a short tour shows how to set up and what each page does (Settings > Show the tour replays it).
      (Windows may say it protects your PC the first time: the exe is not code-signed. "More info", "Run anyway".)
   3. Press "Set up" in the amber bar. It installs the trainer mod (and UE4SS, the mod loader, if you don't have it)
      and turns on Modded mode and "Also run mods on my servers" for 1.6.2.

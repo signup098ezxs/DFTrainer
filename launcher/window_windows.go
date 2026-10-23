@@ -48,7 +48,46 @@ var (
 	procShowWindow            = user32.NewProc("ShowWindow")
 	procIsIconic              = user32.NewProc("IsIconic")
 	procSetForegroundWindow   = user32.NewProc("SetForegroundWindow")
+	procOpenClipboard         = user32.NewProc("OpenClipboard")
+	procCloseClipboard        = user32.NewProc("CloseClipboard")
+	procGetClipboardData      = user32.NewProc("GetClipboardData")
+	kernel32                  = syscall.NewLazyDLL("kernel32.dll")
+	procGlobalLock            = kernel32.NewProc("GlobalLock")
+	procGlobalUnlock          = kernel32.NewProc("GlobalUnlock")
 )
+
+// readClipboard returns the text on the Windows clipboard (at most 8,000 characters), for the panel's "Paste key".
+// The panel asks through the dftClipboard binding, so pasting needs no browser permission prompt.
+func readClipboard() string {
+	for i := 0; i < 5; i++ { // another program may hold the clipboard for a moment
+		if r, _, _ := procOpenClipboard.Call(0); r != 0 {
+			break
+		}
+		if i == 4 {
+			return ""
+		}
+		time.Sleep(30 * time.Millisecond)
+	}
+	defer procCloseClipboard.Call()
+	h, _, _ := procGetClipboardData.Call(13 /* CF_UNICODETEXT */)
+	if h == 0 {
+		return ""
+	}
+	p, _, _ := procGlobalLock.Call(h)
+	if p == 0 {
+		return ""
+	}
+	defer procGlobalUnlock.Call(h)
+	var u []uint16
+	for i := 0; i < 8000; i++ {
+		c := *(*uint16)(unsafe.Pointer(p + uintptr(i)*2))
+		if c == 0 {
+			break
+		}
+		u = append(u, c)
+	}
+	return syscall.UTF16ToString(u)
+}
 
 type rect struct{ L, T, R, B int32 }
 
@@ -176,6 +215,7 @@ func openAppWindow(url string) {
 		return nil
 	})
 	_ = wv.Bind("dftClose", func() { wv.Dispatch(wv.Terminate) })
+	_ = wv.Bind("dftClipboard", func() string { return readClipboard() })
 
 	wv.Navigate(url)
 	logf("window open")

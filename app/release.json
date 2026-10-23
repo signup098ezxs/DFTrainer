@@ -1,5 +1,5 @@
 {
-  "version": "2.0.0",
+  "version": "2.1.0",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "DF Trainer is now Lantern Client. It needs a key now: paste the one you were given when it asks. Your settings, shortcuts and in-game mod carry over."
+  "notes": "New key screen: Paste key, then Confirm key. A first-time tour now walks through set-up and every page (replay it from Settings)."
 }

@@ -174,7 +174,8 @@ select option { background: var(--hull); }
 #lock p { margin: 0; color: var(--ash); font-size: 13.5px; max-width: 44ch; }
 #lock .row { display: flex; gap: 8px; width: 100%; margin-top: 10px; }
 #lock .btn { height: 40px; }
-#lock .msg { min-height: 18px; color: var(--fault); font-size: 13px; }
+#lock .msg { min-height: 18px; color: var(--fault); font-size: 13px; max-width: 44ch; }
+#lock .card.shake { animation: shake .35s; }
 #lock .link { font-size: 12.5px; color: var(--ash2); }
 #lock .link:hover { color: var(--aether); }
 .keyin, .txt { min-width: 0; height: 36px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--seam2); background: rgba(6, 10, 15, .6); outline: none; color: var(--frost); transition: border-color .2s, box-shadow .3s; }
@@ -183,6 +184,43 @@ select option { background: var(--hull); }
 .keyin::placeholder, .txt::placeholder { color: var(--ash2); }
 .keyin.bad { border-color: rgba(255, 90, 116, .6); animation: shake .35s; }
 @keyframes shake { 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+
+#lock .card .view { display: none; width: 100%; justify-items: center; gap: 10px; animation: rise .45s var(--ease); }
+#lock .card[data-view="paste"] .v-paste, #lock .card[data-view="confirm"] .v-confirm, #lock .card[data-view="ok"] .v-ok { display: grid; }
+#lock .card[data-view="ok"] .owner { display: none; }
+#lock .btn.big { height: 46px; padding: 0 26px; font-size: 15px; margin-top: 8px; }
+#lock .btn.big svg { width: 19px; height: 19px; }
+#lock .row { justify-content: center; }
+.keyprev { display: flex; align-items: center; gap: 10px; width: 100%; margin-top: 8px; padding: 12px 14px; border-radius: 12px; border: 1px dashed rgba(var(--a-rgb), .45); background: rgba(var(--a-rgb), .05); text-align: left; }
+.keyprev svg { width: 20px; height: 20px; flex: none; color: var(--aether); }
+.keyprev code { flex: 1; min-width: 0; overflow-wrap: anywhere; font: 500 12.5px/1.5 "JetBrains Mono", ui-monospace, monospace; color: var(--a-pale); }
+.okring { width: 64px; height: 64px; margin-top: 4px; border-radius: 50%; display: grid; place-items: center; color: var(--a-ink); background: radial-gradient(circle at 50% 35%, var(--a-light), var(--a-mid)); box-shadow: 0 0 0 6px rgba(var(--a-rgb), .12), 0 0 34px rgba(var(--a-rgb), .6); animation: okpop .6s var(--spring) both; }
+.okring svg { width: 32px; height: 32px; stroke-dasharray: 30; stroke-dashoffset: 30; animation: okdraw .45s .25s var(--ease) forwards; }
+@keyframes okpop { from { transform: scale(.4); opacity: 0; } }
+@keyframes okdraw { to { stroke-dashoffset: 0; } }
+#lock #okText { color: var(--frost); font-size: 14.5px; }
+#lock.leaving .card { transform: scale(1.03); opacity: 0; transition: transform .5s var(--ease), opacity .4s var(--ease); }
+
+/* ------------------------------------------------ guided tour */
+#tour { position: fixed; inset: 0; z-index: 95; }
+#tour[hidden] { display: none !important; }
+.tspot { position: absolute; left: 0; top: 0; border-radius: 12px; pointer-events: none; box-shadow: 0 0 0 200vmax rgba(4, 8, 12, .74), 0 0 0 2px rgba(var(--a-rgb), .9), 0 0 28px 2px rgba(var(--a-rgb), .45); transition: transform .5s var(--ease), width .5s var(--ease), height .5s var(--ease); will-change: transform; }
+.tcard { position: absolute; left: 0; top: 0; width: 360px; max-width: calc(100vw - 32px); padding: 16px 18px 14px; border-radius: 16px; border: 1px solid var(--seam2); background: linear-gradient(180deg, var(--hull2), var(--hull)); box-shadow: 0 24px 60px -20px rgba(0, 0, 0, .85), 0 0 40px -20px rgba(var(--a-rgb), .6); transition: transform .5s var(--ease), opacity .3s; will-change: transform; }
+.tcard.swap .tbody, .tcard.swap h3 { animation: rise .4s var(--ease); }
+.tstep { color: var(--aether); font: 600 11.5px/1 var(--display); letter-spacing: .08em; text-transform: uppercase; }
+.tcard h3 { margin: 6px 0 6px; font: 700 18px/1.25 var(--display); }
+.tbody { color: #b4c8cf; font-size: 13.5px; line-height: 1.55; }
+.tbody p { margin: 0 0 8px; }
+.tbody ul { margin: 0 0 8px; padding-left: 18px; }
+.tbody li { margin: 2px 0; }
+.tbody b { color: var(--frost); font-weight: 600; }
+.tbody kbd { font: 600 11px var(--display); padding: 1px 6px; border-radius: 5px; border: 1px solid var(--seam2); color: var(--aether); }
+.tfoot { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.tfoot .link { font-size: 12.5px; color: var(--ash2); margin-right: 4px; white-space: nowrap; }
+.tfoot .link:hover { color: var(--aether); }
+.tdots { display: flex; gap: 5px; }
+.tdots i { width: 6px; height: 6px; border-radius: 50%; background: var(--seam2); transition: background .3s, transform .3s; }
+.tdots i.on { background: var(--aether); transform: scale(1.3); box-shadow: 0 0 8px rgba(var(--a-rgb), .8); }
 
 /* ------------------------------------------------ keys (owner) */
 .kform { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px 14px; padding: 6px 0 14px; }
@@ -639,6 +677,7 @@ input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border: 0; bord
           <div class="setrow"><div class="lbl"><b>Volume</b><small></small></div><div class="ctl"><input type="range" id="sfxVol" min="0" max="1" step="0.05"></div></div>
         </div>
         <div class="setcard"><h3>Startup</h3>
+          <div class="setrow"><div class="lbl"><b>Guided tour</b><small>How to set up and what every page does.</small></div><div class="ctl"><button class="btn" id="tourAgain">Show the tour</button></div></div>
           <div class="setrow"><div class="lbl"><b>Play the intro</b><small>The Lantern Client logo when the panel opens.</small></div><div class="ctl"><label class="sw sm"><input type="checkbox" id="introOn" checked><span class="track"></span><span class="knob"></span></label></div></div>
         </div>
         <div class="setcard"><h3>About</h3>
@@ -663,13 +702,35 @@ input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border: 0; bord
 <div class="dock" id="dock"><div class="what" id="dockWhat"></div><button class="link" id="dockClear">Clear</button><button class="btn primary" id="give"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Give</button></div>
 <div id="toasts" aria-live="polite"></div>
 <div id="lock" role="dialog" aria-modal="true" aria-labelledby="lockTitle">
-  <div class="card">
+  <div class="card" id="lockCard" data-view="paste">
     <svg class="emb" id="lockEmb" viewBox="0 0 120 120" aria-hidden="true"></svg>
     <h2 id="lockTitle">Enter your key</h2>
-    <p id="lockText">Lantern Client needs a key. Paste the one you were given.</p>
-    <div class="row"><input class="keyin" id="keyIn" placeholder="LANTERN-..." spellcheck="false" autocomplete="off"><button class="btn primary" id="keyGo">Unlock</button></div>
-    <div class="msg" id="keyMsg"></div>
-    <button class="link" id="ownerImport">I'm the owner: import owner key</button>
+    <p id="lockText">Lantern Client needs a key. Copy the one you were given, then paste it here.</p>
+    <div class="view v-paste">
+      <button class="btn primary big" id="keyPaste"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="3" width="8" height="4" rx="1"/><path d="M16 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2"/></svg>Paste key</button>
+      <button class="link" id="keyTypeBtn">Type or paste it by hand</button>
+      <div class="row" id="keyTypeRow" hidden><input class="keyin" id="keyIn" placeholder="LANTERN-..." spellcheck="false" autocomplete="off"><button class="btn" id="keyNext">Next</button></div>
+    </div>
+    <div class="view v-confirm">
+      <div class="keyprev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 9.8-9.8M17 6l3 3M14.5 8.5l2.5 2.5"/></svg><code id="keyPrev"></code></div>
+      <div class="row"><button class="btn" id="keyBack">Paste a different key</button><button class="btn primary" id="keyGo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>Confirm key</button></div>
+    </div>
+    <div class="view v-ok">
+      <div class="okring"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></div>
+      <p id="okText"></p>
+      <button class="btn primary big" id="keyEnter">Enter Lantern Client</button>
+    </div>
+    <div class="msg" id="keyMsg" aria-live="polite"></div>
+    <button class="link owner" id="ownerImport">I'm the owner: import owner key</button>
+  </div>
+</div>
+<div id="tour" aria-live="polite" hidden>
+  <div class="tspot" id="tSpot"></div>
+  <div class="tcard" id="tCard" role="dialog" aria-labelledby="tTitle">
+    <div class="tstep" id="tStep"></div>
+    <h3 id="tTitle"></h3>
+    <div class="tbody" id="tBody"></div>
+    <div class="tfoot"><div class="tdots" id="tDots"></div><span class="grow"></span><button class="link" id="tSkip">Skip tour</button><button class="btn" id="tBack">Back</button><button class="btn primary" id="tNext">Next</button></div>
   </div>
 </div>
 <input type="file" id="ownerFile" accept=".pem,.key,.txt" hidden>
@@ -926,15 +987,15 @@ function renderLicense(l) {
   if (!l) return;
   const was = LIC; LIC = l;
   const lock = $('#lock'), show = !l.ok;
-  if (show !== lock.classList.contains('on')) {
-    lock.classList.toggle('on', show);
-    if (show) { $('#keyMsg').textContent = ''; setTimeout(() => $('#keyIn').focus(), 450); }
+  if (show && !lock.classList.contains('on')) { lockView('paste'); lock.classList.remove('leaving'); lock.classList.add('on'); }
+  else if (!show && lock.classList.contains('on') && !lockHold) lock.classList.remove('on');
+  if (show && $('#lockCard').dataset.view === 'paste') {
+    $('#lockTitle').textContent = l.state === 'expired' ? 'Your key ran out' : l.state === 'revoked' ? 'Your key was revoked' : 'Enter your key';
+    $('#lockText').textContent = l.state === 'expired' ? `The key for ${l.name} ran out on ${fmtDate(l.expires)}. Copy a new one, then paste it here.`
+      : l.state === 'revoked' ? 'This key no longer works. Ask the owner for a new one, copy it, then paste it here.'
+      : l.state === 'invalid' ? 'The saved key is not valid. Copy the one you were given, then paste it here.'
+      : 'Lantern Client needs a key. Copy the one you were given, then paste it here.';
   }
-  $('#lockTitle').textContent = l.state === 'expired' ? 'Your key ran out' : l.state === 'revoked' ? 'Your key was revoked' : 'Enter your key';
-  $('#lockText').textContent = l.state === 'expired' ? `The key for ${l.name} ran out on ${fmtDate(l.expires)}. Paste a new one to keep going.`
-    : l.state === 'revoked' ? 'This key no longer works. Ask the owner for a new one.'
-    : l.state === 'invalid' ? 'The saved key is not valid. Paste the one you were given.'
-    : 'Lantern Client needs a key. Paste the one you were given.';
   $('#keysTab').hidden = !l.owner;
   if (!l.owner && activeTab() === 'keys') $('nav > button[data-tab="cheats"]').click();
   $('#licInfo').textContent = l.owner ? 'Owner: you make the keys (Keys page).'
@@ -942,24 +1003,73 @@ function renderLicense(l) {
   $('#licRemove').textContent = l.owner ? 'Remove owner key' : 'Remove key';
   $('#licRemove').hidden = !l.ok; $('#licOwner').hidden = !!l.owner;
   if (l.owner && (!was || !was.owner)) loadKeys();
+  if (l.ok) setTimeout(maybeTour, 900);
 }
-async function unlock() {
-  const v = $('#keyIn').value.trim(); if (!v) { $('#keyIn').focus(); return; }
-  $('#keyGo').classList.add('busy');
-  const r = await api('/api/license', { key: v }).catch(() => ({ ok: false, error: 'Could not reach the panel.' }));
-  $('#keyGo').classList.remove('busy');
-  if (!r.ok) { SFX.error(); $('#keyMsg').textContent = r.error; $('#keyIn').classList.remove('bad'); void $('#keyIn').offsetWidth; $('#keyIn').classList.add('bad'); return; }
-  SFX.deliver(); $('#keyIn').value = ''; renderLicense(r.status);
+// the key screen: Paste key -> Confirm key (checked) -> Key accepted -> main menu
+let lockHold = false, pendingKey = '';
+function lockView(v) {
+  $('#lockCard').dataset.view = v; $('#keyMsg').textContent = '';
+  if (v === 'paste') { $('#keyTypeRow').hidden = true; $('#keyTypeBtn').hidden = false; setTimeout(() => $('#keyPaste').focus(), 60); }
+  if (v === 'confirm') { $('#lockTitle').textContent = 'Confirm your key'; $('#lockText').textContent = 'Check this is the key you were given, then confirm it.'; setTimeout(() => $('#keyGo').focus(), 60); }
 }
-$('#keyGo').onclick = unlock;
-$('#keyIn').addEventListener('keydown', (e) => { if (e.key === 'Enter') unlock(); });
-$('#keyIn').addEventListener('input', () => { $('#keyMsg').textContent = ''; $('#keyIn').classList.remove('bad'); });
+function lockError(msg) { SFX.error(); $('#keyMsg').textContent = msg; const c = $('#lockCard'); c.classList.remove('shake'); void c.offsetWidth; c.classList.add('shake'); }
+const maskKey = (k) => k.length > 34 ? `${k.slice(0, 18)}...${k.slice(-10)}` : k;
+async function readClipboard() {
+  if (window.dftClipboard) { try { return String(await window.dftClipboard()); } catch {} }   // Lantern Client's own window
+  try { return await navigator.clipboard.readText(); } catch { return null; }
+}
+function takeKey(text) {
+  const k = String(text || '').replace(/\s+/g, '');
+  if (!k) return lockError('Nothing to paste: copy your key first.');
+  if (!/^LANTERN-/i.test(k)) return lockError("That isn't a Lantern key. Copy the whole key you were given (it starts with LANTERN-), then try again.");
+  pendingKey = k; SFX.select(true);
+  $('#keyPrev').textContent = maskKey(k); $('#keyPrev').title = k;
+  lockView('confirm');
+}
+$('#keyPaste').onclick = async () => {
+  SFX.tick();
+  const t = await readClipboard();
+  if (t === null) { $('#keyTypeRow').hidden = false; $('#keyTypeBtn').hidden = true; $('#keyIn').focus(); $('#keyMsg').textContent = 'Press Ctrl+V to paste your key here.'; return; }
+  takeKey(t);
+};
+$('#keyTypeBtn').onclick = () => { SFX.tick(); $('#keyTypeRow').hidden = false; $('#keyTypeBtn').hidden = true; $('#keyIn').focus(); };
+$('#keyNext').onclick = () => takeKey($('#keyIn').value);
+$('#keyIn').addEventListener('keydown', (e) => { if (e.key === 'Enter') takeKey($('#keyIn').value); });
+$('#keyIn').addEventListener('input', () => { $('#keyMsg').textContent = ''; });
+// Ctrl+V anywhere on the key screen pastes too
+addEventListener('paste', (e) => {
+  if (!$('#lock').classList.contains('on') || $('#lockCard').dataset.view !== 'paste' || e.target === $('#keyIn')) return;
+  e.preventDefault(); takeKey(e.clipboardData && e.clipboardData.getData('text'));
+});
+$('#keyBack').onclick = () => { SFX.tick(); pendingKey = ''; $('#keyIn').value = ''; lockView('paste'); if (LIC) renderLicense(LIC); };
+$('#keyGo').onclick = async () => {
+  if (!pendingKey || $('#keyGo').classList.contains('busy')) return;
+  $('#keyGo').classList.add('busy'); $('#keyBack').disabled = true;
+  lockHold = true;   // the live state may report the key before this answer comes back: keep the screen until Enter
+  const [r] = await Promise.all([api('/api/license', { key: pendingKey }).catch(() => ({ ok: false, error: 'Could not reach the panel. Try again.' })), new Promise((res) => setTimeout(res, 650))]);
+  $('#keyGo').classList.remove('busy'); $('#keyBack').disabled = false;
+  if (!r.ok) { lockHold = false; return lockError(r.error); }
+  keyAccepted(r.status, r.status.expires ? `Welcome, ${r.status.name}. Your key runs until ${fmtDate(r.status.expires)} (${daysLeft(r.status.expires)} days).` : `Welcome, ${r.status.name}. Your key never runs out.`);
+};
+function keyAccepted(status, text) {
+  lockHold = true; pendingKey = ''; $('#keyIn').value = '';
+  $('#lockCard').dataset.view = 'ok'; $('#keyMsg').textContent = '';
+  $('#lockTitle').textContent = 'Key accepted'; $('#lockText').textContent = ''; $('#okText').textContent = text;
+  SFX.deliver(); setTimeout(() => $('#keyEnter').focus(), 80);
+  renderLicense(status);
+}
+$('#keyEnter').onclick = () => {
+  SFX.switchOn(); lockHold = false;
+  const lock = $('#lock'); lock.classList.add('leaving');
+  setTimeout(() => { lock.classList.remove('on'); setTimeout(() => lock.classList.remove('leaving'), 500); maybeTour(); }, 380);
+};
 $('#ownerImport').onclick = $('#licOwner').onclick = () => { SFX.tick(); $('#ownerFile').value = ''; $('#ownerFile').click(); };
 $('#ownerFile').onchange = async (e) => {
   const f = e.target.files[0]; if (!f) return;
   const r = await api('/api/owner/import', { pem: await f.text() });
-  if (!r.ok) { SFX.error(); $('#keyMsg').textContent = r.error; toast('Not imported', r.error, 'error'); return; }
-  SFX.deliver(); toast('Owner tools unlocked', 'Make keys on the Keys page.'); renderLicense(r.status);
+  if (!r.ok) { if ($('#lock').classList.contains('on')) lockError(r.error); else { SFX.error(); toast('Not imported', r.error, 'error'); } return; }
+  if ($('#lock').classList.contains('on')) keyAccepted(r.status, 'Owner key imported. You can make keys for people on the Keys page.');
+  else { SFX.deliver(); toast('Owner tools unlocked', 'Make keys on the Keys page.'); renderLicense(r.status); }
 };
 let removeArmed = 0;
 $('#licRemove').onclick = async () => {
@@ -968,7 +1078,7 @@ $('#licRemove').onclick = async () => {
   const r = await api(LIC && LIC.owner ? '/api/owner/remove' : '/api/license/remove', {});
   if (r.ok) renderLicense(r.status);
 };
-$('#lockEmb').innerHTML = $('.brand svg').innerHTML;
+$('#lockEmb').innerHTML = $('.brand svg').innerHTML.replace(/lgb/g, 'lgl');
 
 /* ================================================= keys (owner) */
 let KEYS = [], revokeUrl = '';
@@ -1025,6 +1135,94 @@ $('#kList').addEventListener('click', async (e) => {
   } else toast('Revoke undone', `If ${id} is already in licenses/revoked.txt, delete that line too.`, 'ok', 6000);
   loadKeys();
 });
+
+
+/* ================================================= first-time tour */
+// Walks through set-up and every page once, the first time a key is accepted (Settings > Show the tour plays it again).
+let introDone = false, tourOn = false, tourI = 0, TOUR = [];
+function tourSteps() {
+  const owner = LIC && LIC.owner, setup = $('#banner').classList.contains('show');
+  return [
+    { title: `Welcome${LIC && LIC.name && !owner ? ', ' + esc(LIC.name) : ''}`, body: '<p>Lantern Client sits next to Dauntless Forever (1.6.2): cheats you switch on and off, an item giver that works while you play, and game rules.</p><p>This quick tour shows how to set it up and what each page does. It takes about a minute.</p>' },
+    { target: '.pills', title: 'Status at a glance', body: '<ul><li><b>Live</b>: the panel is connected and updating in real time.</li><li><b>Game</b>: whether Dauntless Forever is running.</li><li><b>Mod</b>: whether the in-game mod is set up and answering.</li></ul>' },
+    { tab: 'cheats', target: setup ? '#banner' : '#pMod', title: 'One-time set-up', body: `<p>Lantern Client finds your Dauntless Forever 1.6.2 install by itself (or asks you for its folder).</p><p>With the game <b>closed</b>, press <b>Set up</b>${setup ? ' here' : ' on the Player page'}. It installs the Lantern mod (and UE4SS if needed) and turns on modded mode and server mods. Then press <b>Play</b> in the Dauntless Forever launcher.</p>${setup ? '' : '<p>Your set-up is already done: the Mod light shows it.</p>'}` },
+    { tab: 'cheats', target: '#tab-cheats .tiles', title: 'Player cheats', body: '<ul><li><b>God mode</b>: your health refills constantly.</li><li><b>Infinite stamina</b>: the stamina bar stays full.</li><li><b>Damage</b>: multiplies your damage to behemoths, up to one hit.</li><li><b>Move speed</b>: faster or slower walking and sprinting.</li></ul><p>They work at once, in Ramsgate or mid-hunt. In game, <kbd>F5</kbd> toggles god mode and <kbd>F6</kbd> infinite stamina.</p>' },
+    { tab: 'items', target: '#tab-items .search', title: 'Give items', body: '<p>Search the whole 1.6.2 catalog (weapons, armour, lanterns, parts and cosmetics), tick what you want and press <b>Give</b>.</p><ul><li><b>Max level</b> gives them fully upgraded.</li><li><b>Max all my gear</b> and <b>Unlock all cosmetics</b> do it in one click.</li></ul><p>With the game closed, gifts go into your save. While you play, they arrive live and are announced in game chat.</p>' },
+    { target: '#charSel', title: 'Who gets it', body: '<p>Pick which character receives gifts, or all of them. While you play, it follows the character you are on.</p>' },
+    { tab: 'currency', target: '#tab-currency .head', title: 'Currencies and materials', body: '<p>Type any amount of Rams, Merits, tokens, materials and cell cores, then press <b>Apply changes</b>. <b>Max everything</b> fills them all. Works while you play.</p>' },
+    { tab: 'rules', target: '#rules > :first-child', title: 'Game rules', body: '<p>Weapon XP, Hunt Pass XP, loot amount, free crafting and unlimited resupply. Pick a setting and it is saved; it applies the next time you press <b>Play</b>.</p>' },
+    { tab: 'feed', target: 'nav > button[data-tab="feed"]', title: 'Live feed', body: '<p>Everything that reaches your game, as it happens: gifts delivered, switches flipped, updates. Turn on <b>desktop alerts</b> there to see them while you are in game.</p>' },
+    ...(owner ? [{ tab: 'keys', target: '#tab-keys .setcard', title: 'Keys (owner only)', body: '<p>Make a key for someone: enter who it is for, pick how long it lasts, press <b>Generate key</b> and send it. <b>Revoke</b> stops a key; add its id to licenses/revoked.txt on GitHub when asked.</p>' }] : []),
+    { tab: 'settings', target: 'nav > button[data-tab="settings"]', title: 'Settings', body: '<p>Colour presets, fonts, window size, interface scale, frame rate, sounds and the intro. <b>About</b> shows your key and checks for updates. Lantern Client updates itself.</p><p><b>Show the tour</b> there plays this again.</p>' },
+    { tab: 'cheats', title: "You're ready", body: `<p>${setup ? 'Start with <b>Set up</b> on the Player page, then' : 'Next:'} press <b>Play</b> in the Dauntless Forever launcher and switch on what you like.</p><p>Have a good hunt.</p>`, last: true },
+  ];
+}
+function startTour() {
+  if (tourOn) return;
+  tourOn = true; TOUR = tourSteps(); tourI = 0;
+  $('#tour').hidden = false; $('#tCard').style.opacity = 0;
+  $('#tDots').innerHTML = TOUR.map(() => '<i></i>').join('');
+  showStep(true);
+}
+function endTour() {
+  if (!tourOn) return;
+  tourOn = false; $('#tour').hidden = true; store.set('onboarded', true);
+  const b = $('nav > button[data-tab="cheats"]'); if (!b.classList.contains('on')) b.click();
+}
+function maybeTour() {
+  if (tourOn || !introDone || !LIC || !LIC.ok || lockHold || $('#lock').classList.contains('on') || store.get('onboarded', false)) return;
+  startTour();
+}
+function showStep(first) {
+  const st = TOUR[tourI];
+  $('#tStep').textContent = `Step ${tourI + 1} of ${TOUR.length}`;
+  $('#tTitle').innerHTML = st.title; $('#tBody').innerHTML = st.body;
+  $$('#tDots i').forEach((d, i) => d.classList.toggle('on', i === tourI));
+  $('#tBack').hidden = tourI === 0;
+  $('#tNext').textContent = st.last ? "Let's go" : tourI === 0 ? 'Show me' : 'Next';
+  const card = $('#tCard'); card.classList.remove('swap'); void card.offsetWidth; card.classList.add('swap');
+  let wait = 0;
+  if (st.tab) { const b = $(`nav > button[data-tab="${st.tab}"]`); if (b && !b.hidden && !b.classList.contains('on')) { b.click(); wait = 420; } }
+  if (!first) SFX.select(true);
+  setTimeout(placeTour, wait);
+  setTimeout(() => $('#tNext').focus(), 60);
+}
+function placeTour() {
+  if (!tourOn) return;
+  const st = TOUR[tourI], vw = innerWidth, vh = innerHeight, card = $('#tCard'), spot = $('#tSpot');
+  // with Settings > Interface scale the page is zoomed; boxes are measured zoomed, positions here are set unzoomed
+  const z = parseFloat(document.documentElement.style.zoom) || 1;
+  const el = st.target ? $(st.target) : null;
+  let r = el && el.getBoundingClientRect();
+  if (r && (!r.width || !r.height)) r = null;
+  const cw = card.offsetWidth, ch = card.offsetHeight, W = vw / z, H = vh / z, pad = 6;
+  let x, y;
+  if (r) {
+    const R = { l: Math.max(8, r.left / z - pad), t: Math.max(8, r.top / z - pad), r: Math.min(W - 8, r.right / z + pad), b: Math.min(H - 8, r.bottom / z + pad) };
+    spot.style.transform = `translate(${R.l}px, ${R.t}px)`; spot.style.width = (R.r - R.l) + 'px'; spot.style.height = (R.b - R.t) + 'px'; spot.style.opacity = 1;
+    // right, left, below, above: the first that fits on screen without covering the target, else the one covering least
+    const fit = (cx, cy) => [Math.min(Math.max(16, cx), W - cw - 16), Math.min(Math.max(16, cy), H - ch - 16)];
+    const cover = ([cx, cy]) => Math.max(0, Math.min(R.r, cx + cw) - Math.max(R.l, cx)) * Math.max(0, Math.min(R.b, cy + ch) - Math.max(R.t, cy));
+    const tries = [fit(R.r + 16, R.t), fit(R.l - 16 - cw, R.t), fit(R.l, R.b + 14), fit(R.l, R.t - 14 - ch)];
+    [x, y] = tries.reduce((best, c) => cover(c) < cover(best) ? c : best);
+  } else {
+    spot.style.transform = `translate(${W / 2}px, ${H / 2}px)`; spot.style.width = '0px'; spot.style.height = '0px';
+    x = (W - cw) / 2; y = (H - ch) / 2;
+  }
+  x = Math.min(Math.max(16, x), W - cw - 16); y = Math.min(Math.max(16, y), H - ch - 16);
+  card.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`; card.style.opacity = 1;
+}
+$('#tNext').onclick = () => { if (TOUR[tourI].last) { SFX.deliver(); endTour(); return; } tourI++; showStep(); };
+$('#tBack').onclick = () => { if (tourI > 0) { tourI--; showStep(); } };
+$('#tSkip').onclick = () => { SFX.switchOff(); endTour(); };
+$('#tourAgain').onclick = () => { SFX.switchOn(); startTour(); };
+addEventListener('keydown', (e) => {
+  if (!tourOn) return;
+  if (e.key === 'Escape') { e.preventDefault(); $('#tSkip').click(); }
+  else if (e.key === 'ArrowRight') { e.preventDefault(); $('#tNext').click(); }
+  else if (e.key === 'ArrowLeft') { e.preventDefault(); $('#tBack').click(); }
+}, true);
+addEventListener('resize', () => { if (tourOn) placeTour(); });
 
 /* ================================================= navigation */
 const activeTab = () => ($('nav > button.on') || {}).dataset?.tab;
@@ -1435,7 +1633,7 @@ updateNotifBtn();
   SFX.setOn(store.get('sfx', true)); SFX.setVol(store.get('vol', 0.6));
   initSettings();
   connect();
-  runIntro(reveal);
+  runIntro(() => { reveal(); introDone = true; setTimeout(maybeTour, 1100); });
 })();
 </script>
 </body>

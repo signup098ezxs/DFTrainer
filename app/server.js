@@ -620,7 +620,7 @@ const routes = {
   'GET /api/prefs': async () => settings.prefs || {},
   'POST /api/prefs': async (b) => {
     const p = {}, ok = (k, test) => { if (b[k] !== undefined && test(b[k])) p[k] = b[k]; };
-    ok('sfx', (v) => typeof v === 'boolean'); ok('intro', (v) => typeof v === 'boolean');
+    ok('sfx', (v) => typeof v === 'boolean'); ok('intro', (v) => typeof v === 'boolean'); ok('onboarded', (v) => typeof v === 'boolean');
     ok('vol', (v) => typeof v === 'number' && v >= 0 && v <= 1);
     ok('scale', (v) => [0.9, 1, 1.1, 1.25].includes(v));
     ok('fps', (v) => ['display', '60', '30', 'off'].includes(v));
