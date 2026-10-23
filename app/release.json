@@ -1,5 +1,5 @@
 {
-  "version": "1.4.0",
+  "version": "1.5.0",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Real in-game names: 338 more items named, and DF Trainer reads the rest from your own game files on first start. Faster item search and lighter animations. Slower, calmer intro."
+  "notes": "Color presets: Aether, Ember, Verdant, Amethyst, Crimson and Gold, in Settings. Settings is now the gear at the bottom left."
 }

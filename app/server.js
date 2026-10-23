@@ -601,6 +601,7 @@ const routes = {
     ok('vol', (v) => typeof v === 'number' && v >= 0 && v <= 1);
     ok('scale', (v) => [0.9, 1, 1.1, 1.25].includes(v));
     ok('fps', (v) => ['display', '60', '30', 'off'].includes(v));
+    ok('theme', (v) => ['aether', 'ember', 'verdant', 'amethyst', 'crimson', 'gold'].includes(v));
     ok('win', (v) => ['auto', '1024x640', '1180x760', '1280x800', '1440x900'].includes(v));
     ok('winSize', (v) => Array.isArray(v) && v.length === 2 && v.every((n) => Number.isInteger(n) && n >= 600 && n <= 4000));
     settings.prefs = { ...(settings.prefs || {}), ...p }; saveSettings();
