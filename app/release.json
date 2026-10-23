@@ -1,5 +1,5 @@
 {
-  "version": "1.5.1",
+  "version": "1.5.2",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Polish pass: fonts built in (faster start, same look offline), no flicker in live delivery chips, notifications stay clear of the Give bar, hidden animations no longer run, app-like text selection."
+  "notes": "The Cheats tab is now Player, with a player icon."
 }
