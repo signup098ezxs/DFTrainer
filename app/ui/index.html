@@ -235,6 +235,25 @@ select option { background: var(--hull); }
 #welcome .wskip { position: absolute; bottom: calc(11vh + 14px); z-index: 3; color: var(--ash2); font-size: 12px; opacity: 0; }
 #welcome.in .wskip { animation: wfade .6s 1.2s forwards; }
 
+
+/* ------------------------------------------------ cells (Give items > Cells) */
+#itemsView { margin: 0 0 14px; }
+.cellcard { margin-bottom: 14px; padding-bottom: 12px; }
+.cellhead { display: flex; gap: 12px; align-items: flex-start; }
+.cellhead > svg { width: 30px; height: 30px; flex: none; margin-top: 2px; color: var(--aether); filter: drop-shadow(0 0 8px rgba(var(--a-rgb), .55)); }
+.cellhead .lede { margin-top: 2px; }
+.cellopts { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; margin-top: 12px; }
+.cellopts .seg { margin-top: 0; }
+.cellnote { margin: 10px 0 0; color: var(--ash2); font-size: 12.5px; }
+.cellkey { color: var(--ash2); font-size: 12px; }
+.cellrow { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 8px 14px; border-bottom: 1px solid rgba(120, 225, 255, .05); content-visibility: auto; contain-intrinsic-size: auto 40px; }
+.cellrow:last-child { border-bottom: 0; }
+.cellrow .nm { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cellrow .lv { display: flex; gap: 6px; }
+.cellrow .lv span { min-width: 46px; height: 24px; padding: 0 8px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; border-radius: 99px; border: 1px solid var(--seam2); color: var(--ash2); font: 600 11.5px/1 var(--display); }
+.cellrow .lv span.have { color: var(--a-pale); border-color: rgba(var(--a-rgb), .45); background: rgba(var(--a-rgb), .08); }
+.cellrow .lv span.none { opacity: .35; border-style: dashed; }
+
 /* ------------------------------------------------ guided tour */
 #tour { position: fixed; inset: 0; z-index: 95; }
 #tour[hidden] { display: none !important; }
@@ -650,6 +669,8 @@ input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border: 0; bord
           </div>
         </div>
         <div class="pending" id="pending"></div>
+        <div class="seg" id="itemsView" role="tablist" aria-label="What to give"><span class="ind"></span><button data-v="items" class="on">Gear and cosmetics</button><button data-v="cells">Cells</button></div>
+        <div id="viewItems">
         <div class="actions">
           <button class="btn" id="btnSurge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 11-5-5-5 5M17 18l-5-5-5 5"/></svg>Max all my gear</button>
           <button class="btn" id="btnCos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg>Unlock all cosmetics</button>
@@ -663,6 +684,22 @@ input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border: 0; bord
         <div class="cats" id="cats"></div>
         <div class="listhead"><span id="count"></span><span class="grow"></span><button class="link" id="selAll">Select all shown</button><button class="link" id="selNone">Clear</button></div>
         <div class="list" id="list"></div>
+        </div>
+        <div id="viewCells" hidden>
+          <div class="setcard cellcard">
+            <div class="cellhead"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 6.5v11L12 22l8-4.5v-11z"/><path d="m12 7 4 2.5v5L12 17l-4-2.5v-5z"/></svg><div><h3>Every cell</h3><p class="lede" id="cellInfo"></p></div></div>
+            <div class="cellopts">
+              <label class="opt"><span class="sw sm"><input type="checkbox" id="cellMax" checked><span class="track"></span><span class="knob"></span></span>Max level (+3 only)</label>
+              <div class="seg" id="cellQty" aria-label="Copies of each"><span class="ind"></span><button data-v="1">1 each</button><button data-v="3">3</button><button data-v="5" class="on">5</button><button data-v="10">10</button><button data-v="25">25</button></div>
+              <span class="grow"></span>
+              <button class="btn primary" id="giveCells"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 6.5v11L12 22l8-4.5v-11z"/><path d="m12 7 4 2.5v5L12 17l-4-2.5v-5z"/></svg>Give every cell</button>
+            </div>
+            <p class="cellnote">Tops each cell up to that many copies for the character picked at the top. Copies you already have are kept; nothing is taken away.</p>
+          </div>
+          <div class="toolbar"><div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="cq" placeholder="Search cells" autocomplete="off" spellcheck="false"></div></div>
+          <div class="listhead"><span id="cellCount"></span><span class="grow"></span><span class="cellkey">Owned per level: +1 / +2 / +3</span></div>
+          <div class="list" id="cellList"></div>
+        </div>
       </div>
     </section>
 
@@ -1225,7 +1262,7 @@ function tourSteps() {
     { target: '.pills', title: 'Status at a glance', body: '<ul><li><b>Live</b>: the panel is connected and updating in real time.</li><li><b>Game</b>: whether Dauntless Forever is running.</li><li><b>Mod</b>: whether the in-game mod is set up and answering.</li></ul>' },
     ...(!owner ? [] : [{ tab: 'cheats', target: setup ? '#banner' : '#pMod', title: 'One-time set-up for cheats', body: `<p>Lantern Client finds your Dauntless Forever 1.6.2 install by itself (or asks you for its folder).</p><p>With the game <b>closed</b>, press <b>Set up</b>${setup ? ' here' : ' on the Player page'}. It installs the Lantern mod (and UE4SS if needed) and turns on modded mode and server mods. Then press <b>Play</b> in the Dauntless Forever launcher.</p>${setup ? '' : '<p>Your set-up is already done: the Mod light shows it.</p>'}` },
     { tab: 'cheats', target: '#tab-cheats .tiles', title: 'Cheats (owner only)', body: '<ul><li><b>God mode</b>: your health refills constantly.</li><li><b>Infinite stamina</b>: the stamina bar stays full.</li><li><b>Damage</b>: multiplies your damage to behemoths, up to one hit.</li><li><b>Move speed</b>: faster or slower walking and sprinting.</li></ul><p>They work at once, in Ramsgate or mid-hunt. In game, <kbd>F8</kbd> toggles god mode and <kbd>F9</kbd> infinite stamina.</p>' }]),
-    { tab: 'items', target: '#tab-items .search', title: 'Give items', body: '<p>Search the whole 1.6.2 catalog (weapons, armour, lanterns, parts and cosmetics), tick what you want and press <b>Give</b>.</p><ul><li><b>Max level</b> gives them fully upgraded.</li><li><b>Max all my gear</b> and <b>Unlock all cosmetics</b> do it in one click.</li></ul><p>With the game closed, gifts go into your save. While you play, they arrive live and are announced in game chat.</p>' },
+    { tab: 'items', target: '#tab-items .search', title: 'Give items', body: '<p>Search the whole 1.6.2 catalog (weapons, armour, lanterns, parts and cosmetics), tick what you want and press <b>Give</b>.</p><ul><li><b>Max level</b> gives them fully upgraded.</li><li><b>Max all my gear</b> and <b>Unlock all cosmetics</b> do it in one click.</li><li><b>Cells</b> (switch at the top) gives every cell at once, at +3 or every level.</li></ul><p>With the game closed, gifts go into your save. While you play, they arrive live and are announced in game chat.</p>' },
     { target: '#charSel', title: 'Who gets it', body: '<p>Pick which character receives gifts, or all of them. While you play, it follows the character you are on.</p>' },
     { tab: 'currency', target: '#tab-currency .head', title: 'Currencies and materials', body: '<p>Type any amount of Rams, Merits, tokens, materials and cell cores, then press <b>Apply changes</b>. <b>Max everything</b> fills them all. Works while you play.</p>' },
     { tab: 'rules', target: '#rules > :first-child', title: 'Game rules', body: '<p>Weapon XP, Hunt Pass XP, loot amount, free crafting and unlimited resupply. Pick a setting and it is saved; it applies the next time you press <b>Play</b>.</p>' },
@@ -1301,6 +1338,62 @@ addEventListener('keydown', (e) => {
   else if (e.key === 'ArrowLeft') { e.preventDefault(); $('#tBack').click(); }
 }, true);
 addEventListener('resize', () => { if (tourOn) placeTour(); });
+
+
+/* ================================================= cells */
+// Give items > Cells: every cell at once, at +3 only or at every level, topped up to N copies (never fewer)
+var itemsView = 'items';   // var: updateDock can run before this line
+$('#itemsView').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b || b.classList.contains('on')) return;
+  SFX.select(true);
+  $$('#itemsView button').forEach((x) => x.classList.toggle('on', x === b)); placeInd($('#itemsView'));
+  itemsView = b.dataset.v;
+  $('#viewItems').hidden = itemsView !== 'items'; $('#viewCells').hidden = itemsView !== 'cells';
+  if (itemsView === 'cells') { renderCells(); requestAnimationFrame(() => placeInd($('#cellQty'))); }
+  updateDock();
+});
+const perkName = (c) => (c[3] || c[1]).replace(/^\+\d\s+/, '').replace(/\s+cell$/, '');
+function cellGroups() {
+  const by = new Map();
+  for (const c of (CAT && CAT.cells) || []) { if (!by.has(c[1])) by.set(c[1], []); by.get(c[1]).push(c); }
+  return [...by.values()].sort((a, b) => perkName(a[0]).localeCompare(perkName(b[0])));
+}
+function cellPlan() {
+  const max = $('#cellMax').checked, q = Number($('#cellQty button.on').dataset.v), groups = cellGroups();
+  const ids = [];
+  for (const g of groups) { if (max) ids.push(g.reduce((a, b) => (b[2] > a[2] ? b : a))[0]); else g.forEach((c) => ids.push(c[0])); }
+  return { ids, q, max, perks: groups.length };
+}
+// copies per cell for the character picked at the top ("All my characters": the fewest any of them has)
+function cellCounts() {
+  const cs = ((SAVE && SAVE.characters) || []).filter((c) => charId() === '*' || c.id === charId());
+  const m = {};
+  for (const c of (CAT && CAT.cells) || []) m[c[0]] = cs.length ? Math.min(...cs.map((ch) => Number((ch.items || {})[c[0]]) || 0)) : 0;
+  return m;
+}
+function renderCells() {
+  if (!CAT || !CAT.cells) return;
+  const { ids, q, max, perks } = cellPlan(), have = cellCounts();
+  $('#cellInfo').textContent = max ? `All ${perks} cells at their top level (+3, or the only level a cell has), ${q} of each.` : `All ${perks} cells at every level: ${ids.length} kinds, ${q} of each.`;
+  const need = ids.filter((id) => (have[id] || 0) < q).length;
+  $('#giveCells').disabled = !need;
+  $('#giveCells').lastChild.textContent = need ? (need === ids.length ? 'Give every cell' : `Give ${need} missing`) : 'You have them all';
+  const term = $('#cq').value.trim().toLowerCase();
+  const groups = cellGroups().filter((g) => !term || perkName(g[0]).toLowerCase().includes(term));
+  $('#cellCount').textContent = `${groups.length} cell${groups.length === 1 ? '' : 's'}`;
+  setHTML('#cellList', groups.map((g) => {
+    const lv = [1, 2, 3].map((n) => { const c = g.find((x) => x[2] === n); if (!c) return '<span class="none">-</span>'; const k = have[c[0]] || 0; return `<span class="${k ? 'have' : ''}" title="${esc(c[3] || c[0])}">+${n}${k ? ' ×' + k : ''}</span>`; }).join('');
+    return `<div class="cellrow"><div class="nm">${esc(perkName(g[0]))}</div><div class="lv">${lv}</div></div>`;
+  }).join('') || '<div class="empty">No cell matches that.</div>');
+}
+$('#cellMax').addEventListener('change', (e) => { e.target.checked ? SFX.switchOn() : SFX.switchOff(); renderCells(); });
+$('#cellQty').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b || b.classList.contains('on')) return; SFX.select(true); $$('#cellQty button').forEach((x) => x.classList.toggle('on', x === b)); placeInd($('#cellQty')); renderCells(); });
+$('#cq').addEventListener('input', () => renderCells());
+$('#giveCells').onclick = async (e) => {
+  const { ids, q, max } = cellPlan();
+  const ok = await runItems({ action: 'atleast', character: charId(), counts: Object.fromEntries(ids.map((i) => [i, q])), label: `Every cell${max ? ' at +3' : ''}, ${q} each` }, e.currentTarget);
+  if (ok) setTimeout(loadSave, 600);
+};
 
 /* ================================================= navigation */
 // the Dauntless Forever / set-up banner sits at the top of whichever page is open
@@ -1483,7 +1576,7 @@ $('#optMax').addEventListener('change', (e) => { e.target.checked ? SFX.switchOn
 $('#selAll').onclick = () => { SFX.select(true); filtered().slice(0, shown).forEach((g) => sel.add(g[0])); renderList(); updateDock(); };
 $('#selNone').onclick = $('#dockClear').onclick = () => { SFX.select(false); sel.clear(); renderList(); updateDock(); };
 function updateDock() {
-  const show = activeTab() === 'items' && sel.size > 0;
+  const show = activeTab() === 'items' && itemsView === 'items' && sel.size > 0;
   $('#dock').classList.toggle('show', show);
   const who = $('#charSel').selectedOptions[0]?.textContent || '';
   $('#dockWhat').innerHTML = `<b>${sel.size}</b> selected for ${esc(who)}${$('#optMax').checked ? ', at max level where the item has levels' : ''}`;
@@ -1596,9 +1689,9 @@ async function loadSaveNow() {
   s.innerHTML = r.characters.map((c) => `<option value="${esc(c.id)}">${esc(c.name || c.id)}</option>`).join('') + '<option value="*">All my characters</option>';
   const want = charPicked ? keep : (S && S.playingAs) || keep;
   s.value = [...s.options].some((o) => o.value === want) && want !== '*' ? want : charPicked && keep === '*' ? '*' : (r.characters[0] ? r.characters[0].id : '*');
-  renderList(); renderCur(); updateDock();
+  renderList(); renderCur(); renderCells(); updateDock();
 }
-function onChar() { renderList(); renderCur(); updateDock(); }
+function onChar() { renderList(); renderCur(); renderCells(); updateDock(); }
 $('#charSel').addEventListener('change', () => { ownedCache = null; charPicked = true; SFX.tick(); onChar(); });
 
 function prepCatalog(c) {

@@ -1,5 +1,5 @@
 {
-  "version": "2.4.1",
+  "version": "2.5.0",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Giving yourself an item you already own now says \"You already own <item>\" instead of \"Unknown command\". Max level gifts and Max all my gear work again with the game closed."
+  "notes": "New: Give items > Cells gives you every cell at once, at max level (+3) or every level, with as many copies of each as you like. It only tops cells up, never takes any away."
 }

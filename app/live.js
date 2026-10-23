@@ -95,6 +95,13 @@ function plan(job, inv, cat) {
     out.added.push(id);
   };
 
+  if (job.action === 'atleast') {   // top each stack up to the count; more than that is left as it is
+    for (const [id, want] of Object.entries(job.counts)) {
+      const have = Number((held(id) || {}).quantity) || 0;
+      if (want > have) { out.addStacked.push({ catalogId: id, quantity: want - have }); out.added.push(id); } else out.already.push(id);
+    }
+    return out;
+  }
   if (job.action === 'set') {
     for (const [id, want] of Object.entries(job.counts)) {
       const have = Number((held(id) || {}).quantity) || 0;

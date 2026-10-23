@@ -117,7 +117,32 @@ function catalog(p) {
   CATALOG = { gear, names }; CATALOG_KEY = key;
   return CATALOG;
 }
-function nameOf(p, id) { return catalog(p).names.get(id) || id; }
+function nameOf(p, id) { return catalog(p).names.get(id) || cellName(id) || id; }
+
+// ---------------------------------------------------------------- cells
+// Cells are stacked items (a count), CELL_<perk>_<UC|R|E> for +1, +2 and +3 (a few perks exist at one level only).
+// The list comes from the package's tools\catalog162-ids.txt. CELL_DP_* are Repeater mods, not slottable cells.
+const CELL_LEVEL = { UC: 1, R: 2, E: 3 };
+function cellName(id) {
+  const m = /^CELL_([A-Z0-9_]+)_(UC|R|E)$/.exec(id || '');
+  if (!m) return null;
+  const words = m[1].toLowerCase().split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  return `+${CELL_LEVEL[m[2]]} ${words} cell`;
+}
+let CELLS = null, CELLS_KEY = '';
+function cells(p) {
+  const f = path.join(p.pkg, 'tools', 'catalog162-ids.txt');
+  let st; try { st = fs.statSync(f); } catch { return []; }
+  const key = f + st.size + st.mtimeMs;
+  if (CELLS && CELLS_KEY === key) return CELLS;
+  const out = [];
+  for (const line of fs.readFileSync(f, 'utf8').split(/\r?\n/)) {
+    const id = line.trim(), m = /^CELL_([A-Z0-9_]+)_(UC|R|E)$/.exec(id);
+    if (m && !id.startsWith('CELL_DP_')) out.push([id, m[1], CELL_LEVEL[m[2]]]);
+  }
+  CELLS = out; CELLS_KEY = key;
+  return out;
+}
 
 // read names from the game files when the game's paks changed (or never were read)
 let namesRunning = false;
@@ -313,7 +338,7 @@ async function setup() {
 }
 
 // ---------------------------------------------------------------- items
-const ITEM_ACTIONS = new Set(['addgear', 'addgearmax', 'set', 'surgeall', 'addcosmetic']);
+const ITEM_ACTIONS = new Set(['addgear', 'addgearmax', 'set', 'atleast', 'surgeall', 'addcosmetic']);   // atleast: top stacks up to a count, never lower
 let queue = settings.queue || [];
 const history = [];
 const deliveries = [];   // gifts saved while the game ran, waiting for the game to load the inventory again
@@ -327,9 +352,9 @@ function validJob(b) {
   if (!ITEM_ACTIONS.has(b.action)) return 'Unknown action.';
   if (!/^[\w-]{1,64}$|^\*$/.test(String(b.character))) return 'Unknown character.';
   if (b.action === 'surgeall' || (b.action === 'addcosmetic' && b.list === 'all')) return null;
-  if (b.action === 'set') {
+  if (b.action === 'set' || b.action === 'atleast') {
     const c = {};
-    for (const [k, n] of Object.entries(b.counts || {})) if (/^[A-Z0-9_]{3,80}$/.test(k) && Number.isFinite(Number(n))) c[k] = Math.max(0, Math.min(99999999, Math.floor(Number(n))));
+    for (const [k, n] of Object.entries(b.counts || {})) if (/^[A-Z0-9_]{3,80}$/.test(k) && Number.isFinite(Number(n))) c[k] = Math.max(b.action === 'atleast' ? 1 : 0, Math.min(99999999, Math.floor(Number(n))));
     if (!Object.keys(c).length) return 'Nothing to change.';
     b.counts = c;
   } else {
@@ -341,11 +366,11 @@ function validJob(b) {
 }
 const describe = (j) => {
   if (j.label) return j.label;
-  const n = j.action === 'set' ? Object.keys(j.counts).length : Array.isArray(j.list) ? j.list.length : 0, s = n === 1 ? '' : 's';
-  return { surgeall: 'Max all gear', set: `Set ${n} amount${s}`, addgear: `Give ${n} item${s}`, addgearmax: `Give ${n} item${s} at max level`,
+  const n = j.action === 'set' || j.action === 'atleast' ? Object.keys(j.counts).length : Array.isArray(j.list) ? j.list.length : 0, s = n === 1 ? '' : 's';
+  return { surgeall: 'Max all gear', set: `Set ${n} amount${s}`, atleast: `Top up ${n} item${s}`, addgear: `Give ${n} item${s}`, addgearmax: `Give ${n} item${s} at max level`,
     addcosmetic: j.list === 'all' ? 'Unlock all cosmetics' : `Unlock ${n} cosmetic${s}` }[j.action] || j.action;
 };
-function jobIds(job) { return job.action === 'set' ? Object.keys(job.counts) : Array.isArray(job.list) ? job.list : []; }
+function jobIds(job) { return job.action === 'set' || job.action === 'atleast' ? Object.keys(job.counts) : Array.isArray(job.list) ? job.list : []; }
 function jobSummary(p, job) {
   if (job.action === 'surgeall') return 'All your gear raised to max level';
   if (job.action === 'addcosmetic' && job.list === 'all') return 'Every cosmetic unlocked';
@@ -360,7 +385,7 @@ async function applyJob(p, job, live = false) {
       const res = await LIVE.give(p.pkg, job, ((mine && mine.characters) || []).map((c) => c.id));
       r = { ok: true, ...res };
     } catch (e) { r = { ok: false, error: e.message }; }
-  } else if (job.action === 'addgearmax' || job.action === 'surgeall') {
+  } else if (job.action === 'addgearmax' || job.action === 'surgeall' || job.action === 'atleast') {
     // the package's items.js only adds gear at level 0 (it has no addgearmax or surgeall): offline.js does these
     const mine = await runTool(p, 'items.js', ['list']);
     r = mine && mine.ok ? await runOwn(p, 'offline.js', [p.pkg, JSON.stringify(job), JSON.stringify((mine.characters || []).map((c) => c.id))])
@@ -378,7 +403,10 @@ function giftOutcome(p, job, r) {
   if (raised.length) o.raisedNames = listNames(p, raised, 3);   // gear you already owned, now at max level
   if (unknown.length) o.unknownNames = listNames(p, unknown, 3);
   o.nothingNew = !added.length && !raised.length && !r.queued;
-  if (o.nothingNew && already.length) o.message = job.action === 'surgeall' ? 'All your gear is already at max level.' : `You already own ${o.owned}.`;
+  if (o.nothingNew && already.length) o.message = job.action === 'surgeall' ? 'All your gear is already at max level.'
+    : job.action === 'atleast' ? `You already have ${Math.max(...Object.values(job.counts))} or more of ${already.length > 3 ? `all ${already.length} of those` : o.owned}.`
+    : `You already own ${o.owned}.`;
+  if (job.action === 'atleast') { o.topped = added.length; delete o.owned; }   // cells topped up: counts, not "already own"
   return o;
 }
 function enqueue(job) { queue.push(job); settings.queue = queue; saveSettings(); }
@@ -393,7 +421,7 @@ async function giveLive(p, job) {
     const n = r.ownedForMax.length;
     later = { ...job, action: 'addgearmax', list: r.ownedForMax, label: `Raise ${n} owned item${n > 1 ? 's' : ''} to max level` };
   }
-  const liveJob = r.added && r.added.length ? (job.action === 'set' ? { ...job, counts: Object.fromEntries(r.added.map((i) => [i, job.counts[i]])) } : { ...job, list: r.added }) : null;
+  const liveJob = r.added && r.added.length ? (job.action === 'set' || job.action === 'atleast' ? { ...job, counts: Object.fromEntries(r.added.map((i) => [i, job.counts[i]])) } : { ...job, list: r.added }) : null;
   if (liveJob) {
     const what = job.list === 'all' ? `${r.added.length} cosmetics unlocked` : jobSummary(p, liveJob);
     deliveries.push({ id: crypto.randomBytes(4).toString('hex'), at: Date.now(), character: liveJob.character, what, status: 'saved' });
@@ -654,7 +682,7 @@ const routes = {
   'GET /api/catalog': async () => {
     const p = places(); if (!p.pkg) return { ok: false };
     const groups = (readJson(path.join(p.pkg, 'items.json'), {}).groups || []);
-    return { ok: true, gear: catalog(p).gear, groups, rules: rulesInfo(p) };
+    return { ok: true, gear: catalog(p).gear, groups, rules: rulesInfo(p), cells: cells(p).map(([id, perk, level]) => [id, perk, level, cellName(id)]) };
   },
   'GET /api/save': async () => {
     const p = places(); if (!p.pkg) return { ok: false, error: 'Package not found.' };
