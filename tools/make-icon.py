@@ -1,31 +1,25 @@
-# Draws the DF Trainer icon (aether hexagon + bolt) and writes launcher/icon.ico: 32-bit images for 16-128 px,
-# PNG for 256 px, the way Windows expects. Run once; the .ico is kept in the repo.
-import io, struct, sys
-from PIL import Image, ImageDraw, ImageFilter
+# Draws the DF Trainer icon (the aether axe in its hexagon, tools/icon.svg) and writes launcher/icon.ico: 32-bit
+# images for 16-128 px, PNG for 256 px, the way Windows expects. Run once; the .ico is kept in the repo.
+# Needs Pillow and Playwright (Chromium) to rasterise the SVG.
+import io, os, struct, sys
+from PIL import Image, ImageFilter
 
 S = 1024
 def draw():
+    from playwright.sync_api import sync_playwright
+    svg = open(os.path.join(os.path.dirname(__file__), "icon.svg")).read()
+    with sync_playwright() as p:
+        b = p.chromium.launch()
+        pg = b.new_page(viewport={"width": S, "height": S})
+        pg.set_content(f'<body style="margin:0;background:transparent">{svg.replace("<svg ", f"<svg width={S} height={S} ", 1)}</body>')
+        art = Image.open(io.BytesIO(pg.screenshot(omit_background=True))).convert("RGBA")
+        b.close()
+    # soft aether glow behind the art, kept inside the icon's edges
+    glow = Image.new("RGBA", (S, S), (60, 235, 255, 0))
+    glow.putalpha(art.getchannel("A").point(lambda a: a * 110 // 255))
     img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-    c = S / 2
-    def hexpts(r):
-        import math
-        return [(c + r * math.cos(math.radians(a)), c + r * math.sin(math.radians(a))) for a in range(-90, 270, 60)]
-    # glow
-    glow = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-    ImageDraw.Draw(glow).polygon(hexpts(S * 0.44), fill=(60, 235, 255, 150))
-    glow = glow.filter(ImageFilter.GaussianBlur(S * 0.035))
-    img.alpha_composite(glow)
-    d = ImageDraw.Draw(img)
-    d.polygon(hexpts(S * 0.455), fill=(60, 235, 255, 255))            # rim
-    d.polygon(hexpts(S * 0.405), fill=(9, 18, 25, 255))               # body
-    d.polygon(hexpts(S * 0.35), outline=(14, 143, 163, 255), width=int(S * 0.012))
-    # bolt (same shape as the panel's logo, viewBox 120)
-    k = S / 120
-    bolt = [(66, 28), (40, 66), (57, 66), (52, 92), (80, 52), (62, 52)]
-    bglow = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-    ImageDraw.Draw(bglow).polygon([(x * k, y * k) for x, y in bolt], fill=(60, 235, 255, 200))
-    img.alpha_composite(bglow.filter(ImageFilter.GaussianBlur(S * 0.02)))
-    ImageDraw.Draw(img).polygon([(x * k, y * k) for x, y in bolt], fill=(150, 248, 255, 255))
+    img.alpha_composite(glow.filter(ImageFilter.GaussianBlur(S * 0.02)))
+    img.alpha_composite(art)
     return img
 
 def dib(im):

@@ -6,7 +6,7 @@
 <title>DF Trainer</title>
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#060a0f">
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Cpolygon points='60,6 106,32 106,88 60,114 14,88 14,32' fill='%23091219' stroke='%233cebff' stroke-width='9' stroke-linejoin='round'/%3E%3Cpath d='M66 28 40 66h17l-5 26 28-40H62z' fill='%2396f8ff'/%3E%3C/svg%3E">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%20120%20120%22%3E%3Cpolygon%20points%3D%2260%2C6%20106%2C32%20106%2C88%2060%2C114%2014%2C88%2014%2C32%22%20fill%3D%22%23091219%22%20stroke%3D%22%233cebff%22%20stroke-width%3D%229%22%20stroke-linejoin%3D%22round%22/%3E%3Cg%20transform%3D%22translate%2860%2061%29%20rotate%28-32%29%20scale%28.8%29%20translate%28-69%20-62%29%22%3E%3Crect%20x%3D%2256%22%20y%3D%2224%22%20width%3D%228%22%20height%3D%2278%22%20rx%3D%222.5%22%20fill%3D%22%230e8fa3%22/%3E%3Cpath%20d%3D%22M55%2086h10M55%2092h10%22%20stroke%3D%22%23060a0f%22%20stroke-width%3D%222%22/%3E%3Cpath%20d%3D%22M60%20100%2065%20106%2060%20112%2055%20106z%22%20fill%3D%22%233cebff%22/%3E%3Cpath%20d%3D%22M57%2026%2060%2012%2063%2026z%22%20fill%3D%22%233cebff%22/%3E%3Cpath%20d%3D%22M63%2030C73%2030%2081%2025%2088%2017%20101%2031%20102%2058%2088%2074%2082%2066%2073%2060%2063%2059Z%22%20fill%3D%22%233cebff%22/%3E%3Cpath%20d%3D%22M88%2017C101%2031%20102%2058%2088%2074%2093%2060%2094%2033%2088%2017Z%22%20fill%3D%22%23c9f9ff%22/%3E%3Cpath%20d%3D%22M57%2035%2040%2040%2037%2046%2057%2051z%22%20fill%3D%22%233cebff%22/%3E%3Ccircle%20cx%3D%2269%22%20cy%3D%2244%22%20r%3D%223.4%22%20fill%3D%22%23060a0f%22/%3E%3C/g%3E%3C/svg%3E">
 <link rel="preload" href="/fonts/figtree.woff" as="font" type="font/woff" crossorigin>
 <link rel="preload" href="/fonts/chakra-600.woff" as="font" type="font/woff" crossorigin>
 <style>
@@ -86,8 +86,8 @@ button { cursor: pointer; }
 #intro .stage { display: grid; justify-items: center; gap: 18px; transform: translateY(-4%); }
 #intro .mark { width: 132px; height: 132px; filter: drop-shadow(0 0 0 rgba(var(--a-rgb), 0)); animation: bloom 1.3s .75s var(--ease) forwards; }
 #intro .mark .hex { fill: none; stroke: var(--aether); stroke-width: 2.4; stroke-linejoin: round; stroke-dasharray: 340; stroke-dashoffset: 340; animation: draw .95s .1s var(--ease) forwards; }
-#intro .mark .hex2 { fill: none; stroke: var(--aether-d); stroke-width: 1.2; opacity: 0; animation: fadein .6s .7s ease forwards; }
-#intro .mark .bolt { fill: var(--aether); opacity: 0; transform-origin: 50% 50%; transform: scale(.6); animation: boltin .55s .8s var(--spring) forwards; }
+#intro .mark .core { fill: #091219; stroke: none; opacity: 0; animation: fadein .6s .5s ease forwards; }
+#intro .mark .axe { opacity: 0; transform-origin: 50% 50%; transform: rotate(-24deg) scale(.6); animation: boltin .6s .8s var(--spring) forwards; }
 @keyframes draw { to { stroke-dashoffset: 0; } }
 @keyframes fadein { to { opacity: 1; } }
 @keyframes boltin { to { opacity: 1; transform: scale(1); } }
@@ -433,8 +433,8 @@ input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border: 0; bord
   <div class="stage">
     <svg class="mark" viewBox="0 0 120 120" aria-hidden="true">
       <polygon class="hex" points="60,6 106,32 106,88 60,114 14,88 14,32"/>
-      <polygon class="hex2" points="60,18 96,38.5 96,81.5 60,102 24,81.5 24,38.5"/>
-      <path class="bolt" d="M66 28 40 66h17l-5 26 28-40H62z"/>
+      <polygon class="core" points="60,9 103,33.5 103,86.5 60,111 17,86.5 17,33.5"/>
+      <g class="axe"><g transform="translate(60 61) rotate(-32) scale(.8) translate(-69 -62)"><rect x="56" y="24" width="8" height="78" rx="2.5" fill="var(--aether-d)"/><path d="M55 86h10M55 92h10" stroke="var(--void)" stroke-width="2"/><path d="M60 100 65 106 60 112 55 106z" fill="var(--aether)"/><path d="M57 26 60 12 63 26z" fill="var(--aether)"/><path d="M63 30C73 30 81 25 88 17 101 31 102 58 88 74 82 66 73 60 63 59Z" fill="var(--aether)"/><path d="M88 17C101 31 102 58 88 74 93 60 94 33 88 17Z" fill="var(--a-pale)"/><path d="M57 35 40 40 37 46 57 51z" fill="var(--aether)"/><circle cx="69" cy="44" r="3.4" fill="var(--void)"/></g></g>
     </svg>
     <h1>DF TRAINER</h1>
     <div class="credit">Created by <b>Alex</b>,<span class="pw">&nbsp;powered by <span class="claude">Claude</span></span></div>
@@ -444,7 +444,7 @@ input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border: 0; bord
 
 <header>
   <div class="brand">
-    <svg viewBox="0 0 120 120" aria-hidden="true"><polygon points="60,6 106,32 106,88 60,114 14,88 14,32" fill="none" stroke="currentColor" stroke-width="7" stroke-linejoin="round"/><path d="M66 28 40 66h17l-5 26 28-40H62z" fill="currentColor"/></svg>
+    <svg viewBox="0 0 120 120" aria-hidden="true"><polygon points="60,6 106,32 106,88 60,114 14,88 14,32" fill="none" stroke="currentColor" stroke-width="7" stroke-linejoin="round"/><g transform="translate(60 61) rotate(-32) scale(.8) translate(-69 -62)"><rect x="56" y="24" width="8" height="78" rx="2.5" fill="var(--aether-d)"/><path d="M55 86h10M55 92h10" stroke="var(--void)" stroke-width="2"/><path d="M60 100 65 106 60 112 55 106z" fill="var(--aether)"/><path d="M57 26 60 12 63 26z" fill="var(--aether)"/><path d="M63 30C73 30 81 25 88 17 101 31 102 58 88 74 82 66 73 60 63 59Z" fill="var(--aether)"/><path d="M88 17C101 31 102 58 88 74 93 60 94 33 88 17Z" fill="var(--a-pale)"/><path d="M57 35 40 40 37 46 57 51z" fill="var(--aether)"/><circle cx="69" cy="44" r="3.4" fill="var(--void)"/></g></svg>
     DF Trainer
   </div>
   <span class="ver" id="appVer"></span>
@@ -1167,9 +1167,16 @@ let hz = 0;
 (function measure() { let n = 0; const t0 = performance.now(); const f = (t) => { n++; if (t - t0 < 1000) requestAnimationFrame(f); else { hz = Math.round(n * 1000 / (t - t0) / 5) * 5; $('#setFps').options[0].textContent = `Display (${hz} Hz)`; } }; requestAnimationFrame(f); })();
 
 const PRESETS = [['aether', 'Aether', '#3cebff', '#4ff3ff', '#0b5f6d'], ['ember', 'Ember', '#ff8a3d', '#ffa866', '#7a3410'], ['verdant', 'Verdant', '#4ff096', '#7cf5b0', '#0d5e35'], ['amethyst', 'Amethyst', '#b284ff', '#c7a6ff', '#47297d'], ['crimson', 'Crimson', '#ff5c78', '#ff8399', '#7a1526'], ['gold', 'Gold', '#ffc84a', '#ffd978', '#7a560a']];
+// the tab/window icon: the brand axe, in the current preset's colours
+function paintFavicon() {
+  const cs = getComputedStyle(document.documentElement), v = (n) => cs.getPropertyValue(n).trim();
+  const svg = $('.brand svg').outerHTML.replace(/var\((--[\w-]+)\)/g, (m, n) => v(n)).replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"').replace('stroke="currentColor" stroke-width="7"', `fill="#091219" stroke="${v('--aether')}" stroke-width="9"`).replace('fill="none" ', '');
+  $('link[rel="icon"]').href = 'data:image/svg+xml,' + encodeURIComponent(svg);
+}
 function applyTheme(id) {
   if (!PRESETS.some((p) => p[0] === id)) id = 'aether';
   if (id === 'aether') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = id;
+  paintFavicon();
   $$('#themes .swatch').forEach((b) => { const on = b.dataset.id === id; b.classList.toggle('on', on); b.setAttribute('aria-checked', on); });
 }
 $('#themes').innerHTML = PRESETS.map(([id, name, c, l, d]) => `<button class="swatch" role="radio" data-id="${id}" style="--sw:${c};--sw-l:${l};--sw-d:${d}"><i></i>${name}</button>`).join('');
