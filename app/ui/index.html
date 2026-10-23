@@ -52,9 +52,9 @@ button { cursor: pointer; }
 @keyframes bloom { 0% { filter: drop-shadow(0 0 0 rgba(60, 235, 255, 0)); } 45% { filter: drop-shadow(0 0 28px rgba(60, 235, 255, .85)); } 100% { filter: drop-shadow(0 0 14px rgba(60, 235, 255, .45)); } }
 #intro h1 { margin: 0; font: 700 40px/1 var(--display); letter-spacing: .14em; opacity: 0; transform: translateY(10px); animation: titlein .8s 1.05s var(--ease) forwards; text-shadow: 0 0 22px rgba(60, 235, 255, .35); }
 @keyframes titlein { 0% { opacity: 0; transform: translateY(10px); letter-spacing: .32em; } 100% { opacity: 1; transform: none; letter-spacing: .14em; } }
-#intro .credit { position: relative; font: 500 17px/1.2 var(--display); color: #a9dfe8; letter-spacing: .04em; padding: 6px 2px; clip-path: inset(0 100% 0 0); animation: swipe .75s 1.55s cubic-bezier(.7, 0, .2, 1) forwards; }
+#intro .credit { position: relative; font: 500 17px/1.2 var(--display); color: #a9dfe8; letter-spacing: .04em; padding: 6px 2px; clip-path: inset(0 100% 0 0); animation: swipe .95s 1.7s cubic-bezier(.7, 0, .2, 1) forwards; }
 #intro .credit b { color: var(--aether); font-weight: 600; }
-#intro .credit .pw { display: inline-block; opacity: 0; filter: blur(5px); transform: translateY(3px); animation: pwin 1.4s 2.25s cubic-bezier(.22, .7, .2, 1) forwards; }
+#intro .credit .pw { display: inline-block; opacity: 0; filter: blur(5px); transform: translateY(3px); animation: pwin 2.1s 2.85s cubic-bezier(.22, .7, .2, 1) forwards; }
 #intro .credit .claude { color: #d97757; font-weight: 600; }
 @keyframes pwin { to { opacity: 1; filter: blur(0); transform: none; } }
 #intro .credit::after { content: ""; position: absolute; top: -20%; bottom: -20%; width: 60px; left: -60px; background: linear-gradient(90deg, transparent, rgba(160, 248, 255, .95), transparent); filter: blur(2px); animation: sweep .9s 1.5s cubic-bezier(.7, 0, .2, 1) forwards; opacity: 0; }
@@ -80,10 +80,12 @@ header { position: relative; z-index: 2; display: flex; align-items: center; gap
 .pill { display: inline-flex; align-items: center; gap: 8px; height: 26px; padding: 0 10px; border-radius: 99px; border: 1px solid var(--seam); background: rgba(12, 20, 27, .7); color: var(--ash); font-size: 12px; white-space: nowrap; transition: color .3s, border-color .3s, box-shadow .3s; }
 .pill i { width: 7px; height: 7px; border-radius: 50%; background: var(--ash2); transition: background .3s, box-shadow .3s; }
 .pill.on { color: var(--frost); border-color: rgba(60, 235, 255, .25); }
-.pill.on i { background: var(--aether); box-shadow: 0 0 10px var(--aether); animation: pulse 2.4s ease-in-out infinite; }
+.pill i { position: relative; }
+.pill.on i { background: var(--aether); box-shadow: 0 0 8px var(--aether); }
+.pill.on i::after { content: ""; position: absolute; inset: -3px; border-radius: 50%; background: var(--aether); opacity: 0; animation: pulse 2.4s ease-in-out infinite; will-change: opacity; }
 .pill.warn i { background: var(--ember); } .pill.warn { color: #f3d9ae; }
 .pill.bad i { background: var(--fault); } .pill.bad { color: #ffc0cb; }
-@keyframes pulse { 50% { box-shadow: 0 0 2px var(--aether); opacity: .6; } }
+@keyframes pulse { 50% { opacity: .35; } }
 .grow { flex: 1; }
 .field { position: relative; display: flex; align-items: center; gap: 9px; color: var(--ash); font-size: 13px; }
 select { appearance: none; height: 30px; padding: 0 34px 0 12px; border-radius: 10px; border: 1px solid var(--seam2); outline: none; cursor: pointer;
@@ -234,8 +236,8 @@ input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border: 0; bord
 .btn:disabled { opacity: .4; pointer-events: none; }
 .btn.primary { border-color: transparent; background: linear-gradient(180deg, #4ff3ff, #12a9bf); color: #022126; box-shadow: 0 0 22px -4px rgba(60, 235, 255, .7), inset 0 1px 0 rgba(255, 255, 255, .45); }
 .btn.primary svg { color: #022126; }
-.btn.primary::after { content: ""; position: absolute; top: 0; bottom: 0; width: 40%; left: -60%; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .55), transparent); transform: skewX(-20deg); animation: shine 3.2s 1s ease-in-out infinite; }
-@keyframes shine { 0%, 60% { left: -60%; } 100% { left: 130%; } }
+.btn.primary::after { content: ""; position: absolute; top: 0; bottom: 0; width: 40%; left: 0; will-change: transform; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .55), transparent); transform: translateX(-150%) skewX(-20deg); animation: shine 3.2s 1s ease-in-out infinite; }
+@keyframes shine { 0%, 60% { transform: translateX(-150%) skewX(-20deg); } 100% { transform: translateX(330%) skewX(-20deg); } }
 .btn.busy { pointer-events: none; }
 .btn.busy::before { content: ""; width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(2, 33, 38, .3); border-top-color: #022126; animation: spin .7s linear infinite; }
 .btn.busy svg { display: none; }
@@ -269,6 +271,7 @@ input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border: 0; bord
 .cb path { fill: none; stroke: #022126; stroke-width: 3.4; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 22; stroke-dashoffset: 22; transition: stroke-dashoffset .28s var(--ease) .04s; }
 .item.sel .cb { background: var(--aether); border-color: var(--aether); box-shadow: 0 0 12px rgba(60, 235, 255, .6); }
 .item.sel .cb path { stroke-dashoffset: 0; }
+.tag.dim { border-color: var(--seam2); background: none; color: var(--ash2); margin-right: 6px; }
 .tag { height: 24px; display: inline-flex; align-items: center; padding: 0 10px; border-radius: 99px; border: 1px solid rgba(79, 240, 180, .3); background: rgba(79, 240, 180, .07); color: var(--ok); font-size: 12px; white-space: nowrap; }
 .more { padding: 14px; text-align: center; }
 .empty { padding: 34px 20px; text-align: center; color: var(--ash); }
@@ -471,7 +474,7 @@ input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border: 0; bord
           <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="q" placeholder="Search 3,000+ weapons, armour, lanterns, dyes..." autocomplete="off"></div>
           <label class="opt"><span class="sw sm"><input type="checkbox" id="optMax" checked><span class="track"></span><span class="knob"></span></span>Max level</label>
           <label class="opt"><span class="sw sm"><input type="checkbox" id="optOwned"><span class="track"></span><span class="knob"></span></span>Hide owned</label>
-          <label class="opt"><span class="sw sm"><input type="checkbox" id="optTemp"><span class="track"></span><span class="knob"></span></span>Test items</label>
+          <label class="opt"><span class="sw sm"><input type="checkbox" id="optTemp"><span class="track"></span><span class="knob"></span></span>Unnamed and test items</label>
         </div>
         <div class="cats" id="cats"></div>
         <div class="listhead"><span id="count"></span><span class="grow"></span><button class="link" id="selAll">Select all shown</button><button class="link" id="selNone">Clear</button></div>
@@ -587,7 +590,7 @@ const SFX = (() => {
     note() { tone({ f: 880, type: 'sine', d: 0.25, g: 0.07, wet: 0.5 }); tone({ f: 1320, type: 'sine', t: 0.08, d: 0.3, g: 0.06, wet: 0.5 }); },
     error() { tone({ f: 220, f2: 150, type: 'square', d: 0.22, g: 0.05 }); tone({ f: 233, f2: 160, type: 'sine', d: 0.25, g: 0.12 }); },
     introLand() { tone({ f: 98, f2: 41, type: 'sine', d: 0.9, g: 0.32 }); noise({ d: 0.5, g: 0.06, f1: 200, f2: 900, q: 0.7, p1: 0, p2: 0 }); [1318.5, 1760, 2637].forEach((f, i) => tone({ f, type: 'sine', t: 0.55 + i * 0.09, d: 1.2, g: 0.045, wet: 0.9 })); },
-    claude() { tone({ f: 73.4, type: 'sine', d: 2.4, g: 0.2, a: 0.45 }); tone({ f: 110, type: 'sine', d: 2.2, g: 0.08, a: 0.55 }); tone({ f: 146.8, type: 'triangle', t: 0.08, d: 1.8, g: 0.025, a: 0.6, wet: 0.4 }); },
+    claude() { tone({ f: 73.4, type: 'sine', d: 3, g: 0.2, a: 0.7 }); tone({ f: 110, type: 'sine', d: 2.8, g: 0.08, a: 0.8 }); tone({ f: 146.8, type: 'triangle', t: 0.08, d: 1.8, g: 0.025, a: 0.6, wet: 0.4 }); },
     whoosh() { noise({ d: 0.75, g: 0.28, f1: 260, f2: 5200, q: 1.1, p1: -0.9, p2: 0.9 }); tone({ f: 180, f2: 520, type: 'sine', d: 0.55, g: 0.06 }); tone({ f: 2093, type: 'sine', t: 0.62, d: 0.9, g: 0.05, wet: 0.9 }); },
   };
 })();
@@ -597,14 +600,14 @@ function runIntro(done) {
   const el = $('#intro');
   if (!store.get('intro', true) || reduced || store.get('fps', 'display') === 'off') { el.remove(); done(); return; }
   SFX.unlock();
-  const timers = [setTimeout(() => SFX.introLand(), 180), setTimeout(() => SFX.whoosh(), 1480), setTimeout(() => SFX.claude(), 2250)];
+  const timers = [setTimeout(() => SFX.introLand(), 180), setTimeout(() => SFX.whoosh(), 1630), setTimeout(() => SFX.claude(), 2850)];
   let finished = false;
   const finish = () => {
     if (finished) return; finished = true; timers.forEach(clearTimeout);
     el.classList.add('out'); done();
     setTimeout(() => el.remove(), 700);
   };
-  timers.push(setTimeout(finish, 3900));
+  timers.push(setTimeout(finish, 5400));
   el.addEventListener('pointerdown', () => { SFX.unlock(); finish(); });
   addEventListener('keydown', (e) => { if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') finish(); }, { once: true });
 }
@@ -657,6 +660,7 @@ function connect() {
   es.addEventListener('error', () => pill('#pLink', 'warn', 'Reconnecting'));
   es.addEventListener('state', (e) => { const s = JSON.parse(e.data); onState(s); });
   es.addEventListener('note', (e) => onNote(JSON.parse(e.data), true));
+  es.addEventListener('catalog', async () => { const c = await api('/api/catalog'); if (c.ok) { CAT = prepCatalog(c); renderCats(); renderList(); } });
 }
 function pill(id, kind, text) { const p = $(id); p.className = 'pill ' + kind; p.lastElementChild.textContent = text; }
 
@@ -861,19 +865,24 @@ function liveInfo(procs) {
 const ORDER = ['Weapons', 'Armour', 'Lanterns', 'Weapon parts', 'Accessories', 'Dyes', 'Emotes', 'Banners', 'Flares', 'Titles', 'Emojis', 'Character appearance', 'Curiosities (charges)'];
 const sel = new Set(); let cat = 'Weapons', shown = 120, charPicked = false;
 const charId = () => $('#charSel').value;
+// what the selected character owns: worked out once per save or character change, not per keystroke
+let ownedCache = null, ownedFor = '';
 function ownedMap() {
+  const k = charId();
+  if (ownedCache && ownedFor === k) return ownedCache;
   const m = new Map();
   for (const c of (SAVE && SAVE.characters) || []) {
     if (charId() !== '*' && c.id !== charId()) continue;
     for (const g of c.gear || []) m.set(g.id, Math.max(m.get(g.id) ?? -1, g.level));
-    for (const [k, v] of Object.entries(c.items || {})) if (v > 0 && !m.has(k)) m.set(k, -1);
+    for (const [id, v] of Object.entries(c.items || {})) if (v > 0 && !m.has(id)) m.set(id, -1);
   }
+  ownedCache = m; ownedFor = k;
   return m;
 }
 function filtered() {
   const q = $('#q').value.trim().toLowerCase(), temp = $('#optTemp').checked, hide = $('#optOwned').checked, own = ownedMap();
-  return CAT.gear.filter((g) => (q ? true : g[2] === cat) && (temp || !/^\[(temp|test|wip|dev)\]/i.test(g[1]))
-    && (!q || g[1].toLowerCase().includes(q) || g[0].toLowerCase().includes(q)) && (!hide || !own.has(g[0])));
+  return CAT.gear.filter((g) => (q ? true : g[2] === cat) && (temp || (!g[4] && !g.test))
+    && (!q || g.key.includes(q)) && (!hide || !own.has(g[0])));
 }
 function renderCats() {
   const n = {}; for (const g of CAT.gear) n[g[2]] = (n[g[2]] || 0) + 1;
@@ -888,7 +897,7 @@ function renderList() {
   $('#count').textContent = `${list.length.toLocaleString()} item${list.length === 1 ? '' : 's'}${q ? ' found' : ' in ' + cat}`;
   const rows = list.slice(0, shown).map((g) => {
     const o = own.get(g[0]);
-    const tag = o === undefined ? '' : `<span class="tag">${o >= 0 && !g[3] ? 'Owned, level ' + o : 'Owned'}</span>`;
+    const tag = (g[4] ? '<span class="tag dim" title="DF Trainer has no verified in-game name for this item yet, so it shows the item id">Name unknown</span>' : '') + (o === undefined ? '' : `<span class="tag">${o >= 0 && !g[3] ? 'Owned, level ' + o : 'Owned'}</span>`);
     return `<div class="item${sel.has(g[0]) ? ' sel' : ''}" data-id="${esc(g[0])}" role="checkbox" aria-checked="${sel.has(g[0])}" tabindex="0"><span class="cb">${CHECK}</span><div style="min-width:0"><div class="nm">${esc(g[1])}</div><div class="id">${esc(g[0])}${q ? ', ' + esc(g[2]) : ''}</div></div>${tag}</div>`;
   }).join('');
   $('#list').innerHTML = (rows || '<div class="empty">Nothing matches. Try part of a name, like "hammer" or "shrike".</div>')
@@ -1007,10 +1016,12 @@ $('#rules').addEventListener('click', async (e) => {
 });
 
 /* ================================================= save + characters */
-async function loadSave() {
+let saveTimer = null;
+function loadSave() { clearTimeout(saveTimer); return new Promise((res) => { saveTimer = setTimeout(() => loadSaveNow().then(res, res), 250); }); }
+async function loadSaveNow() {
   const r = await api('/api/save');
   if (!r.ok) { toast('Could not read your save', r.error, 'error'); return; }
-  SAVE = r;
+  SAVE = r; ownedCache = null;
   const s = $('#charSel'), keep = s.value;
   s.innerHTML = r.characters.map((c) => `<option value="${esc(c.id)}">${esc(c.name || c.id)}</option>`).join('') + '<option value="*">All my characters</option>';
   const want = charPicked ? keep : (S && S.playingAs) || keep;
@@ -1018,10 +1029,14 @@ async function loadSave() {
   renderList(); renderCur(); updateDock();
 }
 function onChar() { renderList(); renderCur(); updateDock(); }
-$('#charSel').addEventListener('change', () => { charPicked = true; SFX.tick(); onChar(); });
+$('#charSel').addEventListener('change', () => { ownedCache = null; charPicked = true; SFX.tick(); onChar(); });
 
+function prepCatalog(c) {
+  for (const g of c.gear) { g.key = (g[1] + ' ' + g[0]).toLowerCase(); g.test = /^\[(temp|test|wip|dev)\]/i.test(g[1]); }
+  return c;
+}
 async function loadAll() {
-  CAT = await api('/api/catalog');
+  CAT = prepCatalog(await api('/api/catalog'));
   if (!CAT.ok) return;
   renderCats(); renderList(); renderCur(); renderRules();
   const f = await api('/api/feed');

@@ -52,7 +52,13 @@ function findPackage() {
   if (la) for (const root of ['DauntlessForever', 'DauntlessOffline']) tries.push(path.join(la, root, 'versions', '1.6.2'));
   return tries.find(isPackage) || null;
 }
+let placesCache = null, placesAt = 0;
 function places() {
+  if (placesCache && Date.now() - placesAt < 3000) return placesCache;
+  placesCache = placesUncached(); placesAt = Date.now();
+  return placesCache;
+}
+function placesUncached() {
   const pkg = findPackage();
   if (!pkg) return { pkg: null };
   const cfg = readJson(path.join(pkg, 'config.json'), {});
@@ -65,16 +71,71 @@ function places() {
   };
 }
 
-// item names for messages
-let NAMES = null, NAMES_PKG = null;
-function nameOf(p, id) {
-  if (NAMES_PKG !== p.pkg) {
-    NAMES = new Map(); NAMES_PKG = p.pkg;
-    for (const g of readJson(path.join(p.pkg, 'tools', 'gear-162.json'), [])) NAMES.set(g[0], g[1]);
-    for (const grp of readJson(path.join(p.pkg, 'items.json'), {}).groups || []) for (const i of grp.items || []) NAMES.set(i.id, i.name);
-  }
-  return NAMES.get(id) || id;
+// ---------------------------------------------------------------- item names
+// tools/gear-162.json names some items only after their id ("Ac Hp11B Engineer 00"). Better names come from, in order:
+//   1. the player's own game files: names.js reads the game's catalog assets (once per game version, in the
+//      background; it checks itself against the names already known and only fills in gaps when it agrees)
+//   2. item-names-162.json, shipped with DF Trainer (names verified from the 1.14.7 catalog)
+// An item that has no name anywhere is shown by its id and marked as unnamed.
+const placeholderOf = (id) => id.split('_').slice(1).join(' ').toLowerCase();
+const SHIPPED_NAMES = readJson(path.join(HERE, 'item-names-162.json'), {}).names || {};
+const NAMES_CACHE = path.join(ROOT || HERE, 'item-names-game.json');
+let gameNames = readJson(NAMES_CACHE, {}).names || {};
+let CATALOG = null, CATALOG_KEY = '';
+function catalog(p) {
+  const key = p.pkg + '|' + Object.keys(gameNames).length;
+  if (CATALOG && CATALOG_KEY === key) return CATALOG;
+  const cos = readJson(path.join(p.pkg, 'tools', 'cosmetics-162.json'), {});
+  const cosmetic = new Set([...(cos.stacked || []), ...(cos.instanced || [])]);
+  const names = new Map();
+  const gear = readJson(path.join(p.pkg, 'tools', 'gear-162.json'), []).map((g) => {
+    const placeholder = g[1].toLowerCase() === placeholderOf(g[0]);
+    const name = placeholder ? (gameNames[g[0]] || SHIPPED_NAMES[g[0]] || null) : g[1];
+    names.set(g[0], name || g[0]);
+    return [g[0], name || g[0], g[2], cosmetic.has(g[0]) ? 1 : 0, name ? 0 : 1];   // id, name, group, cosmetic, unnamed
+  });
+  for (const grp of readJson(path.join(p.pkg, 'items.json'), {}).groups || []) for (const i of grp.items || []) names.set(i.id, i.name);
+  CATALOG = { gear, names }; CATALOG_KEY = key;
+  return CATALOG;
 }
+function nameOf(p, id) { return catalog(p).names.get(id) || id; }
+
+// read names from the game files when the game's paks changed (or never were read)
+let namesRunning = false;
+function paksKey(gameDir) {
+  try {
+    const d = path.join(gameDir, 'Archon', 'Content', 'Paks');
+    return fs.readdirSync(d).filter((f) => /^Archon_\d+-WindowsClient\.pak$/i.test(f)).sort()
+      .map((f) => { const st = fs.statSync(path.join(d, f)); return `${f}:${st.size}:${Math.round(st.mtimeMs)}`; }).join('|');
+  } catch { return ''; }
+}
+function readGameNames() {
+  const p = places();
+  if (namesRunning || !p.pkg || !p.gameDir) return;
+  const key = paksKey(p.gameDir);
+  if (!key || readJson(NAMES_CACHE, {}).key === key) return;
+  namesRunning = true;
+  const known = {};
+  for (const g of readJson(path.join(p.pkg, 'tools', 'gear-162.json'), [])) known[g[0]] = g[1].toLowerCase() === placeholderOf(g[0]) ? (SHIPPED_NAMES[g[0]] || null) : g[1];
+  const tmp = path.join(require('os').tmpdir(), `dft-ids-${process.pid}.json`), out = NAMES_CACHE + '.new';
+  fs.writeFileSync(tmp, JSON.stringify(known));
+  execFile(process.execPath, [path.join(HERE, 'names.js'), p.gameDir, tmp, out], { timeout: 5 * 60 * 1000, windowsHide: true, maxBuffer: 1 << 20 }, (e, stdout) => {
+    namesRunning = false;
+    try { fs.unlinkSync(tmp); } catch {}
+    let r = null; try { r = JSON.parse(String(stdout || '')); } catch {}
+    const res = readJson(out, null);
+    try { fs.unlinkSync(out); } catch {}
+    if (!r || !r.ok || !res) return;   // nothing readable: keep what we have, try again next start
+    gameNames = res.names || {};
+    try { fs.writeFileSync(NAMES_CACHE, JSON.stringify({ key, at: Date.now(), checked: res.checked, agreed: res.agreed, assets: res.assets, names: gameNames })); } catch {}
+    CATALOG = null;
+    push('catalog', { names: Object.keys(gameNames).length });
+    if (Object.keys(gameNames).length) note('mod', 'Item names updated', `${Object.keys(gameNames).length} names read from your game files.`);
+  });
+}
+setTimeout(readGameNames, 4000);
+setInterval(readGameNames, 10 * 60 * 1000);
+
 const listNames = (p, ids, max = 2) => {
   const n = ids.map((i) => nameOf(p, i));
   return n.length <= max ? n.join(', ') : `${n.slice(0, max).join(', ')} and ${n.length - max} more`;
@@ -429,7 +490,8 @@ async function tickState() {
   const text = JSON.stringify(s);
   if (text !== lastStateText) { lastStateText = text; push('state', s); }
 }
-setInterval(() => { tickState().catch(() => {}); }, 700);
+let tickN = 0;
+setInterval(() => { if (clients.size || ++tickN % 6 === 0) tickState().catch(() => {}); }, 700);   // with no window open: every ~4 s
 
 // ---------------------------------------------------------------- updates (only when started by the DF Trainer launcher)
 // The launcher does the work: "--stage" fetches the latest release from GitHub, checks its signature and checksums,
@@ -499,16 +561,13 @@ const routes = {
   'POST /api/package': async (b) => {
     const dir = String(b.package || '').trim();
     if (!isPackage(dir)) return { ok: false, error: 'That folder does not have tools\\items.js. Pick the ...\\versions\\1.6.2 folder.' };
-    settings.package = dir; saveSettings();
+    settings.package = dir; saveSettings(); placesCache = null;
     return { ok: true };
   },
   'GET /api/catalog': async () => {
     const p = places(); if (!p.pkg) return { ok: false };
-    const gear = readJson(path.join(p.pkg, 'tools', 'gear-162.json'), []);
     const groups = (readJson(path.join(p.pkg, 'items.json'), {}).groups || []);
-    const cos = readJson(path.join(p.pkg, 'tools', 'cosmetics-162.json'), {});
-    const cosmetic = new Set([...(cos.stacked || []), ...(cos.instanced || [])]);
-    return { ok: true, gear: gear.map((g) => [g[0], g[1], g[2], cosmetic.has(g[0]) ? 1 : 0]), groups, rules: rulesInfo(p) };
+    return { ok: true, gear: catalog(p).gear, groups, rules: rulesInfo(p) };
   },
   'GET /api/save': async () => {
     const p = places(); if (!p.pkg) return { ok: false, error: 'Package not found.' };

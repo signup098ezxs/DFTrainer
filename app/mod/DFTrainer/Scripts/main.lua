@@ -149,6 +149,7 @@ local S = {
     staminaLogged = false,
 }
 local lastRescan = -100
+local staminaCache = {}   -- class name -> { current property, max property } or false
 
 local function isLocal(pc)
     local okP, pl = pcall(function() return pc.Player end)
@@ -232,7 +233,16 @@ local function rescan(now)
         for _, o in ipairs(staminaObjs) do
             local op = pathOf(o)
             if under(op, ow.path) or under(op, ow.psPath) then
-                local cur, max = staminaPropsOf(o)
+                -- which properties hold stamina is the same for every object of a class: found once, then reused
+                local cls = (nameOf(o) or ""):match("^(%S+)") or ""
+                local cached = staminaCache[cls]
+                if cached == nil then
+                    local c, m = staminaPropsOf(o)
+                    cached = c and { c, m } or false
+                    staminaCache[cls] = cached
+                end
+                local cur, max = nil, nil
+                if cached then cur, max = cached[1], cached[2] end
                 if cur then
                     p.stamina[#p.stamina + 1] = { obj = o, cur = cur, max = max, top = readNum(o, cur) or 0 }
                     S.stamina = { cur = cur, max = max, cls = (nameOf(o) or ""):match("^(%S+)") }

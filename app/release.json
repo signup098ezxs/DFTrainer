@@ -1,5 +1,5 @@
 {
-  "version": "1.3.0",
+  "version": "1.4.0",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "DF Trainer is now its own app window: no browser opens. It has its own icon and title bar, fits your screen at any display scaling, and Settings > Window size resizes it instantly."
+  "notes": "Real in-game names: 338 more items named, and DF Trainer reads the rest from your own game files on first start. Faster item search and lighter animations. Slower, calmer intro."
 }
