@@ -1,4 +1,4 @@
-// DF Trainer - reads item display names from the player's own Dauntless 1.6.2 game files. Licence: AGPL-3.0-only.
+// Lantern Client - reads item display names from the player's own Dauntless 1.6.2 game files. Licence: AGPL-3.0-only.
 // The pak index and block reading follow Dauntless Forever's tools/event-island-fix.cjs (Addison2k, AGPL-3.0).
 //
 //   node names.js <game folder> <ids.json: {id: trustedName|null}> <out.json>

@@ -1,5 +1,5 @@
 -- SPDX-License-Identifier: AGPL-3.0-only
--- DF Trainer: in-game cheats for Dauntless 1.6.2 (Dauntless Forever / UE4SS 3.0.1).
+-- Lantern Client: in-game cheats for Dauntless 1.6.2 (Dauntless Forever / UE4SS 3.0.1).
 --
 -- The trainer panel writes trainer-toggles.json into this mod's folder; this script reads it a few times a second.
 -- The folder is shared by your game and every hidden server copy (they all run the same exe), so the same switches
@@ -100,7 +100,7 @@ local StatusFile = Base and (Base .. "/status/" .. ProcId .. ".json")
 if Base then log("mod folder: " .. Base .. " (process " .. ProcId .. ")") else log("could not find the mod folder; the panel cannot reach this process") end
 
 ---------------------------------------------------------------- toggles (flat JSON written by the panel)
-local T = { godmode = false, stamina = false, damage = 1, speed = 1, refresh = false, refreshFn = "" }
+local T = { godmode = false, stamina = false, damage = 1, speed = 1, refresh = false, refreshFn = "", locked = false }
 local togglesText = ""
 
 local function parseToggles(s)
@@ -115,6 +115,9 @@ local function parseToggles(s)
     T.speed   = math.max(0.5, math.min(5, num("speed", 1)))
     T.refresh = flag("refresh")
     T.refreshFn = s:match('"refreshFn"%s*:%s*"([%w_]*)"') or ""
+    -- no valid key in the panel: everything stays off
+    T.locked = flag("locked")
+    if T.locked then T.godmode, T.stamina, T.damage, T.speed, T.refresh = false, false, 1, 1, false end
 end
 
 local function readToggles()
@@ -472,13 +475,13 @@ end)
 
 pcall(function()
     RegisterKeyBind(Key.F5, function()
-        if S.role ~= "game" then return end
+        if S.role ~= "game" or T.locked then return end
         T.godmode = not T.godmode
         writeToggles()
         log("F5: god mode " .. (T.godmode and "on" or "off"))
     end)
     RegisterKeyBind(Key.F6, function()
-        if S.role ~= "game" then return end
+        if S.role ~= "game" or T.locked then return end
         T.stamina = not T.stamina
         writeToggles()
         log("F6: infinite stamina " .. (T.stamina and "on" or "off"))

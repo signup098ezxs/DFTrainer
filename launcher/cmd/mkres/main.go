@@ -92,8 +92,8 @@ func readIco(path string) ([][]byte, []byte, error) {
 func manifest(ver string) string {
 	return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
-  <assemblyIdentity type="win32" name="DFTrainer.Launcher" version="` + quad(ver) + `" processorArchitecture="amd64"/>
-  <description>DF Trainer</description>
+  <assemblyIdentity type="win32" name="LanternClient.Launcher" version="` + quad(ver) + `" processorArchitecture="amd64"/>
+  <description>Lantern Client</description>
   <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3">
     <security><requestedPrivileges><requestedExecutionLevel level="asInvoker" uiAccess="false"/></requestedPrivileges></security>
   </trustInfo>
@@ -171,12 +171,12 @@ func versionInfo(fileVer, productVer string) []byte {
 	})
 	strs := [][2]string{
 		{"CompanyName", "Alex"},
-		{"FileDescription", "DF Trainer"},
+		{"FileDescription", "Lantern Client"},
 		{"FileVersion", quad(fileVer)},
-		{"InternalName", "DF Trainer"},
+		{"InternalName", "Lantern Client"},
 		{"LegalCopyright", "AGPL-3.0-only"},
-		{"OriginalFilename", "DF Trainer.exe"},
-		{"ProductName", "DF Trainer"},
+		{"OriginalFilename", "Lantern Client.exe"},
+		{"ProductName", "Lantern Client"},
 		{"ProductVersion", productVer},
 	}
 	var strings_ [][]byte

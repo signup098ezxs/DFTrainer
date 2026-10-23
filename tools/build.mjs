@@ -1,7 +1,7 @@
-// Builds a DF Trainer release into dist/:
-//   DFTrainer-app-<version>.zip   the panel (what updates install)
-//   DF-Trainer-Setup.exe          the launcher: installer + launcher + updater, carrying this app version
-//   dftrainer-manifest.json       what the launcher checks: versions, sizes, SHA-256 and an Ed25519 signature
+// Builds a Lantern Client release into dist/:
+//   LanternClient-app-<version>.zip  the panel (what updates install)
+//   Lantern-Client-Setup.exe         the launcher: installer + launcher + updater, carrying this app version
+//   dftrainer-manifest.json          (name kept from before the rename, older launchers look for it) what the launcher checks: versions, sizes, SHA-256 and an Ed25519 signature
 //   notes.md                      release notes
 //
 //   node tools/build.mjs [--key release-key.pem] [--repo owner/name] [--out dist] [--goos windows]
@@ -80,7 +80,7 @@ const entries = files(appDir).map((p) => {
   return [name, data];
 });
 const appZip = zip(entries);
-const appFile = `DFTrainer-app-${rel.version}.zip`;
+const appFile = `LanternClient-app-${rel.version}.zip`;
 writeFileSync(join(OUT, appFile), appZip);
 
 // ------------------------------------------------------------ the launcher exe, carrying this app version
@@ -89,7 +89,7 @@ writeFileSync(join(L, 'embedded', 'app.zip'), appZip);
 writeFileSync(join(L, 'embedded', 'app-version.txt'), rel.version);
 const env = { ...process.env, CGO_ENABLED: '0', GOOS, GOARCH: 'amd64' };
 if (GOOS === 'windows') execFileSync('go', ['run', './cmd/mkres', '-ico', 'icon.ico', '-version', launcherVersion, '-app', rel.version, '-o', 'rsrc_windows_amd64.syso'], { cwd: L, stdio: 'inherit', env: { ...process.env } });
-const exeFile = GOOS === 'windows' ? 'DF-Trainer-Setup.exe' : 'dftrainer-launcher';
+const exeFile = GOOS === 'windows' ? 'Lantern-Client-Setup.exe' : 'lantern-client-launcher';
 const ldflags = [`-s -w`, GOOS === 'windows' ? '-H windowsgui' : '', `-X main.launcherVersion=${launcherVersion}`, `-X main.pubKeyB64=${pubKey}`, `-X main.defaultRepo=${repo}`].filter(Boolean).join(' ');
 execFileSync('go', ['build', '-trimpath', '-ldflags', ldflags, '-o', join(OUT, exeFile), '.'], { cwd: L, stdio: 'inherit', env });
 const exe = readFileSync(join(OUT, exeFile));
@@ -103,5 +103,5 @@ const m = {
 const msg = ['dftrainer-release-v1', m.version, m.app.file, m.app.sha256, m.app.size, m.launcher.version, m.launcher.file, m.launcher.sha256, m.launcher.size].join('\n');
 m.signature = sign(null, Buffer.from(msg), key).toString('base64');
 writeFileSync(join(OUT, 'dftrainer-manifest.json'), JSON.stringify(m, null, 2) + '\n');
-writeFileSync(join(OUT, 'notes.md'), `${rel.notes || ''}\n\n**Install:** download **DF-Trainer-Setup.exe** and run it. Installed copies update by themselves.\n`);
+writeFileSync(join(OUT, 'notes.md'), `${rel.notes || ''}\n\n**Install:** download **Lantern-Client-Setup.exe** and run it. You need a key from the owner. Installed copies update by themselves.\n`);
 console.log(`built ${rel.version} (launcher ${launcherVersion}, channel ${repo || 'none'}) in ${relative(ROOT, OUT)}: ${appFile} ${(appZip.length / 1024).toFixed(0)} KB, ${exeFile} ${(exe.length / 1048576).toFixed(1)} MB`);

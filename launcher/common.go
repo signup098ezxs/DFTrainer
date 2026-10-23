@@ -20,10 +20,10 @@ func pingPanel(url string) bool {
 	return resp.StatusCode == http.StatusOK
 }
 
-// uninstall removes the panel, its shortcuts and its Apps & features entry. The game, its save and the DF Trainer
+// uninstall removes the panel, its shortcuts and its Apps & features entry. The game, its save and the Lantern Client
 // game mod are not touched (the launcher's Mods page turns the mod off).
 func uninstall() {
-	if !confirm("Remove DF Trainer?", "This removes the DF Trainer panel and its shortcuts.\n\nYour game, your save and the DF Trainer game mod stay as they are (turn the mod off on the Dauntless Forever launcher's Mods page).") {
+	if !confirm("Remove Lantern Client?", "This removes the Lantern Client panel and its shortcuts.\n\nYour game, your save and the Lantern Client game mod stay as they are (turn the mod off on the Dauntless Forever launcher's Mods page).") {
 		return
 	}
 	if r, ok := readRunning(); ok {
@@ -33,7 +33,7 @@ func uninstall() {
 	unregisterUninstall()
 	logf("uninstalled")
 	scheduleDelete(rootDir())
-	showInfo("DF Trainer", "DF Trainer was removed.")
+	showInfo("Lantern Client", "Lantern Client was removed.")
 	os.Exit(0)
 }
 

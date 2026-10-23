@@ -1,0 +1,2 @@
+# Revoked Lantern Client keys: one key id per line (the id is on the Keys page, e.g. 3FA9C01B2E).
+# Clients read this file at start and every few hours. Lines starting with # are ignored.

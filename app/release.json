@@ -1,5 +1,5 @@
 {
-  "version": "1.8.1",
+  "version": "2.0.0",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Logo: each weapon in the emblem is redrawn to match its in-game weapon icon more closely."
+  "notes": "DF Trainer is now Lantern Client. It needs a key now: paste the one you were given when it asks. Your settings, shortcuts and in-game mod carry over."
 }

@@ -1,10 +1,10 @@
-# DF Trainer: starts the panel with Dauntless Forever's own Node.js (hidden) and opens its window.
+# Lantern Client: starts the panel with Dauntless Forever's own Node.js (hidden) and opens its window.
 $ErrorActionPreference = 'Stop'
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 function Show-Error([string]$msg) {
     Add-Type -AssemblyName PresentationFramework
-    [System.Windows.MessageBox]::Show($msg, 'DF Trainer', 'OK', 'Error') | Out-Null
+    [System.Windows.MessageBox]::Show($msg, 'Lantern Client', 'OK', 'Error') | Out-Null
 }
 
 # Where the 1.6.2 package is: the folder picked in the panel before, then the usual places
@@ -45,6 +45,6 @@ Start-Process -FilePath $node -ArgumentList @("`"$(Join-Path $here 'server.js')`
 
 # The server opens the window itself; if it died straight away, say why
 Start-Sleep -Milliseconds 1500
-if ((Test-Path -LiteralPath $err) -and (Get-Item -LiteralPath $err).Length -gt 0 -and -not (Select-String -LiteralPath $log -Pattern 'DF Trainer panel' -Quiet)) {
+if ((Test-Path -LiteralPath $err) -and (Get-Item -LiteralPath $err).Length -gt 0 -and -not (Select-String -LiteralPath $log -Pattern 'Lantern Client panel' -Quiet)) {
     Show-Error ("The trainer could not start:`n`n" + (Get-Content -Raw -LiteralPath $err))
 }

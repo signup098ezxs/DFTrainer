@@ -1,4 +1,4 @@
-# Publishes a DF Trainer release whenever app/release.json gets a new version on main.
+# Publishes a Lantern Client release whenever app/release.json gets a new version on main.
 # Installed launchers find it on GitHub Releases, check its signature and update themselves.
 #
 # One-time set-up: Settings > Secrets and variables > Actions > New repository secret
@@ -56,7 +56,7 @@ jobs:
         if: steps.v.outputs.skip != 'true'
         run: |
           gh release create "v${{ steps.v.outputs.version }}" \
-            dist/DF-Trainer-Setup.exe dist/DFTrainer-app-*.zip dist/dftrainer-manifest.json \
-            --title "DF Trainer ${{ steps.v.outputs.version }}" --notes-file dist/notes.md --latest
+            dist/Lantern-Client-Setup.exe dist/LanternClient-app-*.zip dist/dftrainer-manifest.json \
+            --title "Lantern Client ${{ steps.v.outputs.version }}" --notes-file dist/notes.md --latest
         env:
           GH_TOKEN: ${{ github.token }}

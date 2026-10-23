@@ -13,13 +13,14 @@ import (
 )
 
 const (
-	exeName     = "DF Trainer.exe"
-	nodeExeName = "node.exe"
+	exeName       = "Lantern Client.exe"
+	legacyExeName = "DF Trainer.exe" // the name before the rename: installs from then still run it (see migrateLegacy)
+	nodeExeName   = "node.exe"
 
 	createNoWindow        = 0x08000000
 	createNewProcessGroup = 0x00000200
 	stillActive           = 259
-	uninstallKey          = `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\DFTrainer`
+	uninstallKey          = `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\DFTrainer` // kept from before the rename, so the entry is updated, not doubled
 )
 
 var (
@@ -32,7 +33,7 @@ func defaultRoot() string {
 	if la == "" {
 		la = filepath.Join(os.Getenv("USERPROFILE"), "AppData", "Local")
 	}
-	return filepath.Join(la, "DFTrainer")
+	return filepath.Join(la, "DFTrainer") // kept from before the rename: settings, keys and versions stay where they are
 }
 
 func extraNodePaths() []string {
@@ -111,15 +112,16 @@ func confirm(title, text string) bool {
 const shortcutScript = `$s = New-Object -ComObject WScript.Shell
 foreach ($d in @([Environment]::GetFolderPath('Desktop'), [Environment]::GetFolderPath('Programs'))) {
   if (-not $d) { continue }
-  $l = $s.CreateShortcut((Join-Path $d 'DF Trainer.lnk'))
+  Remove-Item -LiteralPath (Join-Path $d 'DF Trainer.lnk') -ErrorAction SilentlyContinue
+  $l = $s.CreateShortcut((Join-Path $d 'Lantern Client.lnk'))
   $l.TargetPath = $env:DFT_EXE
   $l.WorkingDirectory = (Split-Path -Parent $env:DFT_EXE)
   $l.IconLocation = $env:DFT_EXE + ',0'
-  $l.Description = 'DF Trainer for Dauntless Forever'
+  $l.Description = 'Lantern Client for Dauntless Forever'
   $l.Save()
 }`
 const removeShortcutScript = `foreach ($d in @([Environment]::GetFolderPath('Desktop'), [Environment]::GetFolderPath('Programs'))) {
-  if ($d) { Remove-Item -LiteralPath (Join-Path $d 'DF Trainer.lnk') -ErrorAction SilentlyContinue }
+  if ($d) { foreach ($n in @('Lantern Client.lnk', 'DF Trainer.lnk')) { Remove-Item -LiteralPath (Join-Path $d $n) -ErrorAction SilentlyContinue } }
 }`
 
 func powershell(script string, env ...string) error {
@@ -134,7 +136,7 @@ func removeShortcuts()                 { _ = powershell(removeShortcutScript) }
 // "Apps & features" entry for this user (no admin rights needed)
 func registerUninstall(exe, version string) error {
 	vals := [][3]string{
-		{"DisplayName", "REG_SZ", "DF Trainer"},
+		{"DisplayName", "REG_SZ", "Lantern Client"},
 		{"DisplayVersion", "REG_SZ", version},
 		{"Publisher", "REG_SZ", "Alex"},
 		{"DisplayIcon", "REG_SZ", exe + ",0"},

@@ -1,4 +1,4 @@
-# Draws the DF Trainer icon (the aether axe in its hexagon, tools/icon.svg) and writes launcher/icon.ico: 32-bit
+# Draws the Lantern Client icon (the weapon emblem in its hexagon, tools/icon.svg) and writes launcher/icon.ico: 32-bit
 # images for 16-128 px, PNG for 256 px, the way Windows expects. Run once; the .ico is kept in the repo.
 # Needs Pillow and Playwright (Chromium) to rasterise the SVG.
 import io, os, struct, sys

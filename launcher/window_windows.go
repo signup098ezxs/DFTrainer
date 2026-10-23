@@ -2,8 +2,8 @@
 
 package main
 
-// DF Trainer's own window: a native Win32 window with the panel drawn inside by WebView2, the web engine built into
-// Windows 10 and 11. No browser opens. The window has DF Trainer's icon and title, a dark title bar, and a size
+// Lantern Client's own window: a native Win32 window with the panel drawn inside by WebView2, the web engine built into
+// Windows 10 and 11. No browser opens. The window has Lantern Client's icon and title, a dark title bar, and a size
 // that fits the screen at any display scaling.
 
 import (
@@ -22,7 +22,21 @@ import (
 // the window's message loop must stay on the thread that created the window
 func init() { runtime.LockOSThread() }
 
-const windowTitle = "DF Trainer"
+const windowTitle = "Lantern Client"
+
+// the window of a panel from before the rename has the old title (seen once, while updating across the rename)
+var windowTitles = []string{windowTitle, "DF Trainer"}
+
+func findAppWindow() uintptr {
+	cls, _ := syscall.UTF16PtrFromString("webview")
+	for _, t := range windowTitles {
+		title, _ := syscall.UTF16PtrFromString(t)
+		if h, _, _ := procFindWindowW.Call(uintptr(unsafe.Pointer(cls)), uintptr(unsafe.Pointer(title))); h != 0 {
+			return h
+		}
+	}
+	return 0
+}
 
 var (
 	dwmapi                    = syscall.NewLazyDLL("dwmapi.dll")
@@ -99,11 +113,9 @@ func moveWindow(hwnd uintptr, wPt, hPt int) {
 	procSetWindowPos.Call(hwnd, 0, uintptr(x), uintptr(y), uintptr(w), uintptr(h), 0x0004|0x0020 /* NOZORDER|FRAMECHANGED */)
 }
 
-// focusExisting brings an open DF Trainer window to the front. True if there was one.
+// focusExisting brings an open Lantern Client window to the front. True if there was one.
 func focusExisting() bool {
-	cls, _ := syscall.UTF16PtrFromString("webview")
-	title, _ := syscall.UTF16PtrFromString(windowTitle)
-	hwnd, _, _ := procFindWindowW.Call(uintptr(unsafe.Pointer(cls)), uintptr(unsafe.Pointer(title)))
+	hwnd := findAppWindow()
 	if hwnd == 0 {
 		return false
 	}
@@ -116,17 +128,15 @@ func focusExisting() bool {
 
 // waitWindowClosed: after "Restart to update", the old window closes itself; wait for that (a few seconds at most)
 func waitWindowClosed() {
-	cls, _ := syscall.UTF16PtrFromString("webview")
-	title, _ := syscall.UTF16PtrFromString(windowTitle)
 	for i := 0; i < 40; i++ {
-		if h, _, _ := procFindWindowW.Call(uintptr(unsafe.Pointer(cls)), uintptr(unsafe.Pointer(title))); h == 0 {
+		if findAppWindow() == 0 {
 			return
 		}
 		time.Sleep(150 * time.Millisecond)
 	}
 }
 
-// openAppWindow shows the panel at url in DF Trainer's own window and returns when the window is closed.
+// openAppWindow shows the panel at url in Lantern Client's own window and returns when the window is closed.
 func openAppWindow(url string) {
 	if focusExisting() {
 		return
@@ -147,7 +157,7 @@ func openAppWindow(url string) {
 	})
 	if wv == nil {
 		logf("WebView2 could not start")
-		if confirm("DF Trainer", "DF Trainer needs the Microsoft WebView2 Runtime, which is part of Windows 11 and of an up-to-date Windows 10, but is missing here.\n\nOpen the download page now? Install it, then open DF Trainer again.") {
+		if confirm("Lantern Client", "Lantern Client needs the Microsoft WebView2 Runtime, which is part of Windows 11 and of an up-to-date Windows 10, but is missing here.\n\nOpen the download page now? Install it, then open Lantern Client again.") {
 			_ = startDetached("rundll32.exe", []string{"url.dll,FileProtocolHandler", "https://go.microsoft.com/fwlink/p/?LinkId=2124703"})
 		}
 		return

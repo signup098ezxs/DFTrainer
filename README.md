@@ -1,19 +1,20 @@
-# DF Trainer
+# Lantern Client
 
-Trainer for Dauntless Forever that works.
+Trainer for Dauntless Forever that works (formerly DF Trainer).
 
-A trainer panel for [Dauntless Forever](https://github.com/addison2k/DauntlessForever) (Dauntless 1.6.2): cheats, an item giver that works while you play, and game rules. Created by Alex, powered by Claude.
+A companion panel for [Dauntless Forever](https://github.com/addison2k/DauntlessForever) (Dauntless 1.6.2): cheats, an item giver that works while you play, and game rules. Created by Alex, powered by Claude.
 
-**Players:** download `DF-Trainer-Setup.exe` from the [latest release](../../releases/latest) and run it. It installs, opens, and keeps itself up to date. See `app/README.txt`.
+**Players:** download `Lantern-Client-Setup.exe` from the [latest release](../../releases/latest) and run it, then paste the key you were given. It installs, opens, and keeps itself up to date. See `app/README.txt`.
 
 ## How it fits together
 
 | Folder | What it is |
 |---|---|
-| `app/` | The panel: `server.js` (local server), `live.js` (gifts while the game runs), `ui/index.html`, the UE4SS game mod, `release.json` (version, notes, update channel) |
-| `launcher/` | `DF Trainer.exe`, written in Go (standard library only): installer, launcher, updater and uninstaller in one |
+| `app/` | The panel: `server.js` (local server), `license.js` (keys), `live.js` (gifts while the game runs), `ui/index.html`, the UE4SS game mod, `release.json` (version, notes, update channel) |
+| `launcher/` | `Lantern Client.exe`, written in Go (standard library only): installer, launcher, updater and uninstaller in one |
 | `tools/build.mjs` | Builds a release into `dist/`: the app zip, the launcher exe carrying it, and the signed manifest |
 | `tools/keygen.mjs` | Makes the release signing key (once per project) |
+| `licenses/revoked.txt` | Revoked key ids, one per line. Clients read it at start and every few hours |
 | `.github/workflows/release.yml` | Publishes a release whenever `app/release.json` gets a new version on `main` |
 
 ## Releasing a new version
@@ -40,6 +41,16 @@ The update channel is the repository the workflow runs in (`GITHUB_REPOSITORY`),
 - New versions unpack into their own folder (`app\<version>`, via a temporary folder) and become current only once complete. The previous version is kept.
 - If a new version does not start, the launcher goes back to the previous one and never retries that version.
 - The launcher can replace itself (a running exe can be renamed on Windows, not overwritten).
+
+## Keys
+
+Keys are signed with the owner key (Ed25519, separate from the release key) and checked offline by `app/license.js` against the public half built into it. A key holds an id, a name, when it was made and when it runs out (or never). The owner imports `lantern-owner-key.pem` in the client to get the Keys page, which makes, lists and revokes keys. Revoking means adding the key id to `licenses/revoked.txt` here. Without a valid key the panel answers only the key screen, settings and updates, and tells the game mod to stay off.
+
+The owner key is never committed (`.gitignore`). This repository is public and the code is AGPL, so the check keeps keys from being shared around; it is not tamper-proof against someone who edits the source.
+
+## Renamed from DF Trainer
+
+Installs from before the rename keep working: the manifest name (`dftrainer-manifest.json`) and its signature prefix are unchanged, the panel still prints the line older launchers look for, and the new launcher, started under its old name `DF Trainer.exe`, moves itself to `Lantern Client.exe` and swaps the shortcuts. The install folder (`%LOCALAPPDATA%\DFTrainer`), the Apps & features key and the game mod's folder keep their old names so nothing is lost.
 
 ## Building by hand
 

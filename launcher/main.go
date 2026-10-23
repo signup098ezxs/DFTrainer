@@ -1,4 +1,4 @@
-// DF Trainer launcher: installer, launcher and updater in one small exe. Licence: AGPL-3.0-only.
+// Lantern Client launcher: installer, launcher and updater in one small exe. Licence: AGPL-3.0-only.
 //
 // First run (from anywhere but its install folder): copies itself to %LOCALAPPDATA%\DFTrainer, unpacks the app it
 // carries, adds Start Menu and Desktop shortcuts and an "Apps & features" entry, then starts the installed copy.
@@ -8,7 +8,7 @@
 //  2. checks the update channel (GitHub Releases) for a newer signed version and installs it (a few seconds at most;
 //     offline or slow, it starts what it has and the panel finishes the update in the background)
 //  3. starts the panel (server.js) with the Node.js Dauntless Forever installed, hidden, and shows it in its own
-//     window (WebView2, the web engine built into Windows); closing the window closes DF Trainer
+//     window (WebView2, the web engine built into Windows); closing the window closes Lantern Client
 //  4. if a freshly updated version does not come up, it goes back to the previous one and never retries that version
 //
 // Other modes: --stage (used by the panel: fetch and install an update, answer JSON), --check (JSON only),
@@ -360,7 +360,7 @@ func launch(noUpdate bool) {
 			} else {
 				ev := embeddedVersion()
 				if err := installAppZip(embeddedApp, ev); err != nil {
-					fatal("DF Trainer could not unpack its files.\n\n" + err.Error())
+					fatal("Lantern Client could not unpack its files.\n\n" + err.Error())
 				}
 				v = ev
 			}
@@ -374,7 +374,7 @@ func launch(noUpdate bool) {
 		}
 		logf("version %s did not start: %v", v, err)
 		if errors.Is(err, errNoNode) {
-			fatal("Node.js was not found.\n\nOpen the Dauntless Forever launcher, pick 1.6.2 and run its Set up once (it installs Node.js), then open DF Trainer again.")
+			fatal("Node.js was not found.\n\nOpen the Dauntless Forever launcher, pick 1.6.2 and run its Set up once (it installs Node.js), then open Lantern Client again.")
 		}
 		// a version that does not start is never used again: back to the one before
 		st = loadState()
@@ -386,12 +386,12 @@ func launch(noUpdate bool) {
 			logf("rolled back from %s to %s", v, st.Current)
 			continue
 		}
-		fatal("DF Trainer could not start.\n\n" + err.Error() + "\n\nThe details are in " + filepath.Join(logDir(), "panel.log"))
+		fatal("Lantern Client could not start.\n\n" + err.Error() + "\n\nThe details are in " + filepath.Join(logDir(), "panel.log"))
 	}
 }
 
 var errNoNode = errors.New("node.js not found")
-var urlRe = regexp.MustCompile(`DF Trainer panel: (http://127\.0\.0\.1:\d+/\?t=[0-9a-f]+)`)
+var urlRe = regexp.MustCompile(`(?:Lantern Client|DF Trainer) panel: (http://127\.0\.0\.1:\d+/\?t=[0-9a-f]+)`)
 
 func startPanel(v string) (string, error) {
 	node := findNode()
@@ -488,6 +488,32 @@ func findNode() string {
 func fileExists(p string) bool { st, err := os.Stat(p); return err == nil && !st.IsDir() }
 func mustJSON(v any) []byte    { b, _ := json.Marshal(v); return b }
 
+// migrateLegacy: installs from before the rename run "DF Trainer.exe" (the old launcher updates itself in place, under
+// its old name). That copy hands over to "Lantern Client.exe": it puts itself there the first time, swaps the
+// shortcuts and the Apps & features entry, and from then on only starts the new one. True if it handed over.
+func migrateLegacy(args []string) bool {
+	self, err := os.Executable()
+	if err != nil || !samePath(filepath.Base(self), legacyExeName) {
+		return false
+	}
+	if !fileExists(installedExe()) {
+		logf("moving to %s", exeName)
+		if err := copySelfTo(self, installedExe()); err != nil {
+			logf("could not move: %v", err)
+			return false
+		}
+		if err := createShortcuts(installedExe()); err != nil {
+			logf("shortcuts: %v", err)
+		}
+		_ = registerUninstall(installedExe(), loadState().Current)
+	}
+	if err := startDetached(installedExe(), args); err != nil {
+		logf("could not start %s: %v", exeName, err)
+		return false
+	}
+	return true
+}
+
 func cleanupOldExe() {
 	exe := installedExe()
 	_ = os.Remove(strings.TrimSuffix(exe, filepath.Ext(exe)) + ".old" + filepath.Ext(exe))
@@ -495,7 +521,7 @@ func cleanupOldExe() {
 
 func fatal(msg string) {
 	logf("error: %s", strings.ReplaceAll(msg, "\n", " "))
-	showError("DF Trainer", msg)
+	showError("Lantern Client", msg)
 	os.Exit(1)
 }
 
@@ -537,14 +563,17 @@ func main() {
 
 	if !isInstalledCopy() && os.Getenv("DFT_PORTABLE") == "" {
 		if err := install(); err != nil {
-			fatal("DF Trainer could not be installed.\n\n" + err.Error())
+			fatal("Lantern Client could not be installed.\n\n" + err.Error())
 		}
 		if has("--install-only") {
 			return
 		}
 		if err := startDetached(installedExe(), []string{"--no-update"}); err != nil {
-			fatal("DF Trainer was installed but could not start.\n\n" + err.Error())
+			fatal("Lantern Client was installed but could not start.\n\n" + err.Error())
 		}
+		return
+	}
+	if migrateLegacy(args) {
 		return
 	}
 	if pid := argAfter("--after"); pid != "" {

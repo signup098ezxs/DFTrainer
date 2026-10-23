@@ -1,5 +1,5 @@
 {
-  "title": "DF Trainer",
-  "about": "God mode, infinite stamina, damage and speed multipliers. Controlled from the DF Trainer panel. Needs server mods on.",
+  "title": "Lantern Client",
+  "about": "God mode, infinite stamina, damage and speed multipliers. Controlled from the Lantern Client panel. Needs server mods on.",
   "keys": [["F5", "god mode on/off"], ["F6", "infinite stamina on/off"]]
 }

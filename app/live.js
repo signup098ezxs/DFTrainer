@@ -1,4 +1,4 @@
-// DF Trainer - live gifts while the game runs. Licence: AGPL-3.0-only.
+// Lantern Client - live gifts while the game runs. Licence: AGPL-3.0-only.
 //
 // While Dauntless runs, its backend (127.0.0.1:61000) owns the save. Writing the save from outside could make one of
 // the backend's own transactions fail with "database is locked" (a reward the game was saving at that moment). So the

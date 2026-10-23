@@ -3,7 +3,7 @@
 package main
 
 // Non-Windows stand-ins, so the launcher's logic (install, updates, rollback) can be built and tested anywhere.
-// DF Trainer itself only runs on Windows.
+// Lantern Client itself only runs on Windows.
 
 import (
 	"fmt"
@@ -14,8 +14,9 @@ import (
 )
 
 const (
-	exeName     = "dftrainer"
-	nodeExeName = "node"
+	exeName       = "lantern-client"
+	legacyExeName = "dftrainer"
+	nodeExeName   = "node"
 )
 
 func defaultRoot() string {

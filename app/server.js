@@ -1,4 +1,4 @@
-// DF Trainer panel - a separate companion for Dauntless Forever (Dauntless 1.6.2), single player.
+// Lantern Client panel - a separate companion for Dauntless Forever (Dauntless 1.6.2), single player.
 // Licence: AGPL-3.0-only (it drives Dauntless Forever's AGPL tools and ships an AGPL mod). Keep this notice.
 //
 // A small local web server (127.0.0.1 only, no dependencies) behind the panel window:
@@ -44,6 +44,24 @@ const readJson = (f, d) => { try { return JSON.parse(fs.readFileSync(f, 'utf8').
 let settings = readJson(SETTINGS, {});
 const VERSION = process.env.DFT_VERSION || readJson(path.join(HERE, 'release.json'), {}).version || 'dev';
 const saveSettings = () => { try { fs.writeFileSync(SETTINGS, JSON.stringify(settings, null, 2)); } catch {} };
+const RELEASE = readJson(path.join(HERE, 'release.json'), {});
+
+// ---------------------------------------------------------------- license key (license.js)
+// Without a valid key only the key screen, appearance settings and updates work, and the game mod is told to stay off.
+const LIC = require('./license')({
+  dataDir: ROOT || HERE, repo: RELEASE.repo,
+  onChange(s, was) {
+    if (!was) return;   // the first check, at start: listen() syncs the mod once everything is loaded
+    {
+      if (!s.ok && was.ok) note('error', s.state === 'expired' ? 'Your key ran out' : s.state === 'revoked' ? 'Your key was revoked' : 'Key removed', 'Enter a new key to keep using Lantern Client.');
+      else if (s.ok && !was.ok) note('ok', s.owner ? 'Owner tools unlocked' : `Welcome, ${s.name}`, s.owner ? '' : (s.expires ? `Your key runs until ${new Date(s.expires).toLocaleDateString()}.` : 'Your key never runs out.'));
+    }
+    try { const p = places(); if (p.pkg) writeToggles(p, settings.toggles || {}); } catch {}
+    if (typeof tickState === 'function') setTimeout(() => tickState().catch(() => {}), 0);
+  },
+});
+const OPEN_ROUTES = new Set(['GET /api/state', 'GET /api/prefs', 'POST /api/prefs', 'POST /api/update/check', 'POST /api/update/restart',
+  'GET /api/license', 'POST /api/license', 'POST /api/license/remove', 'POST /api/owner/import']);
 
 function isPackage(dir) { return !!dir && fs.existsSync(path.join(dir, 'tools', 'items.js')) && fs.existsSync(path.join(dir, 'tools', 'gear-162.json')); }
 function findPackage() {
@@ -75,7 +93,7 @@ function placesUncached() {
 // tools/gear-162.json names some items only after their id ("Ac Hp11B Engineer 00"). Better names come from, in order:
 //   1. the player's own game files: names.js reads the game's catalog assets (once per game version, in the
 //      background; it checks itself against the names already known and only fills in gaps when it agrees)
-//   2. item-names-162.json, shipped with DF Trainer (names verified from the 1.14.7 catalog)
+//   2. item-names-162.json, shipped with Lantern Client (names verified from the 1.14.7 catalog)
 // An item that has no name anywhere is shown by its id and marked as unnamed.
 const placeholderOf = (id) => id.split('_').slice(1).join(' ').toLowerCase();
 const SHIPPED_NAMES = readJson(path.join(HERE, 'item-names-162.json'), {}).names || {};
@@ -213,7 +231,9 @@ setInterval(() => {
 const TOGGLE_DEFAULTS = { godmode: false, stamina: false, damage: 1, speed: 1, refresh: false, refreshFn: '' };
 function readToggles(p) {
   const t = p.modDir ? readJson(path.join(p.modDir, 'trainer-toggles.json'), null) : null;
-  return { ...TOGGLE_DEFAULTS, ...(settings.toggles || {}), ...(t || {}) };
+  if (!LIC.ok()) return { ...TOGGLE_DEFAULTS };
+  const { locked, ...rest } = t || {};
+  return { ...TOGGLE_DEFAULTS, ...(settings.toggles || {}), ...rest };
 }
 function writeToggles(p, t) {
   const clean = {
@@ -225,7 +245,9 @@ function writeToggles(p, t) {
   settings.toggles = clean; saveSettings();
   if (p.modDir && fs.existsSync(p.modDir)) {
     const f = path.join(p.modDir, 'trainer-toggles.json');
-    fs.writeFileSync(f + '.tmp', JSON.stringify({ ...clean, by: 'panel', time: Math.floor(Date.now() / 1000) }));
+    // without a valid key the mod gets everything off and "locked" (its hotkeys do nothing either)
+    const out = LIC.ok() ? { ...clean, locked: false } : { ...TOGGLE_DEFAULTS, locked: true };
+    fs.writeFileSync(f + '.tmp', JSON.stringify({ ...out, by: 'panel', time: Math.floor(Date.now() / 1000) }));
     fs.renameSync(f + '.tmp', f);
   }
   return clean;
@@ -267,12 +289,12 @@ async function setup() {
   copyDir(MOD_SRC, p.modDir, new Set(['trainer-toggles.json', 'status', 'refresh-request.json']));
   fs.mkdirSync(path.join(p.modDir, 'status'), { recursive: true });
   writeToggles(p, readToggles(p));
-  steps.push('Copied the DF Trainer mod.');
+  steps.push('Copied the Lantern Client mod.');
   for (const a of [['set', 'on'], ['set', 'servers-on'], ['mod', MOD_NAME, 'on']]) {
     const r = await runTool(p, 'ue4ss.cjs', a);
     if (!r.ok) return { ok: false, error: r.error || `ue4ss.cjs ${a.join(' ')} failed.`, steps };
   }
-  steps.push('Turned on modded mode, server mods and the DF Trainer mod.');
+  steps.push('Turned on modded mode, server mods and the Lantern Client mod.');
   note('mod', 'Trainer set up', 'Press Play in the launcher.');
   return { ok: true, steps };
 }
@@ -347,7 +369,7 @@ async function giveLive(p, job) {
     const what = job.list === 'all' ? `${r.added.length} cosmetics unlocked` : jobSummary(p, liveJob);
     deliveries.push({ id: crypto.randomBytes(4).toString('hex'), at: Date.now(), character: liveJob.character, what, status: 'saved' });
     note('added', 'Added to your save', what);
-    announce(`[DF Trainer] Added: ${what}. It shows up after your next loading screen.`);
+    announce(`[Lantern] Added: ${what}. It shows up after your next loading screen.`);
     requestRefresh(p);
   }
   if (later) { enqueue(later); note('queued', 'Waiting for the game to close', later.label); }
@@ -404,7 +426,7 @@ function inventoryLoaded(p, characterId) {
     for (const d of due) { d.status = 'delivered'; d.deliveredAt = now; }
     const what = due.map((d) => d.what).join('; ');
     note('delivered', 'Now in your game', what);
-    announce(`[DF Trainer] Delivered: ${what.slice(0, 220)} - check your inventory.`);
+    announce(`[Lantern] Delivered: ${what.slice(0, 220)} - check your inventory.`);
   }
   // the experimental instant refresh: a load right after the mod called a function means that function works
   if (refreshAt && now - refreshAt < 6000) {
@@ -450,11 +472,12 @@ function writeRules(p, want) {
 let lastRunning = false, lastProcCount = 0, lastToggleText = '';
 async function buildState() {
   const p = places();
-  if (!p.pkg) return { found: false, app: { version: VERSION, managed: !!LAUNCHER, update: updateReady, checking: updateChecking }, guess: process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, 'DauntlessForever', 'versions', '1.6.2') : '' };
+  const license = LIC.status();
+  if (!p.pkg) return { found: false, license, app: { version: VERSION, managed: !!LAUNCHER, update: updateReady, checking: updateChecking }, guess: process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, 'DauntlessForever', 'versions', '1.6.2') : '' };
   const running = await backendUp();
   const procs = modProcesses(p);
   return {
-    found: true, pkg: p.pkg, gameDir: p.gameDir, running, playingAs,
+    found: true, license, pkg: p.pkg, gameDir: p.gameDir, running, playingAs,
     app: { version: VERSION, managed: !!LAUNCHER, update: updateReady, checking: updateChecking },
     ue4ss: !!(p.ue4ssDll && fs.existsSync(p.ue4ssDll)),
     modInstalled: !!(p.modDir && fs.existsSync(path.join(p.modDir, 'Scripts', 'main.lua'))),
@@ -493,13 +516,13 @@ async function tickState() {
 let tickN = 0;
 setInterval(() => { if (clients.size || ++tickN % 6 === 0) tickState().catch(() => {}); }, 700);   // with no window open: every ~4 s
 
-// ---------------------------------------------------------------- updates (only when started by the DF Trainer launcher)
+// ---------------------------------------------------------------- updates (only when started by the Lantern Client launcher)
 // The launcher does the work: "--stage" fetches the latest release from GitHub, checks its signature and checksums,
 // unpacks it next to this version and makes it the one to start next time. This panel keeps running its own files; a
-// restart (one click, or simply the next time DF Trainer opens) switches to the new version.
+// restart (one click, or simply the next time Lantern Client opens) switches to the new version.
 let updateReady = null, updateChecking = false, lastCheck = 0;
 function stageUpdate(manual = false) {
-  if (!LAUNCHER || updateChecking) return Promise.resolve({ ok: false, error: LAUNCHER ? 'Already checking.' : 'Updates come with the DF Trainer launcher.' });
+  if (!LAUNCHER || updateChecking) return Promise.resolve({ ok: false, error: LAUNCHER ? 'Already checking.' : 'Updates come with the Lantern Client launcher.' });
   updateChecking = true; lastCheck = Date.now();
   return new Promise((resolve) => {
     execFile(LAUNCHER, ['--stage'], { timeout: 6 * 60 * 1000, windowsHide: true, env: { ...process.env } }, (e, out) => {
@@ -507,13 +530,13 @@ function stageUpdate(manual = false) {
       let r; try { r = JSON.parse(String(out || '').trim()); } catch { r = { ok: false, error: e ? e.message.split('\n')[0] : 'No answer from the launcher.' }; }
       if (r.applied && r.to) {
         updateReady = { version: r.to, notes: r.notes || '' };
-        note('update', `DF Trainer ${r.to} is ready`, r.notes ? `${r.notes} Restart to use it.` : 'Restart to use it.');
+        note('update', `Lantern Client ${r.to} is ready`, r.notes ? `${r.notes} Restart to use it.` : 'Restart to use it.');
       } else if (manual) {
         if (r.error === 'no update channel set') note('error', 'No update channel yet', 'This build has no GitHub repository set for updates.');
         else if (r.error) note('error', r.available ? 'The update did not install' : 'Could not check for updates', r.error);
-        else if (!updateReady) note('ok', 'You have the latest version', `DF Trainer ${VERSION}`);
+        else if (!updateReady) note('ok', 'You have the latest version', `Lantern Client ${VERSION}`);
       }
-      if (r.launcherUpdated && !r.applied) note('update', 'Launcher updated', 'It is used the next time DF Trainer opens.');
+      if (r.launcherUpdated && !r.applied) note('update', 'Launcher updated', 'It is used the next time Lantern Client opens.');
       resolve(r);
     });
   });
@@ -528,7 +551,7 @@ if (ROOT) {
   const n = readJson(f, null);
   if (n) {
     try { fs.unlinkSync(f); } catch {}
-    if (n.rolledBack) setTimeout(() => note('error', `Version ${n.rolledBack} did not start`, `DF Trainer went back to ${n.to}. That version will be skipped.`), 1500);
+    if (n.rolledBack) setTimeout(() => note('error', `Version ${n.rolledBack} did not start`, `Lantern Client went back to ${n.to}. That version will be skipped.`), 1500);
     else if (n.to === VERSION) setTimeout(() => note('update', `Updated to ${VERSION}`, n.notes || ''), 1500);
   }
 }
@@ -610,11 +633,26 @@ const routes = {
   },
   'POST /api/update/check': async () => stageUpdate(true),
   'POST /api/update/restart': async () => {
-    if (!LAUNCHER) return { ok: false, error: 'Updates come with the DF Trainer launcher.' };
+    if (!LAUNCHER) return { ok: false, error: 'Updates come with the Lantern Client launcher.' };
     // the launcher waits for this panel to exit, then starts the new version (gifts still waiting are kept)
     spawn(LAUNCHER, ['--after', String(process.pid)], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
     setTimeout(() => process.exit(0), 400);
     return { ok: true };
+  },
+  'GET /api/license': async () => LIC.status(),
+  'POST /api/license': async (b) => LIC.activate(b.key),
+  'POST /api/license/remove': async () => LIC.remove(),
+  'POST /api/owner/import': async (b) => LIC.importOwner(b.pem),
+  'POST /api/owner/remove': async () => LIC.removeOwner(),
+  'GET /api/owner/keys': async () => LIC.keys(),
+  'POST /api/owner/generate': async (b) => LIC.generate(b),
+  'POST /api/owner/revoke': async (b) => LIC.revoke(b),
+  'POST /api/owner/refresh': async () => { LIC.fetchRevoked(); return { ok: true }; },
+  // the owner's browser, on the GitHub page that lists revoked keys
+  'POST /api/owner/open-revoke': async () => {
+    const k = LIC.keys(); if (!k.ok || !k.revokeUrl) return { ok: false };
+    if (IS_WIN) spawn('rundll32.exe', ['url.dll,FileProtocolHandler', k.revokeUrl], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+    return { ok: true, url: k.revokeUrl };
   },
   'POST /api/rules': async (b) => {
     const p = places(); if (!p.pkg) return { ok: false, error: 'Package not found.' };
@@ -629,7 +667,7 @@ const server = http.createServer(async (req, res) => {
     if (!new RegExp(`^(127\\.0\\.0\\.1|localhost):${PORT}$`).test(host)) return send(res, 403, { ok: false, error: 'Forbidden' });
     const url = new URL(req.url, `http://${host}`);
     if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) {
-      if (url.searchParams.get('t') !== TOKEN) return send(res, 403, 'Open the trainer with Start Trainer.bat.', 'text/plain');
+      if (url.searchParams.get('t') !== TOKEN) return send(res, 403, 'Open Lantern Client from its shortcut.', 'text/plain');
       return send(res, 200, fs.readFileSync(UI_FILE), 'text/html; charset=utf-8');
     }
     // the panel's own fonts (public, cached)
@@ -653,6 +691,7 @@ const server = http.createServer(async (req, res) => {
     if (!fn) return send(res, 404, { ok: false, error: 'Not found' });
     if (req.headers['x-trainer-token'] !== TOKEN) return send(res, 403, { ok: false, error: 'Forbidden' });
     lastClientAt = Date.now(); everSeen = true;
+    if (!OPEN_ROUTES.has(`${req.method} ${url.pathname}`) && !LIC.ok()) return send(res, 200, { ok: false, locked: true, error: 'Enter your Lantern key first.' });
     const b = req.method === 'POST' ? await body(req) : {};
     send(res, 200, await fn(b));
   } catch (e) {
@@ -665,7 +704,7 @@ setInterval(() => {
   if (everSeen && !clients.size && Date.now() - lastClientAt > 180000 && !queue.length) process.exit(0);
 }, 5000);
 
-// DF Trainer.exe shows the panel in its own window. Started without it (Start Trainer.bat), the panel opens in your
+// Lantern Client.exe shows the panel in its own window. Started without it (Start Trainer.bat), the panel opens in your
 // default browser instead.
 function openWindow(url) {
   if (NO_OPEN || LAUNCHER) return;
@@ -680,8 +719,10 @@ function listen(tries = 0) {
   });
   server.listen(PORT, '127.0.0.1', () => {
     const url = `http://127.0.0.1:${PORT}/?t=${TOKEN}`;
-    console.log(`DF Trainer panel: ${url}`);
+    console.log(`Lantern Client panel: ${url}`);
+    console.log(`DF Trainer panel: ${url}`);   // older launchers (before the rename) look for this line
     writeRunning(url);
+    try { const p = places(); if (p.pkg) writeToggles(p, LIC.ok() ? readToggles(p) : (settings.toggles || {})); } catch {}
     tickState().catch(() => {});
     openWindow(url);
   });

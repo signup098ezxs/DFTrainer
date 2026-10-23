@@ -1,10 +1,11 @@
 package main
 
-// Updates come from GitHub Releases. Each release has a small manifest, dftrainer-manifest.json:
+// Updates come from GitHub Releases. Each release has a small manifest, dftrainer-manifest.json (its name and the
+// signature prefix stay from before the rename, so older launchers keep updating):
 //
 //   { "version": "1.2.0", "notes": "...",
-//     "app":      { "file": "DFTrainer-app-1.2.0.zip", "sha256": "...", "size": 123 },
-//     "launcher": { "version": "1.0.0", "file": "DF-Trainer-Setup.exe", "sha256": "...", "size": 456 },
+//     "app":      { "file": "LanternClient-app-1.2.0.zip", "sha256": "...", "size": 123 },
+//     "launcher": { "version": "1.0.0", "file": "Lantern-Client-Setup.exe", "sha256": "...", "size": 456 },
 //     "signature": "<base64 Ed25519 signature>" }
 //
 // The signature covers every field that decides what gets installed (see signedMessage). Its key's public half is
@@ -128,7 +129,7 @@ func httpGet(ctx context.Context, url string, limit int64) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("User-Agent", "DFTrainer-Launcher/"+launcherVersion)
+	req.Header.Set("User-Agent", "LanternClient-Launcher/"+launcherVersion)
 	if strings.Contains(url, "api.github.com") || strings.HasPrefix(url, apiBase()) {
 		req.Header.Set("Accept", "application/vnd.github+json")
 	}
