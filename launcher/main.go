@@ -351,6 +351,7 @@ func launch(noUpdate bool) {
 			}
 		}
 	}
+	updateTried := !noUpdate // an update check already ran above
 	for attempt := 0; attempt < 2; attempt++ {
 		st := loadState()
 		v := st.Current
@@ -385,6 +386,21 @@ func launch(noUpdate bool) {
 			_ = writeAtomic(updateNotePath(), mustJSON(map[string]any{"rolledBack": v, "to": st.Current, "at": time.Now().Unix()}))
 			logf("rolled back from %s to %s", v, st.Current)
 			continue
+		}
+		// nothing installed starts: a fixed version may be out, so look once before giving up
+		if !updateTried {
+			updateTried = true
+			res := stageUpdate(10*time.Second, 90*time.Second)
+			logf("update check after a failed start: %s", res.summary())
+			if res.LauncherUpdated {
+				if err := startDetached(installedExe(), []string{"--no-update"}); err == nil {
+					return
+				}
+			}
+			if res.Applied {
+				attempt = -1
+				continue
+			}
 		}
 		fatal("Lantern Client could not start.\n\n" + err.Error() + "\n\nThe details are in " + filepath.Join(logDir(), "panel.log"))
 	}

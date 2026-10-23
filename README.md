@@ -10,7 +10,7 @@ A companion panel for [Dauntless Forever](https://github.com/addison2k/Dauntless
 
 | Folder | What it is |
 |---|---|
-| `app/` | The panel: `server.js` (local server), `license.js` (keys), `live.js` (gifts while the game runs), `ui/index.html`, the UE4SS game mod, `release.json` (version, notes, update channel) |
+| `app/` | The panel: `server.js` (local server), `keys.js` (keys), `live.js` (gifts while the game runs), `ui/index.html`, the UE4SS game mod, `release.json` (version, notes, update channel) |
 | `launcher/` | `Lantern Client.exe`, written in Go (standard library only): installer, launcher, updater and uninstaller in one |
 | `tools/build.mjs` | Builds a release into `dist/`: the app zip, the launcher exe carrying it, and the signed manifest |
 | `tools/keygen.mjs` | Makes the release signing key (once per project) |
@@ -48,7 +48,7 @@ The launcher avoids what antivirus heuristics flag in small unsigned tools: no P
 
 ## Keys
 
-Keys are signed with the owner key (Ed25519, separate from the release key) and checked offline by `app/license.js` against the public half built into it. A key holds an id, a name, when it was made and when it runs out (or never). The owner imports `lantern-owner-key.pem` in the client to get the Keys page, which makes, lists and revokes keys. Revoking means adding the key id to `licenses/revoked.txt` here. Without a valid key the panel answers only the key screen, settings and updates, and tells the game mod to stay off.
+Keys are signed with the owner key (Ed25519, separate from the release key) and checked offline by `app/keys.js` against the public half built into it. A key holds an id, a name, when it was made and when it runs out (or never). The owner imports `lantern-owner-key.pem` in the client to get the Keys page, which makes, lists and revokes keys. Revoking means adding the key id to `licenses/revoked.txt` here. Without a valid key the panel answers only the key screen, settings and updates, and tells the game mod to stay off.
 
 The owner key is never committed (`.gitignore`). This repository is public and the code is AGPL, so the check keeps keys from being shared around; it is not tamper-proof against someone who edits the source.
 

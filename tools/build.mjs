@@ -45,6 +45,24 @@ function files(dir) {
   }
   return out;
 }
+// Windows ignores case in file names, and Node's require('./x') tries the file "x" before "x.js". Two app files that
+// differ only by case or by a .js ending (LICENSE and license.js did) work on Linux and break on Windows: refuse them.
+function checkWindowsNames(list) {
+  const seen = new Map();
+  for (const f of list) {
+    const rel = relative(join(ROOT, 'app'), f).toLowerCase();
+    for (const key of new Set([rel, rel.replace(/\.js$/, '')])) {
+      if (seen.has(key) && seen.get(key) !== f) throw new Error(`These app files clash on Windows: ${relative(ROOT, seen.get(key))} and ${relative(ROOT, f)}`);
+      seen.set(key, f);
+    }
+  }
+  // and every require('./x') in the app must name its file exactly, with .js
+  for (const f of list.filter((x) => x.endsWith('.js'))) {
+    for (const m of readFileSync(f, 'utf8').matchAll(/require\((['"])(\.{1,2}\/[^'"]+)\1\)/g)) {
+      if (!m[2].endsWith('.js') && !m[2].endsWith('.json')) throw new Error(`${relative(ROOT, f)}: require('${m[2]}') needs its .js ending (Windows resolves names without case)`);
+    }
+  }
+}
 const CRC = new Int32Array(256).map((_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c; });
 const crc32 = (b) => { let c = -1; for (const x of b) c = CRC[(c ^ x) & 0xff] ^ (c >>> 8); return (c ^ -1) >>> 0; };
 function zip(entries) {   // [[name, Buffer]]
@@ -73,6 +91,7 @@ function zip(entries) {   // [[name, Buffer]]
 rmSync(OUT, { recursive: true, force: true });
 mkdirSync(OUT, { recursive: true });
 const appDir = join(ROOT, 'app');
+checkWindowsNames(files(appDir));
 const entries = files(appDir).map((p) => {
   const name = relative(appDir, p).split(sep).join('/');
   let data = readFileSync(p);

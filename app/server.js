@@ -20,7 +20,7 @@ const { execFile, spawn } = require('child_process');
 const HERE = __dirname;
 const UI_FILE = path.join(HERE, 'ui', 'index.html');
 const MOD_SRC = path.join(HERE, 'mod', 'DFTrainer');
-const LIVE = require('./live');
+const LIVE = require('./live.js');
 // Installed by the launcher, each version lives in its own folder (app\<version>): settings live one level up, in the
 // install folder (DFT_ROOT), so updates keep them. Started by hand (node server.js), they stay next to this file.
 const ROOT = process.env.DFT_ROOT || null;
@@ -46,9 +46,10 @@ const VERSION = process.env.DFT_VERSION || readJson(path.join(HERE, 'release.jso
 const saveSettings = () => { try { fs.writeFileSync(SETTINGS, JSON.stringify(settings, null, 2)); } catch {} };
 const RELEASE = readJson(path.join(HERE, 'release.json'), {});
 
-// ---------------------------------------------------------------- license key (license.js)
+// ---------------------------------------------------------------- license key (keys.js)
 // Without a valid key only the key screen, appearance settings and updates work, and the game mod is told to stay off.
-const LIC = require('./license')({
+// keys.js, not license.js: Windows ignores case in file names, so asking for ./license without .js loaded LICENSE (the AGPL text)
+const LIC = require('./keys.js')({
   dataDir: ROOT || HERE, repo: RELEASE.repo,
   onChange(s, was) {
     if (!was) return;   // the first check, at start: listen() syncs the mod once everything is loaded

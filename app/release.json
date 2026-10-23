@@ -1,5 +1,5 @@
 {
-  "version": "2.3.0",
+  "version": "2.3.1",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Fewer antivirus false alarms: the launcher no longer uses PowerShell, reg.exe, cmd or rundll32 for shortcuts, the Apps & features entry, uninstalling or opening links; it talks to Windows directly."
+  "notes": "Fixes Lantern Client not opening on Windows since 2.0.0 (its key code shared a name with the LICENSE file, which Windows does not tell apart by case). If a version fails to start, the launcher now checks for a fix before giving up."
 }
