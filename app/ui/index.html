@@ -1,0 +1,1038 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DF Trainer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --void: #060a0f; --hull: #0c141b; --hull2: #101b24; --seam: rgba(120, 225, 255, .09); --seam2: rgba(120, 225, 255, .16);
+  --aether: #3cebff; --aether-d: #0e8fa3; --aether-glow: rgba(60, 235, 255, .35); --aether-soft: rgba(60, 235, 255, .09);
+  --frost: #dcf3f7; --ash: #6e8692; --ash2: #4a5f6a;
+  --ember: #ffb547; --fault: #ff5a74; --ok: #4ff0b4;
+  --display: "Chakra Petch", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --body: "Figtree", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --spring: cubic-bezier(.34, 1.56, .64, 1); --ease: cubic-bezier(.2, .8, .2, 1);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--void); color: var(--frost); font: 15px/1.5 var(--body); -webkit-font-smoothing: antialiased; }
+body { display: grid; grid-template-rows: auto minmax(0, 1fr); overflow: hidden; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--aether); outline-offset: 2px; }
+::selection { background: rgba(60, 235, 255, .3); }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: #1a2833; border-radius: 10px; border: 3px solid var(--void); }
+::-webkit-scrollbar-thumb:hover { background: #24394a; }
+
+/* the one ambient touch: a faint aether haze that breathes behind the top of the window */
+.haze { position: fixed; inset: -20% -10% auto; height: 70vh; pointer-events: none; z-index: 0;
+  background: radial-gradient(40% 50% at 30% 30%, rgba(60, 235, 255, .07), transparent 70%), radial-gradient(35% 45% at 75% 20%, rgba(14, 143, 163, .08), transparent 70%);
+  animation: breathe 14s ease-in-out infinite alternate; will-change: transform, opacity; }
+@keyframes breathe { from { transform: translate3d(-2%, 0, 0) scale(1); opacity: .8; } to { transform: translate3d(2%, 2%, 0) scale(1.06); opacity: 1; } }
+
+/* ------------------------------------------------ intro */
+#intro { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: radial-gradient(60% 60% at 50% 45%, #0a1720, var(--void) 70%); cursor: pointer; }
+#intro .stage { display: grid; justify-items: center; gap: 18px; transform: translateY(-4%); }
+#intro .mark { width: 132px; height: 132px; filter: drop-shadow(0 0 0 rgba(60, 235, 255, 0)); animation: bloom 1.3s .75s var(--ease) forwards; }
+#intro .mark .hex { fill: none; stroke: var(--aether); stroke-width: 2.4; stroke-linejoin: round; stroke-dasharray: 340; stroke-dashoffset: 340; animation: draw .95s .1s var(--ease) forwards; }
+#intro .mark .hex2 { fill: none; stroke: var(--aether-d); stroke-width: 1.2; opacity: 0; animation: fadein .6s .7s ease forwards; }
+#intro .mark .bolt { fill: var(--aether); opacity: 0; transform-origin: 50% 50%; transform: scale(.6); animation: boltin .55s .8s var(--spring) forwards; }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@keyframes fadein { to { opacity: 1; } }
+@keyframes boltin { to { opacity: 1; transform: scale(1); } }
+@keyframes bloom { 0% { filter: drop-shadow(0 0 0 rgba(60, 235, 255, 0)); } 45% { filter: drop-shadow(0 0 28px rgba(60, 235, 255, .85)); } 100% { filter: drop-shadow(0 0 14px rgba(60, 235, 255, .45)); } }
+#intro h1 { margin: 0; font: 700 40px/1 var(--display); letter-spacing: .14em; opacity: 0; transform: translateY(10px); animation: titlein .8s 1.05s var(--ease) forwards; text-shadow: 0 0 22px rgba(60, 235, 255, .35); }
+@keyframes titlein { 0% { opacity: 0; transform: translateY(10px); letter-spacing: .32em; } 100% { opacity: 1; transform: none; letter-spacing: .14em; } }
+#intro .credit { position: relative; font: 500 17px/1.2 var(--display); color: #a9dfe8; letter-spacing: .04em; padding: 6px 2px; clip-path: inset(0 100% 0 0); animation: swipe .75s 1.55s cubic-bezier(.7, 0, .2, 1) forwards; }
+#intro .credit b { color: var(--aether); font-weight: 600; }
+#intro .credit::after { content: ""; position: absolute; top: -20%; bottom: -20%; width: 60px; left: -60px; background: linear-gradient(90deg, transparent, rgba(160, 248, 255, .95), transparent); filter: blur(2px); animation: sweep .9s 1.5s cubic-bezier(.7, 0, .2, 1) forwards; opacity: 0; }
+@keyframes swipe { 0% { clip-path: inset(0 100% 0 0); } 99.9% { clip-path: inset(0 0 0 0); } 100% { clip-path: inset(-90px -90px -90px -90px); } }
+/* "Claude": a glimmer in Claude's own colours (Crail #C15F3C, coral #D97757, ivory), then a burst of twinkles */
+#intro .credit .claude { position: relative; display: inline-block; font-weight: 600; color: #d97757;
+  background: linear-gradient(100deg, #c15f3c 0%, #d97757 30%, #fff3e9 47%, #f3c2a6 53%, #d97757 70%, #c15f3c 100%) 100% 0 / 300% 100%;
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  animation: glimmer 1.05s 2.28s cubic-bezier(.45, 0, .2, 1) forwards; }
+@keyframes glimmer { 0% { background-position: 100% 0; filter: drop-shadow(0 0 0 rgba(217, 119, 87, 0)); } 50% { filter: drop-shadow(0 0 11px rgba(217, 119, 87, .8)); } 100% { background-position: 0 0; filter: drop-shadow(0 0 5px rgba(217, 119, 87, .4)); } }
+#intro .spark { position: absolute; left: var(--x); top: var(--y); width: var(--s); height: var(--s); margin: calc(var(--s) / -2) 0 0 calc(var(--s) / -2); pointer-events: none;
+  filter: drop-shadow(0 0 4px var(--c)) drop-shadow(0 0 9px rgba(217, 119, 87, .55)); opacity: 0; animation: twinkle .8s var(--d) cubic-bezier(.3, 1.4, .5, 1) both; }
+#intro .spark::before { content: ""; position: absolute; inset: 0; background: var(--c); clip-path: polygon(50% 0, 60% 40%, 100% 50%, 60% 60%, 50% 100%, 40% 60%, 0 50%, 40% 40%); }
+@keyframes twinkle { 0% { opacity: 0; transform: scale(0) rotate(0); } 35% { opacity: 1; transform: scale(1.15) rotate(45deg); } 70% { opacity: .9; transform: scale(.8) rotate(70deg); } 100% { opacity: 0; transform: scale(0) rotate(100deg); } }
+@keyframes sweep { 0% { left: -60px; opacity: 1; } 85% { opacity: 1; } 100% { left: calc(100% + 20px); opacity: 0; } }
+#intro .skip { position: absolute; bottom: 26px; color: var(--ash2); font-size: 12.5px; opacity: 0; animation: fadein .6s 1.8s forwards; }
+#intro.out { animation: introout .65s var(--ease) forwards; pointer-events: none; }
+@keyframes introout { to { opacity: 0; transform: scale(1.04); filter: blur(6px); } }
+body.booting header, body.booting main { opacity: 0; }
+body.revealing header { animation: drop .7s var(--ease) both; }
+body.revealing nav button, body.revealing nav .keys { animation: slidein .6s var(--ease) both; animation-delay: calc(.12s + var(--i, 0) * 55ms); }
+body.revealing .reveal { animation: settle .75s var(--ease) both; animation-delay: calc(.2s + var(--i, 0) * 75ms); }
+@keyframes drop { from { opacity: 0; transform: translateY(-14px); } }
+@keyframes slidein { from { opacity: 0; transform: translateX(-16px); } }
+@keyframes settle { from { opacity: 0; transform: translateY(16px) scale(.985); filter: blur(3px); } to { opacity: 1; transform: none; filter: none; } }
+@keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+/* ------------------------------------------------ header */
+header { position: relative; z-index: 2; display: flex; align-items: center; gap: 16px; padding: 14px 22px; border-bottom: 1px solid var(--seam); background: linear-gradient(180deg, rgba(12, 20, 27, .9), rgba(6, 10, 15, .6)); backdrop-filter: blur(6px); }
+.brand { display: flex; align-items: center; gap: 11px; font: 700 17px/1 var(--display); letter-spacing: .08em; }
+.brand svg { width: 30px; height: 30px; filter: drop-shadow(0 0 8px rgba(60, 235, 255, .45)); }
+.pills { display: flex; gap: 8px; flex-wrap: wrap; }
+.pill { display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; border-radius: 99px; border: 1px solid var(--seam); background: rgba(12, 20, 27, .7); color: var(--ash); font-size: 13px; white-space: nowrap; transition: color .3s, border-color .3s, box-shadow .3s; }
+.pill i { width: 7px; height: 7px; border-radius: 50%; background: var(--ash2); transition: background .3s, box-shadow .3s; }
+.pill.on { color: var(--frost); border-color: rgba(60, 235, 255, .25); }
+.pill.on i { background: var(--aether); box-shadow: 0 0 10px var(--aether); animation: pulse 2.4s ease-in-out infinite; }
+.pill.warn i { background: var(--ember); } .pill.warn { color: #f3d9ae; }
+.pill.bad i { background: var(--fault); } .pill.bad { color: #ffc0cb; }
+@keyframes pulse { 50% { box-shadow: 0 0 2px var(--aether); opacity: .6; } }
+.grow { flex: 1; }
+.field { position: relative; display: flex; align-items: center; gap: 9px; color: var(--ash); font-size: 13px; }
+select { appearance: none; height: 34px; padding: 0 34px 0 12px; border-radius: 10px; border: 1px solid var(--seam2); outline: none; cursor: pointer;
+  background: var(--hull) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%233cebff' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center; transition: border-color .2s, box-shadow .2s; }
+select:hover, select:focus { border-color: rgba(60, 235, 255, .45); box-shadow: 0 0 0 3px rgba(60, 235, 255, .08); }
+select option { background: var(--hull); }
+.iconbtn { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; border: 1px solid var(--seam2); background: var(--hull); transition: border-color .2s, box-shadow .2s, transform .15s; }
+.iconbtn:hover { border-color: rgba(60, 235, 255, .45); box-shadow: 0 0 14px rgba(60, 235, 255, .15); }
+.iconbtn:active { transform: scale(.94); }
+.iconbtn svg { width: 17px; height: 17px; color: var(--aether); }
+.pop { position: absolute; top: 44px; right: 0; width: 230px; padding: 14px; border-radius: 14px; border: 1px solid var(--seam2); background: rgba(12, 20, 27, .97); box-shadow: 0 20px 40px rgba(0, 0, 0, .5); z-index: 30;
+  opacity: 0; transform: translateY(-6px) scale(.98); transform-origin: top right; pointer-events: none; transition: opacity .18s, transform .22s var(--ease); }
+.pop.open { opacity: 1; transform: none; pointer-events: auto; }
+.pop .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--frost); font-size: 13.5px; }
+.pop .row + .row { margin-top: 12px; }
+
+/* update ready + restart */
+.ver { font: 500 11.5px/1 var(--display); color: var(--ash2); letter-spacing: .04em; margin-left: -4px; align-self: flex-end; padding-bottom: 2px; }
+.updbtn { position: relative; display: inline-flex; align-items: center; gap: 9px; height: 34px; padding: 0 14px 0 12px; border-radius: 10px; border: 1px solid rgba(60, 235, 255, .5); background: linear-gradient(180deg, rgba(60, 235, 255, .16), rgba(60, 235, 255, .05)); color: var(--frost); font-size: 13px; font-weight: 600; box-shadow: 0 0 18px -4px rgba(60, 235, 255, .6); animation: rise .5s var(--spring); transition: box-shadow .25s, transform .15s; }
+.updbtn:hover { box-shadow: 0 0 24px -2px rgba(60, 235, 255, .8); }
+.updbtn:active { transform: scale(.97); }
+.updbtn svg { width: 16px; height: 16px; color: var(--aether); }
+.updbtn::after { content: ""; position: absolute; inset: -1px; border-radius: 10px; border: 1px solid var(--aether); animation: halo 2.4s ease-out infinite; pointer-events: none; }
+.updbtn span { color: var(--aether); font-family: var(--display); }
+#restarting { position: fixed; inset: 0; z-index: 120; display: grid; place-items: center; background: rgba(6, 10, 15, .82); backdrop-filter: blur(8px); opacity: 0; pointer-events: none; transition: opacity .45s var(--ease); }
+#restarting.on { opacity: 1; pointer-events: auto; }
+#restarting .box { display: grid; justify-items: center; gap: 16px; transform: translateY(8px); transition: transform .6s var(--ease); }
+#restarting.on .box { transform: none; }
+#restarting .ring { width: 54px; height: 54px; border-radius: 50%; border: 3px solid rgba(60, 235, 255, .15); border-top-color: var(--aether); box-shadow: 0 0 24px -6px var(--aether); animation: spin .9s linear infinite; }
+#restarting b { font: 600 19px var(--display); }
+#restarting span { color: var(--ash); font-size: 13.5px; }
+.pop .about span, .pop .about button { white-space: nowrap; }
+.pop { width: 250px; }
+.pop .about { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--seam); color: var(--ash); font-size: 12.5px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+
+/* ------------------------------------------------ layout */
+main { position: relative; z-index: 1; display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: 0; }
+nav { position: relative; display: flex; flex-direction: column; gap: 2px; padding: 18px 12px; border-right: 1px solid var(--seam); }
+nav .bar { position: absolute; top: 0; left: 0; width: 3px; border-radius: 0 3px 3px 0; background: var(--aether); box-shadow: 0 0 14px var(--aether), 0 0 4px var(--aether); transition: transform .45s var(--spring), height .3s; }
+nav button { position: relative; display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 14px; border: 0; border-radius: 11px; background: none; color: var(--ash); font-weight: 500; text-align: left; white-space: nowrap; transition: color .2s, background .2s; }
+nav button svg { width: 18px; height: 18px; flex: none; transition: color .2s, filter .2s; }
+nav button:hover { color: var(--frost); background: rgba(60, 235, 255, .04); }
+nav button.on { color: var(--frost); background: linear-gradient(90deg, rgba(60, 235, 255, .1), transparent); }
+nav button.on svg { color: var(--aether); filter: drop-shadow(0 0 6px rgba(60, 235, 255, .7)); }
+nav .count { margin-left: auto; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 99px; background: var(--aether); color: #022126; font: 700 11.5px/20px var(--display); text-align: center; box-shadow: 0 0 10px rgba(60, 235, 255, .55); transform: scale(0); transition: transform .35s var(--spring); }
+nav .count.show { transform: scale(1); }
+nav .keys { margin-top: auto; padding: 12px 14px; color: var(--ash2); font-size: 12.5px; line-height: 1.9; }
+kbd { display: inline-block; min-width: 22px; padding: 0 6px; border-radius: 6px; border: 1px solid var(--seam2); border-bottom-width: 2px; background: var(--hull2); color: var(--aether); font: 600 11.5px/18px var(--display); text-align: center; }
+.pages { position: relative; min-height: 0; overflow: hidden; }
+section { position: absolute; inset: 0; overflow: auto; padding: 28px 34px 110px; visibility: hidden; opacity: 0; transform: translateY(8px); transition: opacity .28s var(--ease), transform .35s var(--ease), visibility 0s .35s; }
+section.on { visibility: visible; opacity: 1; transform: none; transition: opacity .32s var(--ease), transform .4s var(--ease), visibility 0s; }
+.head { display: flex; align-items: flex-end; gap: 16px; margin-bottom: 22px; max-width: 1100px; }
+h2 { margin: 0; font: 600 27px/1.15 var(--display); letter-spacing: .01em; }
+.lede { margin: 6px 0 0; color: var(--ash); max-width: 64ch; }
+.wrap { max-width: 1100px; }
+
+/* ------------------------------------------------ charge tiles (god mode, stamina) */
+.tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.tile { position: relative; overflow: hidden; isolation: isolate; padding: 22px 22px 18px; border-radius: 18px; border: 1px solid var(--seam); background: linear-gradient(180deg, var(--hull2), var(--hull)); transition: border-color .45s, box-shadow .45s; cursor: pointer; }
+.tile::before { content: ""; position: absolute; inset: 0; z-index: -1; background: radial-gradient(120% 140% at var(--cx, 88%) var(--cy, 22%), rgba(60, 235, 255, .2), rgba(14, 143, 163, .08) 40%, transparent 70%); opacity: 0; transform: scale(.4); transform-origin: var(--cx, 88%) var(--cy, 22%); transition: opacity .55s var(--ease), transform .7s var(--ease); }
+.tile::after { content: ""; position: absolute; left: 22px; right: 22px; top: 0; height: 1px; background: linear-gradient(90deg, transparent, var(--aether), transparent); opacity: 0; transition: opacity .5s; }
+.tile.on { border-color: rgba(60, 235, 255, .38); box-shadow: 0 0 0 1px rgba(60, 235, 255, .08), 0 14px 40px -12px rgba(60, 235, 255, .35); }
+.tile.on::before { opacity: 1; transform: scale(1); }
+.tile.on::after { opacity: .9; }
+.tile:hover:not(.on) { border-color: var(--seam2); }
+.tile .top { display: flex; align-items: flex-start; gap: 14px; }
+.glyph { width: 46px; height: 46px; flex: none; display: grid; place-items: center; border-radius: 13px; border: 1px solid var(--seam2); background: rgba(6, 10, 15, .6); color: var(--ash); transition: color .4s, border-color .4s, box-shadow .4s; }
+.glyph svg { width: 22px; height: 22px; }
+.on .glyph, .strip .glyph.lit { color: var(--aether); border-color: rgba(60, 235, 255, .4); box-shadow: 0 0 18px rgba(60, 235, 255, .25), inset 0 0 12px rgba(60, 235, 255, .12); }
+.tile h3 { margin: 2px 0 0; font: 600 20px/1.2 var(--display); }
+.tile .hk { margin-top: 4px; color: var(--ash); font-size: 13px; }
+.tile p { margin: 16px 0 0; color: #a7bdc6; max-width: 46ch; }
+.state { display: flex; align-items: center; gap: 8px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--seam); color: var(--ash); font-size: 13px; min-height: 36px; }
+.state::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--ash2); flex: none; }
+.state.ok { color: #9ff3ff; } .state.ok::before { background: var(--aether); box-shadow: 0 0 8px var(--aether); }
+.state.warn { color: #f3d9ae; } .state.warn::before { background: var(--ember); }
+
+/* the switch */
+.sw { position: relative; width: 58px; height: 32px; flex: none; margin-left: auto; }
+.sw input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; z-index: 2; }
+.sw .track { position: absolute; inset: 0; border-radius: 99px; background: #13202a; border: 1px solid var(--seam2); box-shadow: inset 0 2px 6px rgba(0, 0, 0, .5); transition: background .35s, border-color .35s, box-shadow .35s; }
+.sw .knob { position: absolute; top: 4px; left: 4px; width: 24px; height: 24px; border-radius: 50%; background: linear-gradient(180deg, #e9f7fa, #9db4bd); box-shadow: 0 2px 6px rgba(0, 0, 0, .5); transition: transform .5s var(--spring), background .3s, box-shadow .35s; }
+.sw .knob::after { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 2px solid var(--aether); opacity: 0; transform: scale(.6); }
+.sw input:checked ~ .track { background: linear-gradient(90deg, #0b5f6d, #13b7cc); border-color: rgba(60, 235, 255, .6); box-shadow: inset 0 0 10px rgba(60, 235, 255, .35), 0 0 16px rgba(60, 235, 255, .35); }
+.sw input:checked ~ .knob { transform: translateX(26px); background: linear-gradient(180deg, #ffffff, #c9f9ff); box-shadow: 0 0 12px rgba(60, 235, 255, .9), 0 2px 6px rgba(0, 0, 0, .4); }
+.sw.ping .knob::after { animation: ping .6s var(--ease); }
+@keyframes ping { 0% { opacity: .9; transform: scale(.6); } 100% { opacity: 0; transform: scale(2.1); } }
+.sw input:focus-visible ~ .track { outline: 2px solid var(--aether); outline-offset: 3px; }
+.sw.sm { width: 44px; height: 24px; } .sw.sm .knob { top: 3px; left: 3px; width: 18px; height: 18px; } .sw.sm input:checked ~ .knob { transform: translateX(20px); }
+
+/* instrument strip: damage + speed */
+.strip { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); margin-top: 16px; border-radius: 18px; border: 1px solid var(--seam); background: linear-gradient(180deg, var(--hull2), var(--hull)); }
+.strip > div { padding: 20px 22px; min-width: 0; }
+.strip > div + div { border-left: 1px solid var(--seam); }
+.strip .top { display: flex; align-items: center; gap: 14px; }
+.strip h3 { margin: 0; font: 600 18px/1.2 var(--display); }
+.strip .sub { color: var(--ash); font-size: 13px; }
+.readout { margin-left: auto; font: 700 26px/1 var(--display); color: var(--frost); font-variant-numeric: tabular-nums; transition: color .3s, text-shadow .3s; }
+.readout.lit { color: var(--aether); text-shadow: 0 0 16px rgba(60, 235, 255, .6); }
+.readout.bump { animation: bump .45s var(--spring); }
+@keyframes bump { 40% { transform: scale(1.18); } }
+
+/* segmented control with a sliding indicator */
+.seg { position: relative; display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 4px; margin-top: 18px; border-radius: 12px; border: 1px solid var(--seam2); background: rgba(6, 10, 15, .55); }
+.seg .ind { position: absolute; top: 4px; left: 0; height: calc(100% - 8px); border-radius: 9px; background: linear-gradient(180deg, #1ec8de, #0b8fa2); box-shadow: 0 0 16px rgba(60, 235, 255, .45), inset 0 1px 0 rgba(255, 255, 255, .25); transition: transform .45s var(--spring), width .35s var(--ease), opacity .2s; pointer-events: none; opacity: 0; }
+.seg button { position: relative; z-index: 1; height: 34px; padding: 0 14px; border: 0; border-radius: 9px; background: none; color: var(--ash); font: 600 14px/1 var(--display); letter-spacing: .02em; transition: color .25s; }
+.seg button:hover { color: var(--frost); }
+.seg button.on { color: #02242a; }
+
+/* slider */
+.dial { margin-top: 22px; }
+input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 26px; background: none; cursor: pointer; }
+input[type=range]::-webkit-slider-runnable-track { height: 6px; border-radius: 6px; background: linear-gradient(90deg, #13b7cc var(--fill, 20%), #142430 var(--fill, 20%)); box-shadow: 0 0 12px rgba(60, 235, 255, calc(var(--glow, 0) * .5)); }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; margin-top: -8px; border-radius: 50%; background: radial-gradient(circle at 50% 40%, #fff, #bff8ff); box-shadow: 0 0 0 4px rgba(60, 235, 255, .18), 0 0 16px rgba(60, 235, 255, .8); transition: transform .2s var(--spring); }
+input[type=range]:active::-webkit-slider-thumb { transform: scale(1.18); }
+input[type=range]::-moz-range-track { height: 6px; border-radius: 6px; background: #142430; }
+input[type=range]::-moz-range-progress { height: 6px; border-radius: 6px; background: #13b7cc; }
+input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border: 0; border-radius: 50%; background: #dffcff; box-shadow: 0 0 16px rgba(60, 235, 255, .8); }
+.ticks { display: flex; justify-content: space-between; margin-top: 4px; color: var(--ash2); font: 500 12px/1 var(--display); }
+.footnote { margin-top: 20px; max-width: 80ch; color: var(--ash); font-size: 13px; line-height: 1.6; }
+
+/* ------------------------------------------------ give items */
+.relay { display: flex; align-items: center; gap: 16px; padding: 16px 18px; border-radius: 16px; border: 1px solid var(--seam); background: linear-gradient(90deg, rgba(60, 235, 255, .06), transparent 60%), var(--hull); margin-bottom: 18px; transition: border-color .4s, box-shadow .4s; }
+.relay.live { border-color: rgba(60, 235, 255, .3); box-shadow: 0 0 30px -14px rgba(60, 235, 255, .5); }
+.relay .orb { position: relative; width: 14px; height: 14px; flex: none; border-radius: 50%; background: var(--ash2); }
+.relay.live .orb { background: var(--aether); box-shadow: 0 0 14px var(--aether); }
+.relay.live .orb::after { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 1px solid var(--aether); animation: halo 2.2s ease-out infinite; }
+@keyframes halo { from { opacity: .8; transform: scale(.5); } to { opacity: 0; transform: scale(1.7); } }
+.relay b { font: 600 15.5px/1.3 var(--display); letter-spacing: .01em; }
+.relay .t { flex: 1; min-width: 0; }
+.relay .t div { color: var(--ash); font-size: 13.5px; }
+.relay .exp { display: flex; align-items: center; gap: 12px; padding-left: 16px; border-left: 1px solid var(--seam); }
+.relay .exp span { display: block; color: var(--frost); font-size: 13.5px; font-weight: 500; }
+.relay .exp small { display: block; color: var(--ash); font-size: 12px; max-width: 220px; }
+.pending { display: flex; gap: 8px; flex-wrap: wrap; margin: -6px 0 18px; }
+.pending:empty { display: none; }
+.chipwait { display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; border-radius: 99px; border: 1px dashed rgba(60, 235, 255, .35); color: #b6eef6; font-size: 13px; animation: rise .4s var(--ease); }
+.chipwait i { width: 12px; height: 12px; border-radius: 50%; border: 2px solid rgba(60, 235, 255, .25); border-top-color: var(--aether); animation: spin .9s linear infinite; }
+@keyframes spin { to { transform: rotate(1turn); } }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+.btn { position: relative; overflow: hidden; display: inline-flex; align-items: center; gap: 9px; height: 40px; padding: 0 16px; border-radius: 11px; border: 1px solid var(--seam2); background: var(--hull2); color: var(--frost); font-weight: 600; white-space: nowrap; transition: border-color .2s, box-shadow .25s, transform .15s, background .2s; }
+.btn svg { width: 17px; height: 17px; color: var(--aether); }
+.btn:hover { border-color: rgba(60, 235, 255, .45); box-shadow: 0 0 18px -4px rgba(60, 235, 255, .4); }
+.btn:active { transform: scale(.97); }
+.btn:disabled { opacity: .4; pointer-events: none; }
+.btn.primary { border-color: transparent; background: linear-gradient(180deg, #4ff3ff, #12a9bf); color: #022126; box-shadow: 0 0 22px -4px rgba(60, 235, 255, .7), inset 0 1px 0 rgba(255, 255, 255, .45); }
+.btn.primary svg { color: #022126; }
+.btn.primary::after { content: ""; position: absolute; top: 0; bottom: 0; width: 40%; left: -60%; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .55), transparent); transform: skewX(-20deg); animation: shine 3.2s 1s ease-in-out infinite; }
+@keyframes shine { 0%, 60% { left: -60%; } 100% { left: 130%; } }
+.btn.busy { pointer-events: none; }
+.btn.busy::before { content: ""; width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(2, 33, 38, .3); border-top-color: #022126; animation: spin .7s linear infinite; }
+.btn.busy svg { display: none; }
+
+.toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.search { position: relative; flex: 1; min-width: 240px; }
+.search svg { position: absolute; left: 14px; top: 50%; width: 17px; height: 17px; transform: translateY(-50%); color: var(--ash); transition: color .2s; }
+.search input { width: 100%; height: 44px; padding: 0 14px 0 42px; border-radius: 12px; border: 1px solid var(--seam2); background: var(--hull); outline: none; transition: border-color .2s, box-shadow .3s; }
+.search input::placeholder { color: var(--ash2); }
+.search input:focus { border-color: rgba(60, 235, 255, .5); box-shadow: 0 0 0 4px rgba(60, 235, 255, .08), 0 0 24px -8px rgba(60, 235, 255, .5); }
+.search:focus-within svg { color: var(--aether); }
+.opt { display: inline-flex; align-items: center; gap: 9px; color: var(--ash); font-size: 13.5px; cursor: pointer; user-select: none; }
+.cats { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+.cats button { height: 32px; padding: 0 13px; border-radius: 99px; border: 1px solid var(--seam); background: transparent; color: var(--ash); font-size: 13px; font-weight: 500; transition: color .2s, border-color .2s, background .2s, box-shadow .25s; }
+.cats button em { font-style: normal; margin-left: 6px; color: var(--ash2); font: 600 11.5px var(--display); }
+.cats button:hover { color: var(--frost); border-color: var(--seam2); }
+.cats button.on { color: var(--frost); border-color: rgba(60, 235, 255, .5); background: rgba(60, 235, 255, .08); box-shadow: 0 0 14px -4px rgba(60, 235, 255, .55); }
+.cats button.on em { color: var(--aether); }
+.listhead { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; color: var(--ash); font-size: 13px; }
+.link { border: 0; background: none; color: var(--aether); font-size: 13px; font-weight: 500; padding: 4px 6px; border-radius: 6px; }
+.link:hover { background: rgba(60, 235, 255, .08); }
+.list { border-radius: 16px; border: 1px solid var(--seam); background: var(--hull); overflow: hidden; }
+.item { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 11px 16px; border-bottom: 1px solid rgba(120, 225, 255, .05); cursor: pointer; content-visibility: auto; contain-intrinsic-size: auto 58px; transition: background .18s; }
+.item:last-child { border-bottom: 0; }
+.item:hover { background: rgba(60, 235, 255, .035); }
+.item.sel { background: linear-gradient(90deg, rgba(60, 235, 255, .1), rgba(60, 235, 255, .02)); }
+.item .nm { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item .id { color: var(--ash2); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cb { width: 20px; height: 20px; border-radius: 6px; border: 1.5px solid #2a4250; display: grid; place-items: center; transition: background .2s, border-color .2s, box-shadow .25s; }
+.cb svg { width: 13px; height: 13px; }
+.cb path { fill: none; stroke: #022126; stroke-width: 3.4; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 22; stroke-dashoffset: 22; transition: stroke-dashoffset .28s var(--ease) .04s; }
+.item.sel .cb { background: var(--aether); border-color: var(--aether); box-shadow: 0 0 12px rgba(60, 235, 255, .6); }
+.item.sel .cb path { stroke-dashoffset: 0; }
+.tag { height: 24px; display: inline-flex; align-items: center; padding: 0 10px; border-radius: 99px; border: 1px solid rgba(79, 240, 180, .3); background: rgba(79, 240, 180, .07); color: var(--ok); font-size: 12px; white-space: nowrap; }
+.more { padding: 14px; text-align: center; }
+.empty { padding: 34px 20px; text-align: center; color: var(--ash); }
+
+.dock { position: fixed; left: 232px; right: 0; bottom: 0; z-index: 20; display: flex; align-items: center; gap: 14px; padding: 14px 34px; border-top: 1px solid rgba(60, 235, 255, .25); background: rgba(8, 14, 20, .92); backdrop-filter: blur(10px); box-shadow: 0 -10px 40px -10px rgba(60, 235, 255, .25); transform: translateY(110%); transition: transform .45s var(--spring); }
+.dock.show { transform: none; }
+.dock .what { flex: 1; color: var(--ash); }
+.dock .what b { color: var(--frost); font: 700 18px var(--display); margin-right: 4px; }
+
+/* ------------------------------------------------ currencies */
+.group { margin-bottom: 26px; }
+.group h4 { margin: 0 0 10px; font: 600 15px/1.2 var(--display); color: #a9cbd4; letter-spacing: .02em; }
+.cur { display: grid; grid-template-columns: minmax(0, 1fr) 170px auto; align-items: center; gap: 14px; padding: 12px 16px; border-bottom: 1px solid rgba(120, 225, 255, .05); }
+.cur:last-child { border-bottom: 0; }
+.cur small { display: block; color: var(--ash); font-size: 12.5px; }
+.cur input { height: 38px; width: 100%; padding: 0 12px; border-radius: 10px; border: 1px solid var(--seam2); background: rgba(6, 10, 15, .6); text-align: right; font: 600 15px var(--display); font-variant-numeric: tabular-nums; outline: none; transition: border-color .2s, box-shadow .3s, color .2s; }
+.cur input:focus { border-color: rgba(60, 235, 255, .5); }
+.cur input.changed { color: var(--aether); border-color: rgba(60, 235, 255, .55); box-shadow: 0 0 16px -4px rgba(60, 235, 255, .55); }
+.cur input.flash { animation: flash .6s var(--ease); }
+@keyframes flash { 0% { box-shadow: 0 0 0 0 rgba(60, 235, 255, .9); } 100% { box-shadow: 0 0 16px -4px rgba(60, 235, 255, .55); } }
+.chipbtn { height: 30px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--seam2); background: none; color: var(--ash); font: 600 12.5px var(--display); transition: color .2s, border-color .2s; }
+.chipbtn:hover { color: var(--aether); border-color: rgba(60, 235, 255, .45); }
+
+/* ------------------------------------------------ rules */
+.rule { padding: 18px 20px; border-bottom: 1px solid rgba(120, 225, 255, .05); }
+.rule:last-child { border-bottom: 0; }
+.rule b { font: 600 16px/1.3 var(--display); }
+.rule p { margin: 4px 0 0; color: var(--ash); font-size: 13.5px; max-width: 78ch; }
+.rule .seg { margin-top: 12px; }
+
+/* ------------------------------------------------ live feed */
+.feed { position: relative; padding-left: 26px; }
+.feed::before { content: ""; position: absolute; left: 8px; top: 8px; bottom: 8px; width: 1px; background: linear-gradient(180deg, rgba(60, 235, 255, .4), rgba(60, 235, 255, .05)); }
+.ev { position: relative; padding: 12px 16px; margin-bottom: 10px; border-radius: 14px; border: 1px solid var(--seam); background: var(--hull); }
+.ev::before { content: ""; position: absolute; left: -23px; top: 18px; width: 9px; height: 9px; border-radius: 50%; background: var(--k, var(--ash2)); box-shadow: 0 0 10px var(--k, transparent); }
+.ev.fresh { animation: evin .6s var(--ease); }
+@keyframes evin { from { opacity: 0; transform: translateX(-10px); border-color: rgba(60, 235, 255, .6); } }
+.ev .t { display: flex; gap: 10px; align-items: baseline; }
+.ev b { font-weight: 600; }
+.ev time { margin-left: auto; color: var(--ash2); font: 500 12px var(--display); white-space: nowrap; }
+.ev div:last-child { color: var(--ash); font-size: 13.5px; }
+.paths { margin-top: 26px; color: var(--ash2); font-size: 12.5px; line-height: 1.7; word-break: break-all; }
+
+/* ------------------------------------------------ banner + toasts */
+.banner { display: none; align-items: center; gap: 16px; margin-bottom: 20px; padding: 16px 18px; border-radius: 16px; border: 1px solid rgba(255, 181, 71, .35); background: linear-gradient(90deg, rgba(255, 181, 71, .08), transparent 70%), var(--hull); max-width: 1100px; }
+.banner.show { display: flex; animation: rise .45s var(--ease); }
+.banner .t { flex: 1; } .banner b { display: block; font: 600 15.5px var(--display); } .banner span { color: var(--ash); font-size: 13.5px; }
+.banner input { flex: 1; min-width: 220px; height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--seam2); background: rgba(6, 10, 15, .6); outline: none; }
+#toasts { position: fixed; top: 74px; right: 18px; z-index: 60; display: flex; flex-direction: column; gap: 10px; width: min(380px, calc(100vw - 36px)); pointer-events: none; }
+.toast { position: relative; overflow: hidden; display: flex; gap: 12px; padding: 13px 15px 15px; border-radius: 14px; border: 1px solid var(--seam2); background: rgba(12, 20, 27, .96); box-shadow: 0 18px 40px rgba(0, 0, 0, .5), 0 0 24px -10px var(--k, var(--aether)); pointer-events: auto; animation: tin .5s var(--spring); }
+.toast.out { animation: tout .35s var(--ease) forwards; }
+@keyframes tin { from { opacity: 0; transform: translateX(40px) scale(.96); } }
+@keyframes tout { to { opacity: 0; transform: translateX(30px); } }
+.toast .ico { width: 30px; height: 30px; flex: none; display: grid; place-items: center; border-radius: 9px; background: rgba(6, 10, 15, .6); color: var(--k, var(--aether)); box-shadow: 0 0 12px -2px var(--k, var(--aether)); }
+.toast .ico svg { width: 16px; height: 16px; }
+.toast b { display: block; font: 600 14.5px/1.3 var(--display); }
+.toast span { color: var(--ash); font-size: 13px; }
+.toast .life { position: absolute; left: 0; bottom: 0; height: 2px; width: 100%; background: var(--k, var(--aether)); transform-origin: left; animation: life linear forwards; box-shadow: 0 0 8px var(--k, var(--aether)); }
+@keyframes life { to { transform: scaleX(0); } }
+
+@media (max-width: 860px) {
+  main { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
+  nav { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--seam); padding: 8px; }
+  nav .bar, nav .keys { display: none; }
+  nav button { flex: none; height: 40px; }
+  .tiles, .strip { grid-template-columns: 1fr; }
+  .strip > div + div { border-left: 0; border-top: 1px solid var(--seam); }
+  section { padding: 22px 16px 110px; }
+  .dock { left: 0; padding: 12px 16px; }
+  .relay { flex-wrap: wrap; } .relay .exp { border-left: 0; padding-left: 0; width: 100%; }
+  .cur { grid-template-columns: minmax(0, 1fr) 120px; } .cur .chipbtn { display: none; }
+  header { flex-wrap: wrap; gap: 10px; }
+  #toasts { top: auto; bottom: 16px; flex-direction: column-reverse; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+</style>
+</head>
+<body class="booting">
+<div class="haze"></div>
+
+<div id="intro" role="presentation">
+  <div class="stage">
+    <svg class="mark" viewBox="0 0 120 120" aria-hidden="true">
+      <polygon class="hex" points="60,6 106,32 106,88 60,114 14,88 14,32"/>
+      <polygon class="hex2" points="60,18 96,38.5 96,81.5 60,102 24,81.5 24,38.5"/>
+      <path class="bolt" d="M66 28 40 66h17l-5 26 28-40H62z"/>
+    </svg>
+    <h1>DF TRAINER</h1>
+    <div class="credit">Created by <b>Alex</b>, powered by <span class="claude">Claude<span class="spark" style="--x:-4%;--y:-6%;--s:11px;--c:#fff3e9;--d:2.36s"></span><span class="spark" style="--x:34%;--y:-30%;--s:15px;--c:#d97757;--d:2.46s"></span><span class="spark" style="--x:106%;--y:2%;--s:12px;--c:#f3c2a6;--d:2.56s"></span><span class="spark" style="--x:88%;--y:112%;--s:9px;--c:#fff3e9;--d:2.64s"></span><span class="spark" style="--x:16%;--y:116%;--s:8px;--c:#d97757;--d:2.52s"></span><span class="spark" style="--x:64%;--y:-38%;--s:7px;--c:#fff3e9;--d:2.74s"></span><span class="spark" style="--x:118%;--y:64%;--s:6px;--c:#f3c2a6;--d:2.84s"></span></span></div>
+  </div>
+  <div class="skip">Click to skip</div>
+</div>
+
+<header>
+  <div class="brand">
+    <svg viewBox="0 0 120 120" aria-hidden="true"><polygon points="60,6 106,32 106,88 60,114 14,88 14,32" fill="none" stroke="#3cebff" stroke-width="7" stroke-linejoin="round"/><path d="M66 28 40 66h17l-5 26 28-40H62z" fill="#3cebff"/></svg>
+    DF Trainer
+  </div>
+  <span class="ver" id="appVer"></span>
+  <div class="pills">
+    <span class="pill" id="pLink"><i></i><span>Connecting</span></span>
+    <span class="pill" id="pGame"><i></i><span>Game</span></span>
+    <span class="pill" id="pMod"><i></i><span>Mod</span></span>
+  </div>
+  <div class="grow"></div>
+  <button class="updbtn" id="updBtn" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4M21 4v5h-5"/></svg>Restart to update <span id="updVer"></span></button>
+  <label class="field">Character <select id="charSel"><option value="*">All my characters</option></select></label>
+  <div class="field">
+    <button class="iconbtn" id="soundBtn" aria-label="Sound settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"/><path id="soundWaves" d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></svg></button>
+    <div class="pop" id="soundPop">
+      <div class="row">Sound effects <label class="sw sm"><input type="checkbox" id="sfxOn" checked><span class="track"></span><span class="knob"></span></label></div>
+      <div class="row" style="display:block">Volume<input type="range" id="sfxVol" min="0" max="1" step="0.05"></div>
+      <div class="row">Play the intro <label class="sw sm"><input type="checkbox" id="introOn" checked><span class="track"></span><span class="knob"></span></label></div>
+      <div class="about"><span id="aboutVer">DF Trainer</span><button class="link" id="checkUpd" hidden>Check for updates</button></div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <nav id="nav">
+    <span class="bar" id="navBar"></span>
+    <button data-tab="cheats" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Cheats</button>
+    <button data-tab="items"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 17.5 3 6V3h3l11.5 11.5M13 19l6-6M16 16l4 4M19 21l2-2"/></svg>Give items</button>
+    <button data-tab="currency"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="m12 8 4 4-4 4-4-4z"/></svg>Currencies</button>
+    <button data-tab="rules"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>Game rules</button>
+    <button data-tab="feed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Live feed <span class="count" id="feedCount"></span></button>
+    <div class="keys">In game<br><kbd>F5</kbd> God mode<br><kbd>F6</kbd> Infinite stamina</div>
+  </nav>
+
+  <div class="pages">
+    <!-- CHEATS -->
+    <section id="tab-cheats" class="on">
+      <div class="banner" id="banner"><div class="t"><b id="bannerTitle"></b><span id="bannerText"></span></div><input id="pkgInput" hidden placeholder="...\DauntlessForever\versions\1.6.2"><button class="btn primary" id="bannerBtn"></button></div>
+      <div class="head"><div><h2>Cheats</h2><p class="lede">Flip these any time, in Ramsgate or mid-hunt. They reach your game and its hunt servers in under a second.</p></div></div>
+      <div class="wrap">
+        <div class="tiles">
+          <div class="tile" id="tileGod" data-for="tGod">
+            <div class="top">
+              <div class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg></div>
+              <div><h3>God mode</h3><div class="hk"><kbd>F5</kbd> in game</div></div>
+              <label class="sw"><input type="checkbox" id="tGod" aria-label="God mode"><span class="track"></span><span class="knob"></span></label>
+            </div>
+            <p>Your health refills ten times a second, so no hit can finish you.</p>
+            <div class="state" id="liveGod"></div>
+          </div>
+          <div class="tile" id="tileStam" data-for="tStam">
+            <div class="top">
+              <div class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></div>
+              <div><h3>Infinite stamina</h3><div class="hk"><kbd>F6</kbd> in game</div></div>
+              <label class="sw"><input type="checkbox" id="tStam" aria-label="Infinite stamina"><span class="track"></span><span class="knob"></span></label>
+            </div>
+            <p>Sprint, dodge and climb without the bar ever emptying.</p>
+            <div class="state" id="liveStam"></div>
+          </div>
+        </div>
+        <div class="strip">
+          <div>
+            <div class="top"><div class="glyph" id="gDmg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg></div>
+              <div><h3>Damage</h3><div class="sub">Against behemoths</div></div><span class="readout" id="dmgVal">x1</span></div>
+            <div class="seg" id="dmgSeg"><span class="ind"></span></div>
+            <div class="state" id="liveDmg"></div>
+          </div>
+          <div>
+            <div class="top"><div class="glyph" id="gSpeed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17a8 8 0 1 1 16 0M12 17l4.5-6"/></svg></div>
+              <div><h3>Move speed</h3><div class="sub">Walking and sprinting</div></div><span class="readout" id="speedVal">x1.0</span></div>
+            <div class="dial"><input type="range" id="speed" min="0.5" max="3" step="0.1" value="1" aria-label="Move speed"><div class="ticks"><span>x0.5</span><span>x1</span><span>x2</span><span>x3</span></div></div>
+            <div class="state" id="liveSpeed"></div>
+          </div>
+        </div>
+        <p class="footnote">Cheats run through the DF Trainer game mod. Health and damage belong to the hunt server, so server mods must be on (set-up does this). If a card shows an amber line, the game names a value differently than expected: the [DFTrainer] lines in UE4SS.log say what the mod found.</p>
+      </div>
+    </section>
+
+    <!-- ITEMS -->
+    <section id="tab-items">
+      <div class="head"><div><h2>Give items</h2><p class="lede">Pick anything from the 1.6.2 catalog and send it to your character.</p></div></div>
+      <div class="wrap">
+        <div class="relay" id="relay">
+          <span class="orb"></span>
+          <div class="t"><b id="relayTitle">Game closed</b><div id="relayText">Gifts go straight into your save.</div></div>
+          <div class="exp" id="relayExp" hidden>
+            <div><span>Instant refresh</span><small id="refreshInfo">Experimental: asks the game to reload your inventory.</small></div>
+            <label class="sw sm"><input type="checkbox" id="tRefresh" aria-label="Instant refresh"><span class="track"></span><span class="knob"></span></label>
+          </div>
+        </div>
+        <div class="pending" id="pending"></div>
+        <div class="actions">
+          <button class="btn" id="btnSurge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 11-5-5-5 5M17 18l-5-5-5 5"/></svg>Max all my gear</button>
+          <button class="btn" id="btnCos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg>Unlock all cosmetics</button>
+        </div>
+        <div class="toolbar">
+          <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="q" placeholder="Search 3,000+ weapons, armour, lanterns, dyes..." autocomplete="off"></div>
+          <label class="opt"><span class="sw sm"><input type="checkbox" id="optMax" checked><span class="track"></span><span class="knob"></span></span>Max level</label>
+          <label class="opt"><span class="sw sm"><input type="checkbox" id="optOwned"><span class="track"></span><span class="knob"></span></span>Hide owned</label>
+          <label class="opt"><span class="sw sm"><input type="checkbox" id="optTemp"><span class="track"></span><span class="knob"></span></span>Test items</label>
+        </div>
+        <div class="cats" id="cats"></div>
+        <div class="listhead"><span id="count"></span><span class="grow"></span><button class="link" id="selAll">Select all shown</button><button class="link" id="selNone">Clear</button></div>
+        <div class="list" id="list"></div>
+      </div>
+    </section>
+
+    <!-- CURRENCIES -->
+    <section id="tab-currency">
+      <div class="head"><div><h2>Currencies and materials</h2><p class="lede">Type any amount for the selected character, then apply. Works while you play.</p></div><span class="grow"></span><button class="btn" id="maxAll">Max everything</button><button class="btn primary" id="applyCur" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"/></svg>Apply changes</button></div>
+      <div class="wrap" id="groups"></div>
+    </section>
+
+    <!-- RULES -->
+    <section id="tab-rules">
+      <div class="head"><div><h2>Game rules</h2><p class="lede">The launcher's Game Rules. They take effect the next time you press Play.</p></div></div>
+      <div class="wrap"><div class="list" id="rules"></div></div>
+    </section>
+
+    <!-- FEED -->
+    <section id="tab-feed">
+      <div class="head"><div><h2>Live feed</h2><p class="lede">Everything that reaches your game, as it happens.</p></div><span class="grow"></span><button class="btn" id="notifBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span id="notifLbl">Turn on desktop alerts</span></button></div>
+      <div class="wrap">
+        <div id="waitWrap" hidden><h4 style="margin:0 0 10px;font:600 15px var(--display);color:#a9cbd4">Waiting for the game to close</h4><div class="list" id="queue" style="margin-bottom:12px"></div><button class="link" id="clearQ" style="margin-bottom:22px">Cancel everything waiting</button></div>
+        <div class="feed" id="feed"></div>
+        <div class="paths" id="paths"></div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<div class="dock" id="dock"><div class="what" id="dockWhat"></div><button class="link" id="dockClear">Clear</button><button class="btn primary" id="give"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Give</button></div>
+<div id="toasts" aria-live="polite"></div>
+<div id="restarting" aria-live="assertive"><div class="box"><div class="ring"></div><b id="restartTitle">Restarting</b><span>DF Trainer opens again in a moment.</span></div></div>
+
+<script>
+'use strict';
+const TOKEN = new URLSearchParams(location.search).get('t');
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => [...document.querySelectorAll(s)];
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const store = { get(k, d) { try { const v = localStorage.getItem('dft.' + k); return v == null ? d : JSON.parse(v); } catch { return d; } }, set(k, v) { try { localStorage.setItem('dft.' + k, JSON.stringify(v)); } catch {} } };
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+async function api(path, body) {
+  const r = await fetch(path, { method: body ? 'POST' : 'GET', headers: { 'X-Trainer-Token': TOKEN, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+  return r.json();
+}
+
+/* ================================================= sound: synthesized, nothing to download */
+const SFX = (() => {
+  let ctx = null, master = null, echo = null;
+  let on = store.get('sfx', true), vol = store.get('vol', 0.6);
+  function init() {
+    if (ctx) return ctx;
+    const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null;
+    ctx = new AC();
+    const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -18; comp.ratio.value = 4;
+    master = ctx.createGain(); master.gain.value = on ? vol : 0;
+    master.connect(comp); comp.connect(ctx.destination);
+    // a short shimmer echo for chimes
+    const d = ctx.createDelay(); d.delayTime.value = 0.13;
+    const fb = ctx.createGain(); fb.gain.value = 0.28;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 5200;
+    echo = ctx.createGain(); echo.gain.value = 0.35;
+    echo.connect(d); d.connect(lp); lp.connect(fb); fb.connect(d); lp.connect(master);
+    return ctx;
+  }
+  const live = () => { const c = init(); if (!c) return null; if (c.state === 'suspended') c.resume(); return c; };
+  function tone({ f = 440, f2, type = 'sine', t = 0, d = 0.15, g = 0.2, a = 0.005, pan = 0, wet = 0 }) {
+    const c = live(); if (!c || !on) return;
+    const now = c.currentTime + t;
+    const o = c.createOscillator(); o.type = type; o.frequency.setValueAtTime(f, now);
+    if (f2) o.frequency.exponentialRampToValueAtTime(f2, now + d * 0.75);
+    const gn = c.createGain(); gn.gain.setValueAtTime(0.0001, now); gn.gain.exponentialRampToValueAtTime(g, now + a); gn.gain.exponentialRampToValueAtTime(0.0001, now + d);
+    o.connect(gn);
+    let out = gn;
+    if (pan && c.createStereoPanner) { const p = c.createStereoPanner(); p.pan.value = pan; gn.connect(p); out = p; }
+    out.connect(master); if (wet) { const w = c.createGain(); w.gain.value = wet; out.connect(w); w.connect(echo); }
+    o.start(now); o.stop(now + d + 0.05);
+  }
+  let noiseBuf = null;
+  function noise({ t = 0, d = 0.6, g = 0.25, f1 = 300, f2 = 4200, q = 1.4, p1 = -0.9, p2 = 0.9 }) {
+    const c = live(); if (!c || !on) return;
+    if (!noiseBuf) { noiseBuf = c.createBuffer(1, c.sampleRate * 1.5, c.sampleRate); const ch = noiseBuf.getChannelData(0); for (let i = 0; i < ch.length; i++) ch[i] = Math.random() * 2 - 1; }
+    const now = c.currentTime + t;
+    const s = c.createBufferSource(); s.buffer = noiseBuf;
+    const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = q; bp.frequency.setValueAtTime(f1, now); bp.frequency.exponentialRampToValueAtTime(f2, now + d * 0.85);
+    const gn = c.createGain(); gn.gain.setValueAtTime(0.0001, now); gn.gain.exponentialRampToValueAtTime(g, now + d * 0.45); gn.gain.exponentialRampToValueAtTime(0.0001, now + d);
+    s.connect(bp); bp.connect(gn);
+    let out = gn;
+    if (c.createStereoPanner) { const p = c.createStereoPanner(); p.pan.setValueAtTime(p1, now); p.pan.linearRampToValueAtTime(p2, now + d); gn.connect(p); out = p; }
+    out.connect(master);
+    s.start(now); s.stop(now + d + 0.05);
+  }
+  return {
+    unlock: live,
+    get on() { return on; }, get vol() { return vol; },
+    setOn(v) { on = v; store.set('sfx', v); if (master) master.gain.value = v ? vol : 0; },
+    setVol(v) { vol = v; store.set('vol', v); if (master && on) master.gain.value = v; },
+    tick() { tone({ f: 1900, type: 'triangle', d: 0.035, g: 0.05 }); },
+    tab() { tone({ f: 660, f2: 990, type: 'sine', d: 0.09, g: 0.07 }); tone({ f: 1980, type: 'triangle', t: 0.02, d: 0.05, g: 0.025 }); },
+    switchOn() { tone({ f: 420, f2: 840, type: 'sine', d: 0.17, g: 0.17 }); tone({ f: 840, f2: 1680, type: 'triangle', t: 0.05, d: 0.16, g: 0.06, wet: 0.6 }); noise({ d: 0.12, g: 0.05, f1: 3000, f2: 8000, q: 0.8, p1: 0, p2: 0 }); },
+    switchOff() { tone({ f: 760, f2: 360, type: 'sine', d: 0.16, g: 0.12 }); tone({ f: 380, f2: 190, type: 'triangle', t: 0.03, d: 0.12, g: 0.04 }); },
+    select(on2) { tone({ f: on2 ? 1320 : 990, f2: on2 ? 1760 : 760, type: 'sine', d: 0.07, g: 0.06 }); },
+    step(i) { tone({ f: 520 * Math.pow(1.122, i), type: 'triangle', d: 0.09, g: 0.07, wet: 0.3 }); },
+    give() { [1046.5, 1318.5, 1568, 2093].forEach((f, i) => tone({ f, type: 'triangle', t: i * 0.065, d: 0.5, g: 0.09, wet: 0.7 })); tone({ f: 130, f2: 65, type: 'sine', d: 0.35, g: 0.18 }); },
+    deliver() { tone({ f: 1318.5, type: 'sine', d: 0.9, g: 0.11, wet: 0.8 }); tone({ f: 1975.5, type: 'sine', t: 0.12, d: 1.1, g: 0.09, wet: 0.8 }); tone({ f: 2637, type: 'triangle', t: 0.24, d: 0.8, g: 0.03, wet: 0.9 }); },
+    note() { tone({ f: 880, type: 'sine', d: 0.25, g: 0.07, wet: 0.5 }); tone({ f: 1320, type: 'sine', t: 0.08, d: 0.3, g: 0.06, wet: 0.5 }); },
+    error() { tone({ f: 220, f2: 150, type: 'square', d: 0.22, g: 0.05 }); tone({ f: 233, f2: 160, type: 'sine', d: 0.25, g: 0.12 }); },
+    introLand() { tone({ f: 98, f2: 41, type: 'sine', d: 0.9, g: 0.32 }); noise({ d: 0.5, g: 0.06, f1: 200, f2: 900, q: 0.7, p1: 0, p2: 0 }); [1318.5, 1760, 2637].forEach((f, i) => tone({ f, type: 'sine', t: 0.55 + i * 0.09, d: 1.2, g: 0.045, wet: 0.9 })); },
+    sparkle() { [[2637, 0, -0.5], [3520, 0.1, 0.6], [3136, 0.2, -0.2], [4186, 0.29, 0.45], [3951, 0.4, -0.6], [5274, 0.5, 0.3]].forEach(([f, t, pan]) => tone({ f, type: 'sine', t, d: 0.55, g: 0.035, pan, wet: 0.9 })); tone({ f: 1046.5, f2: 2093, type: 'triangle', d: 0.6, g: 0.03, wet: 0.6 }); },
+    whoosh() { noise({ d: 0.75, g: 0.28, f1: 260, f2: 5200, q: 1.1, p1: -0.9, p2: 0.9 }); tone({ f: 180, f2: 520, type: 'sine', d: 0.55, g: 0.06 }); tone({ f: 2093, type: 'sine', t: 0.62, d: 0.9, g: 0.05, wet: 0.9 }); },
+  };
+})();
+
+/* ================================================= intro */
+function runIntro(done) {
+  const el = $('#intro');
+  if (!store.get('intro', true) || reduced) { el.remove(); done(); return; }
+  SFX.unlock();
+  const timers = [setTimeout(() => SFX.introLand(), 180), setTimeout(() => SFX.whoosh(), 1480), setTimeout(() => SFX.sparkle(), 2330)];
+  let finished = false;
+  const finish = () => {
+    if (finished) return; finished = true; timers.forEach(clearTimeout);
+    el.classList.add('out'); done();
+    setTimeout(() => el.remove(), 700);
+  };
+  timers.push(setTimeout(finish, 3700));
+  el.addEventListener('pointerdown', () => { SFX.unlock(); finish(); });
+  addEventListener('keydown', (e) => { if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') finish(); }, { once: true });
+}
+function reveal() {
+  // the panel assembles itself: header drops in, the rail slides in, the page settles piece by piece
+  $$('nav button, nav .keys').forEach((el, i) => el.style.setProperty('--i', i));
+  const page = $('section.on');
+  const parts = page ? [...page.querySelectorAll(':scope > .banner.show, :scope > .head')] : [];
+  if (page) for (const c of page.querySelectorAll(':scope > .wrap > *')) parts.push(...(c.classList.contains('tiles') ? c.children : [c]));
+  parts.forEach((el, i) => { el.classList.add('reveal'); el.style.setProperty('--i', i); });
+  document.body.classList.remove('booting'); document.body.classList.add('revealing');
+  requestAnimationFrame(() => { placeNav(); $$('.seg').forEach(placeInd); });
+  setTimeout(() => { document.body.classList.remove('revealing'); parts.forEach((el) => el.classList.remove('reveal')); }, 1500);
+}
+
+/* ================================================= toasts and alerts */
+const KIND = {
+  added: ['#3cebff', '<path d="M12 5v14M5 12h14"/>'], delivered: ['#4ff0b4', '<path d="m5 12 5 5L20 7"/>'], applied: ['#4ff0b4', '<path d="m5 12 5 5L20 7"/>'],
+  queued: ['#ffb547', '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'], error: ['#ff5a74', '<path d="M12 8v5M12 16h.01"/><circle cx="12" cy="12" r="9"/>'],
+  hotkey: ['#3cebff', '<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10h.01M11 10h.01M15 10h.01M8 14h8"/>'], mod: ['#3cebff', '<path d="M12 2 3 7v10l9 5 9-5V7z"/>'],
+  update: ['#3cebff', '<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>'],
+  game: ['#3cebff', '<path d="M6 12h4M8 10v4M15 13h.01M18 11h.01"/><rect x="2" y="6" width="20" height="12" rx="4"/>'], ok: ['#3cebff', '<path d="m5 12 5 5L20 7"/>'],
+};
+function toast(title, text = '', kind = 'ok', ms = 4200) {
+  const [k, ico] = KIND[kind] || KIND.ok;
+  const t = document.createElement('div'); t.className = 'toast'; t.style.setProperty('--k', k);
+  t.innerHTML = `<div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">${ico}</svg></div><div><b>${esc(title)}</b>${text ? `<span>${esc(text)}</span>` : ''}</div><div class="life" style="animation-duration:${ms}ms"></div>`;
+  $('#toasts').prepend(t);
+  const kill = () => { t.classList.add('out'); setTimeout(() => t.remove(), 360); };
+  t.onclick = kill; setTimeout(kill, ms);
+  while ($('#toasts').children.length > 4) $('#toasts').lastElementChild.remove();
+}
+function desktop(title, text) {
+  if (!document.hidden || !('Notification' in window) || Notification.permission !== 'granted') return;
+  try { new Notification(title, { body: text, silent: true, tag: 'dft-' + Date.now() }); } catch {}
+}
+function updateNotifBtn() {
+  const b = $('#notifBtn'); if (!('Notification' in window)) { b.hidden = true; return; }
+  $('#notifLbl').textContent = Notification.permission === 'granted' ? 'Desktop alerts on' : Notification.permission === 'denied' ? 'Desktop alerts blocked' : 'Turn on desktop alerts';
+  b.disabled = Notification.permission !== 'default';
+}
+$('#notifBtn').onclick = async () => { SFX.tick(); try { await Notification.requestPermission(); } catch {} updateNotifBtn(); };
+
+/* ================================================= state from the server, pushed live */
+let S = null, CAT = null, SAVE = null, booted = false, wasRunning = null;
+const feedSeen = new Set(); let unseen = 0;
+function connect() {
+  const es = new EventSource(`/api/events?t=${encodeURIComponent(TOKEN)}`);
+  es.addEventListener('open', () => pill('#pLink', 'on', 'Live'));
+  es.addEventListener('error', () => pill('#pLink', 'warn', 'Reconnecting'));
+  es.addEventListener('state', (e) => { const s = JSON.parse(e.data); onState(s); });
+  es.addEventListener('note', (e) => onNote(JSON.parse(e.data), true));
+}
+function pill(id, kind, text) { const p = $(id); p.className = 'pill ' + kind; p.lastElementChild.textContent = text; }
+
+function renderApp(a) {
+  if (!a) return;
+  $('#appVer').textContent = 'v' + a.version;
+  $('#aboutVer').textContent = `DF Trainer ${a.version}`;
+  $('#checkUpd').hidden = !a.managed;
+  $('#checkUpd').textContent = a.checking ? 'Checking...' : 'Check for updates';
+  const u = a.update;
+  $('#updBtn').hidden = !u;
+  if (u) { $('#updVer').textContent = u.version; $('#updBtn').title = u.notes || ''; }
+}
+$('#updBtn').addEventListener('click', async () => {
+  SFX.switchOn();
+  $('#restartTitle').textContent = `Updating to ${$('#updVer').textContent}`;
+  $('#restarting').classList.add('on');
+  const r = await api('/api/update/restart', {}).catch(() => ({ ok: true }));
+  if (!r.ok) { $('#restarting').classList.remove('on'); SFX.error(); toast('Could not restart', r.error, 'error'); return; }
+  // the new version opens its own window; this one closes
+  setTimeout(() => window.close(), 1200);
+});
+$('#checkUpd').addEventListener('click', () => { SFX.tick(); $('#checkUpd').textContent = 'Checking...'; api('/api/update/check', {}); });
+
+function onState(s) {
+  S = s;
+  renderApp(s.app);
+  if (!s.found) { showBanner('pkg'); return; }
+  if (!booted) { booted = true; loadAll(); }
+  pill('#pGame', s.running ? 'on' : '', s.running ? 'Game running' : 'Game closed');
+  const procs = s.processes || [];
+  const game = procs.filter((p) => p.role === 'game').length, srv = procs.filter((p) => p.role === 'server').length;
+  const setupNeeded = !s.ue4ss || !s.modInstalled || !s.modOn || !s.mode.on || !s.mode.servers;
+  if (procs.length) pill('#pMod', srv ? 'on' : 'warn', srv ? `Mod live in ${game ? 'game + ' : ''}${srv} server${srv > 1 ? 's' : ''}` : 'Mod in game only');
+  else pill('#pMod', setupNeeded ? 'bad' : (s.running ? 'warn' : ''), setupNeeded ? 'Mod not set up' : s.running ? 'Mod not answering' : 'Mod ready');
+  showBanner(setupNeeded ? 'setup' : null);
+  syncToggles(s.toggles);
+  liveInfo(procs);
+  renderRelay();
+  renderQueue();
+  $('#paths').innerHTML = `Package ${esc(s.pkg)}<br>Game ${esc(s.gameDir || 'not set up yet')}`;
+  if (wasRunning === true && !s.running) setTimeout(loadSave, 3500);   // gifts waiting for the close land now
+  wasRunning = s.running;
+  // follow the character you are playing
+  if (s.playingAs && SAVE && $('#charSel').value !== s.playingAs && !charPicked && [...$('#charSel').options].some((o) => o.value === s.playingAs)) { $('#charSel').value = s.playingAs; onChar(); }
+}
+
+function onNote(n, fresh) {
+  if (feedSeen.has(n.id)) return; feedSeen.add(n.id);
+  const [k] = KIND[n.kind] || KIND.ok;
+  const el = document.createElement('div'); el.className = 'ev' + (fresh ? ' fresh' : ''); el.style.setProperty('--k', k);
+  el.innerHTML = `<div class="t"><b>${esc(n.title)}</b><time>${new Date(n.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</time></div>${n.text ? `<div>${esc(n.text)}</div>` : ''}`;
+  $('#feed').prepend(el);
+  while ($('#feed').children.length > 80) $('#feed').lastElementChild.remove();
+  if (!fresh) return;
+  if (activeTab() !== 'feed') { unseen++; $('#feedCount').textContent = unseen; $('#feedCount').classList.add('show'); }
+  toast(n.title, n.text, n.kind, n.kind === 'delivered' ? 6500 : 4200);
+  if (n.kind === 'delivered' || n.kind === 'update') { SFX.deliver(); if (n.kind === 'delivered') loadSave(); } else if (n.kind === 'error') SFX.error(); else if (n.kind === 'added' || n.kind === 'applied') { /* the Give click already chimed */ } else SFX.note();
+  if (['delivered', 'added', 'applied', 'hotkey', 'error', 'update'].includes(n.kind)) desktop(n.title, n.text);
+  if (n.kind === 'applied' || n.kind === 'added') loadSave();
+}
+
+function showBanner(kind) {
+  const b = $('#banner'), inp = $('#pkgInput'), btn = $('#bannerBtn');
+  b.classList.toggle('show', !!kind);
+  if (!kind) return;
+  if (kind === 'pkg') {
+    $('#bannerTitle').textContent = 'Dauntless Forever 1.6.2 was not found';
+    $('#bannerText').textContent = 'Paste the folder that holds its data and tools folders.';
+    inp.hidden = false; if (!inp.value && S && S.guess) inp.value = S.guess;
+    btn.textContent = 'Use this folder';
+    btn.onclick = async () => { SFX.tick(); const r = await api('/api/package', { package: inp.value }); if (r.ok) { toast('Found it', 'Loading your save...'); } else { SFX.error(); toast('That folder did not work', r.error, 'error'); } };
+  } else {
+    inp.hidden = true;
+    $('#bannerTitle').textContent = 'One-time set-up for cheats';
+    $('#bannerText').textContent = S.running ? 'Close the game first. Set-up installs the trainer mod and turns on modded mode and server mods.' : 'Installs the trainer mod (and UE4SS if needed) and turns on modded mode and server mods.';
+    btn.textContent = 'Set up'; btn.disabled = !!S.running;
+    btn.onclick = async () => {
+      SFX.tick(); btn.classList.add('busy'); btn.textContent = 'Setting up';
+      const r = await api('/api/setup', {});
+      btn.classList.remove('busy');
+      if (r.ok) { SFX.give(); toast('Trainer set up', 'Press Play in the launcher.', 'applied'); } else { SFX.error(); toast('Set-up stopped', r.error, 'error', 7000); btn.textContent = 'Set up'; }
+    };
+  }
+}
+
+/* ================================================= navigation */
+const activeTab = () => ($('nav button.on') || {}).dataset?.tab;
+function placeNav() {
+  const b = $('nav button.on'), bar = $('#navBar'); if (!b) return;
+  bar.style.height = (b.offsetHeight - 16) + 'px';
+  bar.style.transform = `translateY(${b.offsetTop + 8}px)`;
+}
+$('#nav').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-tab]'); if (!b || b.classList.contains('on')) return;
+  SFX.tab();
+  $$('nav button').forEach((x) => x.classList.toggle('on', x === b));
+  $$('section').forEach((s) => s.classList.toggle('on', s.id === 'tab-' + b.dataset.tab));
+  placeNav();
+  requestAnimationFrame(() => $$('#tab-' + b.dataset.tab + ' .seg').forEach(placeInd));
+  if (b.dataset.tab === 'feed') { unseen = 0; $('#feedCount').classList.remove('show'); }
+  updateDock();
+});
+addEventListener('resize', () => { placeNav(); $$('section.on .seg').forEach(placeInd); });
+
+/* sliding segment indicator */
+function placeInd(seg) {
+  const ind = seg.querySelector('.ind'), on = seg.querySelector('button.on');
+  if (!ind) return;
+  if (!on || !on.offsetWidth) { ind.style.opacity = 0; return; }
+  ind.style.opacity = 1; ind.style.width = on.offsetWidth + 'px'; ind.style.transform = `translateX(${on.offsetLeft}px)`;
+}
+
+/* ================================================= cheats */
+const DMG = [[1, 'x1'], [2, 'x2'], [5, 'x5'], [10, 'x10'], [50, 'x50'], [1000, 'One hit']];
+$('#dmgSeg').insertAdjacentHTML('beforeend', DMG.map(([v, l]) => `<button data-v="${v}">${l}</button>`).join(''));
+let holdUntil = 0, lastT = null;
+function syncToggles(t) {
+  if (Date.now() < holdUntil) return;   // don't fight a click in flight
+  const changed = lastT && (lastT.godmode !== t.godmode || lastT.stamina !== t.stamina);
+  setSwitch('#tGod', '#tileGod', t.godmode, changed && lastT.godmode !== t.godmode);
+  setSwitch('#tStam', '#tileStam', t.stamina, changed && lastT.stamina !== t.stamina);
+  if (changed) (t.godmode && lastT.godmode !== t.godmode) || (t.stamina && lastT.stamina !== t.stamina) ? SFX.switchOn() : SFX.switchOff();
+  $$('#dmgSeg button').forEach((b) => b.classList.toggle('on', Number(b.dataset.v) === t.damage));
+  placeInd($('#dmgSeg'));
+  setReadout('#dmgVal', t.damage >= 1000 ? 'One hit' : 'x' + t.damage, t.damage > 1);
+  $('#gDmg').classList.toggle('lit', t.damage > 1);
+  if (document.activeElement !== $('#speed')) { $('#speed').value = t.speed; paintSpeed(); }
+  $('#tRefresh').checked = !!t.refresh;
+  lastT = { ...t };
+}
+function setSwitch(inp, tile, v, animate) {
+  const i = $(inp); i.checked = v; $(tile).classList.toggle('on', v);
+  if (animate) { const sw = i.closest('.sw'); sw.classList.remove('ping'); void sw.offsetWidth; if (v) sw.classList.add('ping'); }
+}
+function setReadout(sel, text, lit) {
+  const r = $(sel); if (r.textContent !== text) { r.textContent = text; r.classList.remove('bump'); void r.offsetWidth; r.classList.add('bump'); }
+  r.classList.toggle('lit', lit);
+}
+async function setToggle(o) {
+  holdUntil = Date.now() + 1500;
+  const r = await api('/api/toggles', o);
+  holdUntil = 0;
+  if (r.ok) { S.toggles = r.toggles; lastT = { ...lastT, ...r.toggles }; syncToggles(r.toggles); }
+  else { SFX.error(); toast('Could not switch that', r.error, 'error'); }
+}
+function bindSwitch(inp, tile, key) {
+  $(inp).addEventListener('change', (e) => {
+    const v = e.target.checked;
+    v ? SFX.switchOn() : SFX.switchOff();
+    setSwitch(inp, tile, v, true);
+    if (lastT) lastT[key] = v;
+    setToggle({ [key]: v });
+  });
+  // the whole tile is a target; the charge spreads from where you clicked
+  $(tile).addEventListener('click', (e) => {
+    if (e.target.closest('.sw')) return;
+    const r = $(tile).getBoundingClientRect();
+    $(tile).style.setProperty('--cx', ((e.clientX - r.left) / r.width * 100) + '%');
+    $(tile).style.setProperty('--cy', ((e.clientY - r.top) / r.height * 100) + '%');
+    $(inp).click();
+  });
+}
+bindSwitch('#tGod', '#tileGod', 'godmode');
+bindSwitch('#tStam', '#tileStam', 'stamina');
+$('#dmgSeg').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b || b.classList.contains('on')) return;
+  const i = DMG.findIndex(([v]) => v === Number(b.dataset.v));
+  SFX.step(i);
+  $$('#dmgSeg button').forEach((x) => x.classList.toggle('on', x === b)); placeInd($('#dmgSeg'));
+  const v = Number(b.dataset.v);
+  setReadout('#dmgVal', v >= 1000 ? 'One hit' : 'x' + v, v > 1); $('#gDmg').classList.toggle('lit', v > 1);
+  setToggle({ damage: v });
+});
+function paintSpeed() {
+  const el = $('#speed'), v = Number(el.value), pct = (v - 0.5) / 2.5 * 100;
+  el.style.setProperty('--fill', pct + '%'); el.style.setProperty('--glow', v === 1 ? 0 : 1);
+  setReadout('#speedVal', 'x' + v.toFixed(1), v !== 1); $('#gSpeed').classList.toggle('lit', v !== 1);
+}
+let lastStep = null;
+$('#speed').addEventListener('input', () => { paintSpeed(); const s = $('#speed').value; if (s !== lastStep) { lastStep = s; SFX.tick(); } });
+$('#speed').addEventListener('change', () => setToggle({ speed: Number($('#speed').value) }));
+
+function liveState(id, kind, text) { const el = $(id); el.className = 'state ' + kind; el.textContent = text; }
+function liveInfo(procs) {
+  const srv = procs.filter((p) => p.role === 'server'), game = procs.filter((p) => p.role === 'game');
+  if (!procs.length) {
+    const t = S.running ? 'The mod is not answering. Did you restart the game after set-up?' : 'Starts working when you play.';
+    ['#liveGod', '#liveStam', '#liveDmg', '#liveSpeed'].forEach((i) => liveState(i, S.running ? 'warn' : '', t)); return;
+  }
+  const withPlayer = srv.filter((p) => p.players > 0);
+  const hset = procs.some((p) => p.healthSets > 0);
+  liveState('#liveGod', !withPlayer.length ? '' : hset ? 'ok' : 'warn', !withPlayer.length ? 'Waiting for you to load into Ramsgate or a hunt.' : hset ? `Linked to your health on ${withPlayer.length} server${withPlayer.length > 1 ? 's' : ''}.` : 'Your health value was not found yet.');
+  const st = procs.find((p) => p.stamina);
+  liveState('#liveStam', st ? 'ok' : 'warn', st ? `Linked to ${st.stamina}.` : 'Stamina value not found yet.');
+  const beh = srv.reduce((n, p) => n + p.behemoths, 0);
+  liveState('#liveDmg', beh ? 'ok' : '', beh ? `${beh} behemoth${beh > 1 ? 's' : ''} nearby.` : 'No behemoths nearby.');
+  liveState('#liveSpeed', game.length && srv.length ? 'ok' : 'warn', game.length && srv.length ? 'Applied in your game and its server.' : 'Needs the mod in your game and its server.');
+}
+
+/* ================================================= give items */
+const ORDER = ['Weapons', 'Armour', 'Lanterns', 'Weapon parts', 'Accessories', 'Dyes', 'Emotes', 'Banners', 'Flares', 'Titles', 'Emojis', 'Character appearance', 'Curiosities (charges)'];
+const sel = new Set(); let cat = 'Weapons', shown = 120, charPicked = false;
+const charId = () => $('#charSel').value;
+function ownedMap() {
+  const m = new Map();
+  for (const c of (SAVE && SAVE.characters) || []) {
+    if (charId() !== '*' && c.id !== charId()) continue;
+    for (const g of c.gear || []) m.set(g.id, Math.max(m.get(g.id) ?? -1, g.level));
+    for (const [k, v] of Object.entries(c.items || {})) if (v > 0 && !m.has(k)) m.set(k, -1);
+  }
+  return m;
+}
+function filtered() {
+  const q = $('#q').value.trim().toLowerCase(), temp = $('#optTemp').checked, hide = $('#optOwned').checked, own = ownedMap();
+  return CAT.gear.filter((g) => (q ? true : g[2] === cat) && (temp || !/^\[(temp|test|wip|dev)\]/i.test(g[1]))
+    && (!q || g[1].toLowerCase().includes(q) || g[0].toLowerCase().includes(q)) && (!hide || !own.has(g[0])));
+}
+function renderCats() {
+  const n = {}; for (const g of CAT.gear) n[g[2]] = (n[g[2]] || 0) + 1;
+  const names = [...ORDER.filter((x) => n[x]), ...Object.keys(n).filter((x) => !ORDER.includes(x))];
+  $('#cats').innerHTML = names.map((x) => `<button data-c="${esc(x)}" class="${x === cat && !$('#q').value ? 'on' : ''}">${esc(x)}<em>${n[x]}</em></button>`).join('');
+}
+$('#cats').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; SFX.tick(); cat = b.dataset.c; $('#q').value = ''; shown = 120; renderCats(); renderList(); });
+const CHECK = '<svg viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
+function renderList() {
+  if (!CAT) return;
+  const list = filtered(), own = ownedMap(), q = $('#q').value;
+  $('#count').textContent = `${list.length.toLocaleString()} item${list.length === 1 ? '' : 's'}${q ? ' found' : ' in ' + cat}`;
+  const rows = list.slice(0, shown).map((g) => {
+    const o = own.get(g[0]);
+    const tag = o === undefined ? '' : `<span class="tag">${o >= 0 && !g[3] ? 'Owned, level ' + o : 'Owned'}</span>`;
+    return `<div class="item${sel.has(g[0]) ? ' sel' : ''}" data-id="${esc(g[0])}" role="checkbox" aria-checked="${sel.has(g[0])}" tabindex="0"><span class="cb">${CHECK}</span><div style="min-width:0"><div class="nm">${esc(g[1])}</div><div class="id">${esc(g[0])}${q ? ', ' + esc(g[2]) : ''}</div></div>${tag}</div>`;
+  }).join('');
+  $('#list').innerHTML = (rows || '<div class="empty">Nothing matches. Try part of a name, like "hammer" or "shrike".</div>')
+    + (list.length > shown ? `<div class="more"><button class="link" id="showMore">Show ${Math.min(300, list.length - shown)} more</button></div>` : '');
+  const m = $('#showMore'); if (m) m.onclick = () => { SFX.tick(); shown += 300; renderList(); };
+}
+function toggleRow(r) {
+  const id = r.dataset.id, on = !sel.has(id);
+  on ? sel.add(id) : sel.delete(id);
+  r.classList.toggle('sel', on); r.setAttribute('aria-checked', on);
+  SFX.select(on); updateDock();
+}
+$('#list').addEventListener('click', (e) => { const r = e.target.closest('.item'); if (r) toggleRow(r); });
+$('#list').addEventListener('keydown', (e) => { const r = e.target.closest('.item'); if (r && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); toggleRow(r); } });
+let qt; $('#q').addEventListener('input', () => { clearTimeout(qt); qt = setTimeout(() => { shown = 120; renderCats(); renderList(); }, 110); });
+['#optTemp', '#optOwned'].forEach((i) => $(i).addEventListener('change', (e) => { e.target.checked ? SFX.switchOn() : SFX.switchOff(); shown = 120; renderList(); }));
+$('#optMax').addEventListener('change', (e) => { e.target.checked ? SFX.switchOn() : SFX.switchOff(); updateDock(); });
+$('#selAll').onclick = () => { SFX.select(true); filtered().slice(0, shown).forEach((g) => sel.add(g[0])); renderList(); updateDock(); };
+$('#selNone').onclick = $('#dockClear').onclick = () => { SFX.select(false); sel.clear(); renderList(); updateDock(); };
+function updateDock() {
+  const show = activeTab() === 'items' && sel.size > 0;
+  $('#dock').classList.toggle('show', show);
+  const who = $('#charSel').selectedOptions[0]?.textContent || '';
+  $('#dockWhat').innerHTML = `<b>${sel.size}</b> selected for ${esc(who)}${$('#optMax').checked ? ', at max level where the item has levels' : ''}`;
+}
+
+async function runItems(job, btn) {
+  if (btn) btn.classList.add('busy');
+  if ('Notification' in window && Notification.permission === 'default') { try { Notification.requestPermission().then(updateNotifBtn); } catch {} }
+  const r = await api('/api/items', job);
+  if (btn) btn.classList.remove('busy');
+  if (!r.ok) { SFX.error(); toast('Not added', r.error || 'That did not work.', 'error', 7000); return false; }
+  SFX.give();
+  if (r.nothingNew) toast('Already there', 'Your character has all of that already.', 'ok');
+  else if (r.queued && !r.live) toast('Waiting for the game to close', r.note || 'It is added the moment you close the game.', 'queued', 5500);
+  return true;
+}
+$('#give').addEventListener('click', async () => {
+  const ids = [...sel], cos = new Set(CAT.gear.filter((g) => g[3]).map((g) => g[0]));
+  const gear = ids.filter((i) => !cos.has(i)), cosm = ids.filter((i) => cos.has(i));
+  const max = $('#optMax').checked;
+  let ok = true;
+  if (gear.length) ok = await runItems({ action: max ? 'addgearmax' : 'addgear', character: charId(), list: gear, label: `Give ${gear.length} gear${max ? ' at max level' : ''}` }, $('#give'));
+  if (ok && cosm.length) ok = await runItems({ action: 'addcosmetic', character: charId(), list: cosm, label: `Unlock ${cosm.length} cosmetic${cosm.length > 1 ? 's' : ''}` }, $('#give'));
+  if (ok) { sel.clear(); renderList(); updateDock(); }
+});
+$('#btnSurge').onclick = (e) => runItems({ action: 'surgeall', character: charId(), label: 'Max all gear' }, e.currentTarget);
+$('#btnCos').onclick = (e) => runItems({ action: 'addcosmetic', character: charId(), list: 'all', label: 'Unlock all cosmetics' }, e.currentTarget);
+$('#tRefresh').addEventListener('change', (e) => { e.target.checked ? SFX.switchOn() : SFX.switchOff(); setToggle({ refresh: e.target.checked }); });
+
+function renderRelay() {
+  const live = !!S.running, rel = $('#relay');
+  rel.classList.toggle('live', live);
+  $('#relayTitle').textContent = live ? 'Live delivery' : 'Game closed';
+  $('#relayText').textContent = live ? 'Gifts go straight into your running game\'s save and show up after your next loading screen. You also get a line in game chat.' : 'Gifts go straight into your save.';
+  $('#relayExp').hidden = !live;
+  const t = S.toggles || {};
+  const fns = (S.processes || []).map((p) => p.invFns).find(Boolean);
+  $('#refreshInfo').textContent = !t.refresh ? 'Experimental: asks the game to reload your inventory right away.'
+    : t.refreshFn ? `Working: ${t.refreshFn}. Gifts appear right away.` : fns ? `Trying ${fns.split(',').length} method${fns.includes(',') ? 's' : ''}, one per gift.` : 'Give something to start testing.';
+  $('#pending').innerHTML = (S.deliveries || []).map((d) => `<span class="chipwait"><i></i>${esc(d.what)} is saved, waiting for a loading screen</span>`).join('');
+}
+function renderQueue() {
+  const q = S.queue || [];
+  $('#waitWrap').hidden = !q.length;
+  $('#queue').innerHTML = q.map((j) => `<div class="cur" style="grid-template-columns:1fr"><div>${esc(j.what)}<small>Added when you close the game</small></div></div>`).join('');
+}
+$('#clearQ').onclick = async () => { SFX.tick(); await api('/api/queue/clear', {}); toast('Cancelled', 'Nothing is waiting any more.'); };
+
+/* ================================================= currencies */
+const MAXV = 99999999, edits = {};
+function curOf(id) {
+  const cs = ((SAVE && SAVE.characters) || []).filter((c) => charId() === '*' || c.id === charId());
+  return cs.length ? Math.max(...cs.map((c) => (c.items || {})[id] || 0)) : 0;
+}
+function renderCur() {
+  if (!CAT) return;
+  $('#groups').innerHTML = CAT.groups.map((g) => `<div class="group"><h4>${esc(g.title || '')}</h4><div class="list">${(g.items || []).map((i) => {
+    const v = edits[i.id] ?? curOf(i.id);
+    return `<div class="cur"><div>${esc(i.name)}<small>${esc(i.blurb || i.id)}</small></div><input data-id="${esc(i.id)}" inputmode="numeric" value="${v.toLocaleString('en-US')}" class="${edits[i.id] != null ? 'changed' : ''}" aria-label="${esc(i.name)}"><button class="chipbtn" data-max="${esc(i.id)}">Max</button></div>`;
+  }).join('')}</div></div>`).join('');
+  $('#applyCur').disabled = !Object.keys(edits).length;
+}
+$('#groups').addEventListener('input', (e) => {
+  const i = e.target.closest('input'); if (!i) return;
+  const n = Math.max(0, Math.min(MAXV, Math.floor(Number(i.value.replace(/[^\d]/g, '')) || 0)));
+  if (n === curOf(i.dataset.id)) delete edits[i.dataset.id]; else edits[i.dataset.id] = n;
+  i.classList.toggle('changed', edits[i.dataset.id] != null); $('#applyCur').disabled = !Object.keys(edits).length;
+});
+$('#groups').addEventListener('focusout', (e) => { const i = e.target.closest('input'); if (i) i.value = (edits[i.dataset.id] ?? curOf(i.dataset.id)).toLocaleString('en-US'); });
+$('#groups').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-max]'); if (!b) return;
+  SFX.step(4); edits[b.dataset.max] = MAXV;
+  const i = b.parentElement.querySelector('input'); i.value = MAXV.toLocaleString('en-US'); i.classList.add('changed'); i.classList.remove('flash'); void i.offsetWidth; i.classList.add('flash');
+  $('#applyCur').disabled = false;
+});
+$('#maxAll').onclick = () => { SFX.step(5); CAT.groups.forEach((g) => (g.items || []).forEach((i) => { edits[i.id] = MAXV; })); renderCur(); $$('#groups input').forEach((i) => i.classList.add('flash')); };
+$('#applyCur').onclick = async (e) => {
+  const n = Object.keys(edits).length;
+  if (await runItems({ action: 'set', character: charId(), counts: { ...edits }, label: `Set ${n} amount${n > 1 ? 's' : ''}` }, e.currentTarget)) { for (const k in edits) delete edits[k]; renderCur(); }
+};
+
+/* ================================================= rules */
+function renderRules() {
+  const { defs, picks } = CAT.rules;
+  $('#rules').innerHTML = defs.map((r) => `<div class="rule"><b>${esc(r.title)}</b><p>${esc(r.blurb || '')}</p><div class="seg" data-k="${esc(r.key)}"><span class="ind"></span>${r.choices.map(([v, l]) => `<button data-v="${esc(v)}" class="${String(picks[r.key]) === v ? 'on' : ''}">${esc(l)}</button>`).join('')}</div></div>`).join('') || '<div class="empty">This package has no game rules.</div>';
+  requestAnimationFrame(() => $$('#rules .seg').forEach(placeInd));
+}
+$('#rules').addEventListener('click', async (e) => {
+  const b = e.target.closest('.seg button'); if (!b || b.classList.contains('on')) return;
+  const seg = b.parentElement, k = seg.dataset.k;
+  SFX.step([...seg.querySelectorAll('button')].indexOf(b));
+  seg.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b)); placeInd(seg);
+  const r = await api('/api/rules', { [k]: b.dataset.v });
+  if (r.ok) { CAT.rules = r.rules; toast('Rule saved', S && S.running ? 'It applies the next time you press Play.' : ''); } else { SFX.error(); toast('Not saved', r.error, 'error'); }
+});
+
+/* ================================================= save + characters */
+async function loadSave() {
+  const r = await api('/api/save');
+  if (!r.ok) { toast('Could not read your save', r.error, 'error'); return; }
+  SAVE = r;
+  const s = $('#charSel'), keep = s.value;
+  s.innerHTML = r.characters.map((c) => `<option value="${esc(c.id)}">${esc(c.name || c.id)}</option>`).join('') + '<option value="*">All my characters</option>';
+  const want = charPicked ? keep : (S && S.playingAs) || keep;
+  s.value = [...s.options].some((o) => o.value === want) && want !== '*' ? want : charPicked && keep === '*' ? '*' : (r.characters[0] ? r.characters[0].id : '*');
+  renderList(); renderCur(); updateDock();
+}
+function onChar() { renderList(); renderCur(); updateDock(); }
+$('#charSel').addEventListener('change', () => { charPicked = true; SFX.tick(); onChar(); });
+
+async function loadAll() {
+  CAT = await api('/api/catalog');
+  if (!CAT.ok) return;
+  renderCats(); renderList(); renderCur(); renderRules();
+  const f = await api('/api/feed');
+  [...f].reverse().forEach((n) => onNote(n, false));
+  loadSave();
+}
+
+/* ================================================= sound settings */
+$('#sfxOn').checked = SFX.on; $('#sfxVol').value = SFX.vol; $('#introOn').checked = store.get('intro', true);
+const paintVol = () => { const v = Number($('#sfxVol').value); $('#sfxVol').style.setProperty('--fill', v * 100 + '%'); $('#sfxVol').style.setProperty('--glow', 1); $('#soundWaves').style.opacity = SFX.on && v > 0 ? 1 : 0.15; };
+paintVol();
+$('#soundBtn').onclick = (e) => { e.stopPropagation(); SFX.unlock(); $('#soundPop').classList.toggle('open'); SFX.tick(); };
+document.addEventListener('click', (e) => { if (!e.target.closest('#soundPop') && !e.target.closest('#soundBtn')) $('#soundPop').classList.remove('open'); });
+$('#sfxOn').onchange = (e) => { SFX.setOn(e.target.checked); paintVol(); if (e.target.checked) SFX.switchOn(); };
+$('#sfxVol').oninput = (e) => { SFX.setVol(Number(e.target.value)); paintVol(); };
+$('#sfxVol').onchange = () => SFX.select(true);
+$('#introOn').onchange = (e) => { store.set('intro', e.target.checked); e.target.checked ? SFX.switchOn() : SFX.switchOff(); };
+addEventListener('pointerdown', () => SFX.unlock(), { once: true });
+
+/* ================================================= start */
+updateNotifBtn();
+connect();
+runIntro(reveal);
+</script>
+</body>
+</html>

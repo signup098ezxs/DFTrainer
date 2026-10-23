@@ -1,0 +1,8 @@
+# never commit the signing key
+*.pem
+dist/
+launcher/embedded/app.zip
+launcher/embedded/app-version.txt
+launcher/rsrc_windows_amd64.syso
+app/trainer-settings.json
+*.log
