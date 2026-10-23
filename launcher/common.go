@@ -1,8 +1,11 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -32,4 +35,19 @@ func uninstall() {
 	scheduleDelete(rootDir())
 	showInfo("DF Trainer", "DF Trainer was removed.")
 	os.Exit(0)
+}
+
+// windowSize: the panel window size picked in Settings (saved by the panel), else a size that fits most screens
+func windowSize() string {
+	var st struct {
+		Prefs struct {
+			WinSize []int `json:"winSize"`
+		} `json:"prefs"`
+	}
+	if b, err := os.ReadFile(filepath.Join(rootDir(), "trainer-settings.json")); err == nil && json.Unmarshal(b, &st) == nil {
+		if w := st.Prefs.WinSize; len(w) == 2 && w[0] >= 600 && w[1] >= 600 && w[0] <= 4000 && w[1] <= 4000 {
+			return fmt.Sprintf("%d,%d", w[0], w[1])
+		}
+	}
+	return "1180,760"
 }

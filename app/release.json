@@ -1,5 +1,5 @@
 {
-  "version": "1.1.0",
+  "version": "1.2.0",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "New launcher with automatic updates. Polished intro with a Claude glimmer, and a smoother panel reveal."
+  "notes": "Cleaner, more compact panel. New Settings menu: window size, interface scale and frame rate. Calmer intro. The Restart to update button only shows when an update is ready. Proper window icon."
 }

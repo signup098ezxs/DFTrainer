@@ -535,6 +535,18 @@ const routes = {
     return r;
   },
   'POST /api/queue/clear': async () => { queue = []; settings.queue = queue; saveSettings(); return { ok: true }; },
+  'GET /api/prefs': async () => settings.prefs || {},
+  'POST /api/prefs': async (b) => {
+    const p = {}, ok = (k, test) => { if (b[k] !== undefined && test(b[k])) p[k] = b[k]; };
+    ok('sfx', (v) => typeof v === 'boolean'); ok('intro', (v) => typeof v === 'boolean');
+    ok('vol', (v) => typeof v === 'number' && v >= 0 && v <= 1);
+    ok('scale', (v) => [0.9, 1, 1.1, 1.25].includes(v));
+    ok('fps', (v) => ['display', '60', '30', 'off'].includes(v));
+    ok('win', (v) => ['auto', '1024x640', '1180x760', '1280x800', '1440x900'].includes(v));
+    ok('winSize', (v) => Array.isArray(v) && v.length === 2 && v.every((n) => Number.isInteger(n) && n >= 600 && n <= 4000));
+    settings.prefs = { ...(settings.prefs || {}), ...p }; saveSettings();
+    return settings.prefs;
+  },
   'POST /api/update/check': async () => stageUpdate(true),
   'POST /api/update/restart': async () => {
     if (!LAUNCHER) return { ok: false, error: 'Updates come with the DF Trainer launcher.' };
@@ -594,7 +606,8 @@ function openWindow(url) {
     if (edge) {
       // its own profile: a fresh browser process, so the window is the app alone and its sounds may play at once
       const profile = path.join(process.env.LOCALAPPDATA || HERE, 'DFTrainer', 'window');
-      spawn(edge, [`--app=${url}`, `--user-data-dir=${profile}`, '--window-size=1280,840', '--no-first-run', '--no-default-browser-check',
+      const ws = (settings.prefs && settings.prefs.winSize) || [1180, 760];   // the size picked in Settings (it fits the screen)
+      spawn(edge, [`--app=${url}`, `--user-data-dir=${profile}`, `--window-size=${ws[0]},${ws[1]}`, '--no-first-run', '--no-default-browser-check',
         '--autoplay-policy=no-user-gesture-required', '--disable-features=Translate,msEdgeSidebarV2'], { detached: true, stdio: 'ignore' }).unref();
       return;
     }

@@ -123,7 +123,7 @@ func openAppWindow(url string) {
 		return
 	}
 	profile := filepath.Join(defaultRoot(), "window")
-	_ = startDetached(edge, []string{"--app=" + url, "--user-data-dir=" + profile, "--window-size=1280,840", "--no-first-run",
+	_ = startDetached(edge, []string{"--app=" + url, "--user-data-dir=" + profile, "--window-size=" + windowSize(), "--no-first-run",
 		"--no-default-browser-check", "--autoplay-policy=no-user-gesture-required", "--disable-features=Translate,msEdgeSidebarV2"})
 }
 
