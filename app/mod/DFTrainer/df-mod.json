@@ -1,5 +1,5 @@
 {
   "title": "Lantern Client",
   "about": "God mode, infinite stamina, damage and speed multipliers. Controlled from the Lantern Client panel. Needs server mods on.",
-  "keys": [["F5", "god mode on/off"], ["F6", "infinite stamina on/off"]]
+  "keys": [["F8", "god mode on/off"], ["F9", "infinite stamina on/off"]]
 }

@@ -9,9 +9,15 @@
 -- Only property reads and writes are used: the healthbar mod notes that calling game functions from Lua does not
 -- return usable results in this setup, but properties work.
 --
--- Hotkeys (in the game window): F5 god mode, F6 infinite stamina. Everything is logged as [DFTrainer] in UE4SS.log.
+-- Hotkeys (in the game window): F8 god mode, F9 infinite stamina (F6/F7 belong to the bundled DamageMeter mod).
+-- Everything is logged as [DFTrainer] in UE4SS.log.
+--
+-- How it runs: a LoopAsync timer calls the cheats directly. ExecuteInGameThread is not used: it needs UE4SS's
+-- EngineTick hook, which does not work in this game (the bundled DamageMeter mod found the same), so nothing queued
+-- through it ever ran. The cheats also run from the combat-text hook (every hit), which is on the game's own thread,
+-- so a hit is answered at once. Cheats are for the owner: without the owner's switches ("locked") nothing changes.
 
-local TICK_MS      = 100    -- how often values are topped up
+local TICK_MS      = 150    -- how often values are topped up (and right after every hit, see the hook below)
 local RESCAN_EVERY = 2.0    -- seconds between searches for players, behemoths and their attribute objects
 local READ_EVERY   = 0.5    -- seconds between reads of the toggles file
 local STATUS_EVERY = 2.0    -- seconds between status heartbeats for the panel
@@ -154,11 +160,25 @@ local S = {
 local lastRescan = -100
 local staminaCache = {}   -- class name -> { current property, max property } or false
 
+-- the game is the only copy with a local player (your screen and keyboard); server copies only have remote controllers
+-- (the same test as the bundled DamageMeter mod)
 local function isLocal(pc)
+    local ok, res = pcall(function() return pc:IsLocalController() end)
+    if ok and res == true then return true end
     local okP, pl = pcall(function() return pc.Player end)
     if not (okP and valid(pl)) then return false end
     local n = (nameOf(pl) or ""):lower()
     return n:find("localplayer", 1, true) ~= nil or n:find("local_player", 1, true) ~= nil
+end
+local function hasLocalPlayer()
+    for _, cls in ipairs({ "ArchonLocalPlayer", "LocalPlayer" }) do
+        local ok, list = pcall(FindAllOf, cls)
+        for _, lp in ipairs(ok and list or {}) do
+            local n = nameOf(lp) or ""
+            if valid(lp) and not n:find("Default__", 1, true) then return true end
+        end
+    end
+    return false
 end
 
 -- every float property name on an object, walking up its classes
@@ -223,6 +243,7 @@ local function rescan(now)
             owners[#owners + 1] = { pawn = pawn, path = pathOf(pawn), psPath = (okS and valid(ps)) and pathOf(ps) or nil, pcPath = pathOf(pc) }
         end
     end
+    if not isGame and hasLocalPlayer() then isGame = true end
     S.role = isGame and "game" or "server"
 
     local healthSets = findAll(PLAYER_SETS)
@@ -286,6 +307,11 @@ local function rescan(now)
         end
     end
     S.behemoths = behemoths
+    local hs, ss, mv = 0, 0, 0
+    for _, p in ipairs(players) do hs = hs + #p.health ss = ss + #p.stamina if p.move then mv = mv + 1 end end
+    local summary = string.format("%s: %d player(s), health sets %d, stamina %d%s, movement %d, behemoths %d", S.role, #players, hs, ss,
+        S.stamina and (" (" .. S.stamina.cls .. "." .. S.stamina.cur .. ")") or "", mv, #behemoths)
+    if summary ~= S.lastSummary then S.lastSummary = summary log(summary) end
 end
 
 ---------------------------------------------------------------- the cheats
@@ -298,7 +324,9 @@ local function tick()
             for _, s in ipairs(p.health) do
                 if valid(s) then
                     local hp, mx = readNum(s, "CurrentHealth"), readNum(s, "MaxHealth")
-                    if hp and mx and mx > 0 and hp < mx then writeNum(s, "CurrentHealth", mx) end
+                    if hp and mx and mx > 0 and hp < mx and writeNum(s, "CurrentHealth", mx) then
+                        logOnce("god", string.format("god mode working: health %.0f -> %.0f (%s)", hp, mx, S.role))
+                    end
                 end
             end
         end
@@ -309,7 +337,9 @@ local function tick()
                     local top = st.max and readNum(st.obj, st.max) or nil
                     if v and v > st.top then st.top = v end   -- no max property: the highest value seen is full
                     top = (top and top > 0) and top or st.top
-                    if v and top and top > 0 and v < top then writeNum(st.obj, st.cur, top) end
+                    if v and top and top > 0 and v < top and writeNum(st.obj, st.cur, top) then
+                        logOnce("stam", string.format("infinite stamina working: %s %.0f -> %.0f (%s)", st.cur, v, top, S.role))
+                    end
                 end
             end
         end
@@ -320,7 +350,10 @@ local function tick()
                 if p.wroteSpeed == nil or math.abs(cur - p.wroteSpeed) > 0.01 then p.baseSpeed = cur end
                 if T.speed ~= 1 and p.baseSpeed then
                     local want = p.baseSpeed * T.speed
-                    if math.abs(cur - want) > 0.01 and writeNum(p.move, "MaxWalkSpeed", want) then p.wroteSpeed = want end
+                    if math.abs(cur - want) > 0.01 and writeNum(p.move, "MaxWalkSpeed", want) then
+                        p.wroteSpeed = want
+                        logOnce("speed", string.format("move speed working: %.0f -> %.0f (%s)", p.baseSpeed, want, S.role))
+                    end
                 elseif p.wroteSpeed and p.baseSpeed then
                     writeNum(p.move, "MaxWalkSpeed", p.baseSpeed)   -- switched back to x1
                     p.wroteSpeed = nil
@@ -337,7 +370,10 @@ local function tick()
             if hp then
                 if T.damage > 1 and b.last and hp < b.last then
                     local want = math.max(1, hp - (b.last - hp) * (T.damage - 1))
-                    if want < hp and writeNum(b.set, "CurrentHealth", want) then hp = want end
+                    if want < hp and writeNum(b.set, "CurrentHealth", want) then
+                        logOnce("dmg", string.format("damage x%g working: behemoth %.0f -> %.0f (%s)", T.damage, hp, want, S.role))
+                        hp = want
+                    end
                 end
                 b.last = hp
             end
@@ -469,23 +505,36 @@ local function step()
 end
 
 LoopAsync(TICK_MS, function()
-    if type(ExecuteInGameThread) == "function" then ExecuteInGameThread(step) else step() end
+    local ok, err = pcall(step)
+    if not ok then logOnce("step:" .. tostring(err), "loop error: " .. tostring(err)) end
     return false
 end)
 
+-- every hit (yours or a behemoth's) runs the cheats at once, on the game's own thread
+local lastHitTick = -1
+local hooked, hookErr = pcall(function()
+    RegisterHook("/Script/Archon.ArchonCombatTextComponent:MulticastSendMultitypeCombatText", function()
+        local now = os.clock()
+        if now - lastHitTick < 0.03 then return end
+        lastHitTick = now
+        pcall(tick)
+    end)
+end)
+log(hooked and "hit hook ready" or ("hit hook not available (" .. tostring(hookErr) .. "); the timer still runs the cheats"))
+
 pcall(function()
-    RegisterKeyBind(Key.F5, function()
+    RegisterKeyBind(Key.F8, function()
         if S.role ~= "game" or T.locked then return end
         T.godmode = not T.godmode
         writeToggles()
-        log("F5: god mode " .. (T.godmode and "on" or "off"))
+        log("F8: god mode " .. (T.godmode and "on" or "off"))
     end)
-    RegisterKeyBind(Key.F6, function()
+    RegisterKeyBind(Key.F9, function()
         if S.role ~= "game" or T.locked then return end
         T.stamina = not T.stamina
         writeToggles()
-        log("F6: infinite stamina " .. (T.stamina and "on" or "off"))
+        log("F9: infinite stamina " .. (T.stamina and "on" or "off"))
     end)
 end)
 
-log("loaded")
+log("loaded (v2: timer + hit hook, F8/F9)")

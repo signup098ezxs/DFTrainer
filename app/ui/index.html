@@ -327,6 +327,8 @@ nav > button.on { color: var(--frost); background: linear-gradient(90deg, rgba(v
 nav > button.on svg { color: var(--aether); filter: drop-shadow(0 0 6px rgba(var(--a-rgb), .7)); }
 nav .count { margin-left: auto; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 99px; background: var(--aether); color: var(--a-ink); font: 700 11.5px/20px var(--display); text-align: center; box-shadow: 0 0 10px rgba(var(--a-rgb), .55); transform: scale(0); transition: transform .35s var(--spring); }
 nav .count.show { transform: scale(1); }
+nav .navlabel { margin: 14px 12px 4px; color: var(--ash2); font: 600 11px/1 var(--display); letter-spacing: .12em; text-transform: uppercase; }
+nav .navlabel[hidden], nav .keys[hidden] { display: none; }
 nav .keys { margin-top: auto; padding: 10px 12px; color: var(--ash2); font-size: 12px; line-height: 1.8; }
 kbd { display: inline-block; min-width: 22px; padding: 0 6px; border-radius: 6px; border: 1px solid var(--seam2); border-bottom-width: 2px; background: var(--hull2); color: var(--aether); font: 600 11.5px/18px var(--display); text-align: center; }
 .pages { position: relative; min-height: 0; overflow: hidden; }
@@ -581,36 +583,37 @@ input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border: 0; bord
 <main>
   <nav id="nav">
     <span class="bar" id="navBar"></span>
-    <button data-tab="cheats" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7.5" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/></svg>Player</button>
-    <button data-tab="items"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 17.5 3 6V3h3l11.5 11.5M13 19l6-6M16 16l4 4M19 21l2-2"/></svg>Give items</button>
+    <button data-tab="items" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 17.5 3 6V3h3l11.5 11.5M13 19l6-6M16 16l4 4M19 21l2-2"/></svg>Give items</button>
     <button data-tab="currency"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="m12 8 4 4-4 4-4-4z"/></svg>Currencies</button>
     <button data-tab="rules"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>Game rules</button>
     <button data-tab="feed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Live feed <span class="count" id="feedCount"></span></button>
+    <div class="navlabel" id="ownerLabel" hidden>Owner</div>
+    <button data-tab="cheats" id="cheatsTab" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7.5" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/></svg>Cheats</button>
     <button data-tab="keys" id="keysTab" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 9.8-9.8M17 6l3 3M14.5 8.5l2.5 2.5"/></svg>Keys</button>
-    <div class="keys">In game<br><kbd>F5</kbd> God mode<br><kbd>F6</kbd> Infinite stamina</div>
+    <div class="keys" id="hotkeys" hidden>In game<br><kbd>F8</kbd> God mode<br><kbd>F9</kbd> Infinite stamina</div>
     <button data-tab="settings" class="settab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</button>
   </nav>
 
   <div class="pages">
     <!-- CHEATS -->
-    <section id="tab-cheats" class="on">
+    <section id="tab-cheats">
       <div class="banner" id="banner"><div class="t"><b id="bannerTitle"></b><span id="bannerText"></span></div><input id="pkgInput" hidden placeholder="...\DauntlessForever\versions\1.6.2"><button class="btn primary" id="bannerBtn"></button></div>
-      <div class="head"><div><h2>Player</h2><p class="lede">Switch any time, in Ramsgate or mid-hunt.</p></div></div>
+      <div class="head"><div><h2>Cheats</h2><p class="lede">Owner only. Switch any time, in Ramsgate or mid-hunt.</p></div></div>
       <div class="wrap">
         <div class="tiles">
           <div class="tile" id="tileGod" data-for="tGod">
             <div class="top">
               <div class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg></div>
-              <div><h3>God mode</h3><div class="hk"><kbd>F5</kbd> in game</div></div>
+              <div><h3>God mode</h3><div class="hk"><kbd>F8</kbd> in game</div></div>
               <label class="sw"><input type="checkbox" id="tGod" aria-label="God mode"><span class="track"></span><span class="knob"></span></label>
             </div>
-            <p>Your health refills ten times a second, so no hit can finish you.</p>
+            <p>Your health refills constantly and right after every hit.</p>
             <div class="state" id="liveGod"></div>
           </div>
           <div class="tile" id="tileStam" data-for="tStam">
             <div class="top">
               <div class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></div>
-              <div><h3>Infinite stamina</h3><div class="hk"><kbd>F6</kbd> in game</div></div>
+              <div><h3>Infinite stamina</h3><div class="hk"><kbd>F9</kbd> in game</div></div>
               <label class="sw"><input type="checkbox" id="tStam" aria-label="Infinite stamina"><span class="track"></span><span class="knob"></span></label>
             </div>
             <p>Sprint, dodge and climb without the bar ever emptying.</p>
@@ -635,7 +638,7 @@ input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border: 0; bord
     </section>
 
     <!-- ITEMS -->
-    <section id="tab-items">
+    <section id="tab-items" class="on">
       <div class="head"><div><h2>Give items</h2><p class="lede">Send anything from the 1.6.2 catalog to your character.</p></div></div>
       <div class="wrap">
         <div class="relay" id="relay">
@@ -1002,6 +1005,8 @@ function onNote(n, fresh) {
 
 function showBanner(kind) {
   const b = $('#banner'), inp = $('#pkgInput'), btn = $('#bannerBtn');
+  if (kind === 'setup' && !(LIC && LIC.owner)) kind = null;
+  placeBanner();
   b.classList.toggle('show', !!kind);
   if (!kind) return;
   if (kind === 'pkg') {
@@ -1042,8 +1047,10 @@ function renderLicense(l) {
       : l.state === 'invalid' ? 'The saved key is not valid. Paste the one you were given below, then confirm it.'
       : 'Paste the key you were given into the box (Ctrl+V), then confirm it.';
   }
-  $('#keysTab').hidden = !l.owner;
-  if (!l.owner && activeTab() === 'keys') $('nav > button[data-tab="cheats"]').click();
+  $('#keysTab').hidden = $('#cheatsTab').hidden = $('#ownerLabel').hidden = $('#hotkeys').hidden = !l.owner;
+  $('#pMod').hidden = !l.owner;
+  if (!l.owner && ['keys', 'cheats'].includes(activeTab())) goTab('items', true);
+  requestAnimationFrame(placeNav);
   $('#licInfo').textContent = l.owner ? 'Owner: you make the keys (Keys page).'
     : l.ok ? `Licensed to ${l.name}. ${l.expires ? `Runs until ${fmtDate(l.expires)} (${daysLeft(l.expires)} day${daysLeft(l.expires) === 1 ? '' : 's'} left).` : 'Never runs out.'}` : 'No key';
   $('#licRemove').textContent = l.owner ? 'Remove owner key' : 'Remove key';
@@ -1214,10 +1221,10 @@ let introDone = false, tourOn = false, tourI = 0, TOUR = [];
 function tourSteps() {
   const owner = LIC && LIC.owner, setup = $('#banner').classList.contains('show');
   return [
-    { title: `Welcome${LIC && LIC.name && !owner ? ', ' + esc(LIC.name) : ''}`, body: '<p>Lantern Client sits next to Dauntless Forever (1.6.2): cheats you switch on and off, an item giver that works while you play, and game rules.</p><p>This quick tour shows how to set it up and what each page does. It takes about a minute.</p>' },
+    { title: `Welcome${LIC && LIC.name && !owner ? ', ' + esc(LIC.name) : ''}`, body: `<p>Lantern Client sits next to Dauntless Forever (1.6.2): an item giver that works while you play, currencies and game rules${owner ? ', plus the owner cheats' : ''}.</p><p>This quick tour shows how to set it up and what each page does. It takes about a minute.</p>` },
     { target: '.pills', title: 'Status at a glance', body: '<ul><li><b>Live</b>: the panel is connected and updating in real time.</li><li><b>Game</b>: whether Dauntless Forever is running.</li><li><b>Mod</b>: whether the in-game mod is set up and answering.</li></ul>' },
-    { tab: 'cheats', target: setup ? '#banner' : '#pMod', title: 'One-time set-up', body: `<p>Lantern Client finds your Dauntless Forever 1.6.2 install by itself (or asks you for its folder).</p><p>With the game <b>closed</b>, press <b>Set up</b>${setup ? ' here' : ' on the Player page'}. It installs the Lantern mod (and UE4SS if needed) and turns on modded mode and server mods. Then press <b>Play</b> in the Dauntless Forever launcher.</p>${setup ? '' : '<p>Your set-up is already done: the Mod light shows it.</p>'}` },
-    { tab: 'cheats', target: '#tab-cheats .tiles', title: 'Player cheats', body: '<ul><li><b>God mode</b>: your health refills constantly.</li><li><b>Infinite stamina</b>: the stamina bar stays full.</li><li><b>Damage</b>: multiplies your damage to behemoths, up to one hit.</li><li><b>Move speed</b>: faster or slower walking and sprinting.</li></ul><p>They work at once, in Ramsgate or mid-hunt. In game, <kbd>F5</kbd> toggles god mode and <kbd>F6</kbd> infinite stamina.</p>' },
+    ...(!owner ? [] : [{ tab: 'cheats', target: setup ? '#banner' : '#pMod', title: 'One-time set-up for cheats', body: `<p>Lantern Client finds your Dauntless Forever 1.6.2 install by itself (or asks you for its folder).</p><p>With the game <b>closed</b>, press <b>Set up</b>${setup ? ' here' : ' on the Player page'}. It installs the Lantern mod (and UE4SS if needed) and turns on modded mode and server mods. Then press <b>Play</b> in the Dauntless Forever launcher.</p>${setup ? '' : '<p>Your set-up is already done: the Mod light shows it.</p>'}` },
+    { tab: 'cheats', target: '#tab-cheats .tiles', title: 'Cheats (owner only)', body: '<ul><li><b>God mode</b>: your health refills constantly.</li><li><b>Infinite stamina</b>: the stamina bar stays full.</li><li><b>Damage</b>: multiplies your damage to behemoths, up to one hit.</li><li><b>Move speed</b>: faster or slower walking and sprinting.</li></ul><p>They work at once, in Ramsgate or mid-hunt. In game, <kbd>F8</kbd> toggles god mode and <kbd>F9</kbd> infinite stamina.</p>' }]),
     { tab: 'items', target: '#tab-items .search', title: 'Give items', body: '<p>Search the whole 1.6.2 catalog (weapons, armour, lanterns, parts and cosmetics), tick what you want and press <b>Give</b>.</p><ul><li><b>Max level</b> gives them fully upgraded.</li><li><b>Max all my gear</b> and <b>Unlock all cosmetics</b> do it in one click.</li></ul><p>With the game closed, gifts go into your save. While you play, they arrive live and are announced in game chat.</p>' },
     { target: '#charSel', title: 'Who gets it', body: '<p>Pick which character receives gifts, or all of them. While you play, it follows the character you are on.</p>' },
     { tab: 'currency', target: '#tab-currency .head', title: 'Currencies and materials', body: '<p>Type any amount of Rams, Merits, tokens, materials and cell cores, then press <b>Apply changes</b>. <b>Max everything</b> fills them all. Works while you play.</p>' },
@@ -1225,7 +1232,7 @@ function tourSteps() {
     { tab: 'feed', target: 'nav > button[data-tab="feed"]', title: 'Live feed', body: '<p>Everything that reaches your game, as it happens: gifts delivered, switches flipped, updates. Turn on <b>desktop alerts</b> there to see them while you are in game.</p>' },
     ...(owner ? [{ tab: 'keys', target: '#tab-keys .setcard', title: 'Keys (owner only)', body: '<p>Make a key for someone: enter who it is for, pick how long it lasts, press <b>Generate key</b> and send it. <b>Revoke</b> stops a key; add its id to licenses/revoked.txt on GitHub when asked.</p>' }] : []),
     { tab: 'settings', target: 'nav > button[data-tab="settings"]', title: 'Settings', body: '<p>Colour presets, fonts, window size, interface scale, frame rate, sounds and the intro. <b>About</b> shows your key and checks for updates. Lantern Client updates itself.</p><p><b>Show the tour</b> there plays this again.</p>' },
-    { tab: 'cheats', title: "You're ready", body: `<p>${setup ? 'Start with <b>Set up</b> on the Player page, then' : 'Next:'} press <b>Play</b> in the Dauntless Forever launcher and switch on what you like.</p><p>Have a good hunt.</p>`, last: true },
+    { tab: 'items', title: "You're ready", body: `<p>${owner && setup ? 'Start with <b>Set up</b> on the Cheats page, then' : 'Next:'} press <b>Play</b> in the Dauntless Forever launcher${owner ? ' and switch on what you like' : ' and give yourself something'}.</p><p>Have a good hunt.</p>`, last: true },
   ];
 }
 function startTour() {
@@ -1238,7 +1245,7 @@ function startTour() {
 function endTour() {
   if (!tourOn) return;
   tourOn = false; $('#tour').hidden = true; store.set('onboarded', true);
-  const b = $('nav > button[data-tab="cheats"]'); if (!b.classList.contains('on')) b.click();
+  goTab(LIC && LIC.owner ? 'cheats' : 'items', true);
 }
 function maybeTour() {
   if (tourOn || !introDone || !menuReady || welcomeOn || !LIC || !LIC.ok || lockHold || $('#lock').classList.contains('on') || store.get('onboarded', false)) return;
@@ -1296,6 +1303,15 @@ addEventListener('keydown', (e) => {
 addEventListener('resize', () => { if (tourOn) placeTour(); });
 
 /* ================================================= navigation */
+// the Dauntless Forever / set-up banner sits at the top of whichever page is open
+function placeBanner() { const sec = $('section.on'), b = $('#banner'); if (sec && b.parentElement !== sec) sec.prepend(b); }
+function goTab(t, quiet) {
+  const b = $(`nav > button[data-tab="${t}"]`); if (!b || b.classList.contains('on')) return;
+  $$('nav > button').forEach((x) => x.classList.toggle('on', x === b));
+  $$('section').forEach((s) => s.classList.toggle('on', s.id === 'tab-' + t));
+  placeBanner(); placeNav(); updateDock();
+  if (!quiet) SFX.tab();
+}
 const activeTab = () => ($('nav > button.on') || {}).dataset?.tab;
 function placeNav() {
   const b = $('nav > button.on'), bar = $('#navBar'); if (!b) return;
@@ -1307,6 +1323,7 @@ $('#nav').addEventListener('click', (e) => {
   SFX.tab();
   $$('nav > button').forEach((x) => x.classList.toggle('on', x === b));
   $$('section').forEach((s) => s.classList.toggle('on', s.id === 'tab-' + b.dataset.tab));
+  placeBanner();
   placeNav();
   requestAnimationFrame(() => $$('#tab-' + b.dataset.tab + ' .seg').forEach(placeInd));
   if (b.dataset.tab === 'feed') { unseen = 0; $('#feedCount').classList.remove('show'); }

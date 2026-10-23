@@ -230,9 +230,11 @@ setInterval(() => {
 
 // ---------------------------------------------------------------- in-game switches
 const TOGGLE_DEFAULTS = { godmode: false, stamina: false, damage: 1, speed: 1, refresh: false, refreshFn: '' };
+// cheats are the owner's: anyone else's client keeps the mod locked (everything off, hotkeys ignored)
+const isOwner = () => !!LIC.status().owner;
 function readToggles(p) {
   const t = p.modDir ? readJson(path.join(p.modDir, 'trainer-toggles.json'), null) : null;
-  if (!LIC.ok()) return { ...TOGGLE_DEFAULTS };
+  if (!isOwner()) return { ...TOGGLE_DEFAULTS };
   const { locked, ...rest } = t || {};
   return { ...TOGGLE_DEFAULTS, ...(settings.toggles || {}), ...rest };
 }
@@ -247,7 +249,7 @@ function writeToggles(p, t) {
   if (p.modDir && fs.existsSync(p.modDir)) {
     const f = path.join(p.modDir, 'trainer-toggles.json');
     // without a valid key the mod gets everything off and "locked" (its hotkeys do nothing either)
-    const out = LIC.ok() ? { ...clean, locked: false } : { ...TOGGLE_DEFAULTS, locked: true };
+    const out = isOwner() ? { ...clean, locked: false } : { ...TOGGLE_DEFAULTS, locked: true };
     fs.writeFileSync(f + '.tmp', JSON.stringify({ ...out, by: 'panel', time: Math.floor(Date.now() / 1000) }));
     fs.renameSync(f + '.tmp', f);
   }
@@ -469,6 +471,33 @@ function writeRules(p, want) {
   return rulesInfo(p);
 }
 
+// ---------------------------------------------------------------- keeping the installed game mod current
+// Set up copies the mod into the game once; after an update of Lantern Client the game would keep the old script.
+// At start, and whenever the game closes, an installed mod that differs from this version's is replaced. With the game
+// running, the new script is copied too but only loads at the next game start (the panel says so).
+function modFiles(dir, base = dir, out = []) {
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    const f = path.join(dir, e.name);
+    if (e.isDirectory()) modFiles(f, base, out); else out.push(path.relative(base, f));
+  }
+  return out;
+}
+function syncMod(gameRunning) {
+  try {
+    const p = places();
+    if (!p.modDir || !fs.existsSync(path.join(p.modDir, 'Scripts', 'main.lua'))) return false;   // not set up: Set up does it
+    const stale = modFiles(MOD_SRC).filter((rel) => {
+      const a = path.join(MOD_SRC, rel), b = path.join(p.modDir, rel);
+      try { return !fs.readFileSync(a).equals(fs.readFileSync(b)); } catch { return true; }
+    });
+    if (!stale.length) return false;
+    for (const rel of stale) { fs.mkdirSync(path.dirname(path.join(p.modDir, rel)), { recursive: true }); fs.copyFileSync(path.join(MOD_SRC, rel), path.join(p.modDir, rel)); }
+    fs.mkdirSync(path.join(p.modDir, 'status'), { recursive: true });
+    note('mod', 'Game mod updated', gameRunning ? 'Restart the game to use it.' : 'It loads the next time you press Play.');
+    return true;
+  } catch (e) { return false; }
+}
+
 // ---------------------------------------------------------------- state, watched for changes and pushed
 let lastRunning = false, lastProcCount = 0, lastToggleText = '';
 async function buildState() {
@@ -496,6 +525,7 @@ async function tickState() {
     if (s.running !== lastRunning) {
       note('game', s.running ? 'Game started' : 'Game closed', s.running ? 'Gifts go in live now.' : (queue.length ? 'Adding the gifts that were waiting...' : ''));
       if (!s.running) for (const d of deliveries) if (d.status === 'saved') d.status = 'closed';
+      if (!s.running) syncMod(false);
     }
     const n = s.processes.length;
     if (n && !lastProcCount) note('mod', 'Mod connected', `${s.processes.filter((x) => x.role === 'game').length ? 'Game' : 'No game'} + ${s.processes.filter((x) => x.role === 'server').length} server(s)`);
@@ -601,8 +631,9 @@ const routes = {
     return r;
   },
   'GET /api/feed': async () => feed,
-  'POST /api/setup': async () => setup(),
+  'POST /api/setup': async () => isOwner() ? setup() : { ok: false, error: 'Cheats are for the owner.' },
   'POST /api/toggles': async (b) => {
+    if (!isOwner()) return { ok: false, error: 'Cheats are for the owner.' };
     const p = places(); if (!p.pkg) return { ok: false, error: 'Package not found.' };
     const t = writeToggles(p, { ...readToggles(p), ...b });
     lastToggleText = JSON.stringify(readJson(path.join(p.modDir || '', 'trainer-toggles.json'), null));
@@ -718,6 +749,7 @@ function listen(tries = 0) {
     console.log(`DF Trainer panel: ${url}`);   // older launchers (before the rename) look for this line
     writeRunning(url);
     try { const p = places(); if (p.pkg) writeToggles(p, LIC.ok() ? readToggles(p) : (settings.toggles || {})); } catch {}
+    backendUp().then((up) => syncMod(up)).catch(() => {});
     tickState().catch(() => {});
     openWindow(url);
   });

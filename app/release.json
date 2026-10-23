@@ -1,5 +1,5 @@
 {
-  "version": "2.3.1",
+  "version": "2.4.0",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Fixes Lantern Client not opening on Windows since 2.0.0 (its key code shared a name with the LICENSE file, which Windows does not tell apart by case). If a version fails to start, the launcher now checks for a fix before giving up."
+  "notes": "Cheats now hook into the game: the mod was waiting on a game-thread call that never runs in Dauntless 1.6.2. They are owner-only now (Owner > Cheats), with F8/F9 as hotkeys, and the panel keeps the installed game mod up to date."
 }

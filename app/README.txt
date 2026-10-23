@@ -6,9 +6,9 @@ A separate window next to the game: cheats you switch on and off, and an item gi
 The Dauntless Forever launcher is not changed.
 
 WHAT IT DOES
-  Cheats (switch any time, also mid-hunt)
-    God mode ........... your health refills 10 times a second                (hotkey F5 in game)
-    Infinite stamina ... the stamina bar stays full                            (hotkey F6 in game)
+  Cheats (owner only: Owner > Cheats; switch any time, also mid-hunt)
+    God mode ........... your health refills constantly and after every hit (hotkey F8 in game)
+    Infinite stamina ... the stamina bar stays full                            (hotkey F9 in game)
     Damage ............. x2 to x50, or One hit, against behemoths
     Move speed ......... x0.5 to x3
   Give items (also while the game runs)
