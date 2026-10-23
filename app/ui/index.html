@@ -7,10 +7,14 @@
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#060a0f">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Cpolygon points='60,6 106,32 106,88 60,114 14,88 14,32' fill='%23091219' stroke='%233cebff' stroke-width='9' stroke-linejoin='round'/%3E%3Cpath d='M66 28 40 66h17l-5 26 28-40H62z' fill='%2396f8ff'/%3E%3C/svg%3E">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="preload" href="/fonts/figtree.woff" as="font" type="font/woff" crossorigin>
+<link rel="preload" href="/fonts/chakra-600.woff" as="font" type="font/woff" crossorigin>
 <style>
+/* Fonts ship with DF Trainer (SIL Open Font License, see ui/fonts): nothing to download, same look offline */
+@font-face { font-family: "Figtree"; src: url("/fonts/figtree.woff") format("woff"); font-weight: 300 900; font-display: swap; }
+@font-face { font-family: "Chakra Petch"; src: url("/fonts/chakra-500.woff") format("woff"); font-weight: 500; font-display: swap; }
+@font-face { font-family: "Chakra Petch"; src: url("/fonts/chakra-600.woff") format("woff"); font-weight: 600; font-display: swap; }
+@font-face { font-family: "Chakra Petch"; src: url("/fonts/chakra-700.woff") format("woff"); font-weight: 700; font-display: swap; }
 :root {
   --void: #060a0f; --hull: #0c141b; --hull2: #101b24; --seam: rgba(120, 225, 255, .09); --seam2: rgba(120, 225, 255, .16);
   --aether: #3cebff; --a-rgb: 60, 235, 255; --aether-d: #0e8fa3; --d-rgb: 14, 143, 163; --a-light: #4ff3ff; --a-mid: #13b7cc; --a-deep: #0b5f6d; --a-pale: #c9f9ff; --a-ink: #022126; --arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%233cebff' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
@@ -23,6 +27,10 @@
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
+/* an app, not a page: interface text isn't selectable (inputs, item ids and the feed still are) */
+body { -webkit-user-select: none; user-select: none; }
+input, .item .id, .ev, .paths { -webkit-user-select: text; user-select: text; }
+header select { max-width: 220px; text-overflow: ellipsis; }
 /* Color presets (Settings): one glowing accent on the same dark hull */
 html[data-theme="ember"] {
   --aether: #ff8a3d; --a-rgb: 255, 138, 61; --aether-d: #b8521a; --d-rgb: 184, 82, 26; --a-light: #ffa866; --a-mid: #e0661f; --a-deep: #7a3410; --a-pale: #ffdcc4; --a-ink: #2a1204; --arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23ff8a3d' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
@@ -135,7 +143,8 @@ select option { background: var(--hull); }
 #restarting.on { opacity: 1; pointer-events: auto; }
 #restarting .box { display: grid; justify-items: center; gap: 16px; transform: translateY(8px); transition: transform .6s var(--ease); }
 #restarting.on .box { transform: none; }
-#restarting .ring { width: 54px; height: 54px; border-radius: 50%; border: 3px solid rgba(var(--a-rgb), .15); border-top-color: var(--aether); box-shadow: 0 0 24px -6px var(--aether); animation: spin .9s linear infinite; }
+#restarting .ring { width: 54px; height: 54px; border-radius: 50%; border: 3px solid rgba(var(--a-rgb), .15); border-top-color: var(--aether); box-shadow: 0 0 24px -6px var(--aether); }
+#restarting.on .ring { animation: spin .9s linear infinite; }
 #restarting b { font: 600 19px var(--display); }
 #restarting span { color: var(--ash); font-size: 13.5px; }
 .pop .about span, .pop .about button { white-space: nowrap; }
@@ -264,7 +273,8 @@ input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border: 0; bord
 .btn:disabled { opacity: .4; pointer-events: none; }
 .btn.primary { border-color: transparent; background: linear-gradient(180deg, var(--a-light), var(--a-mid)); color: var(--a-ink); box-shadow: 0 0 22px -4px rgba(var(--a-rgb), .7), inset 0 1px 0 rgba(255, 255, 255, .45); }
 .btn.primary svg { color: var(--a-ink); }
-.btn.primary::after { content: ""; position: absolute; top: 0; bottom: 0; width: 40%; left: 0; will-change: transform; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .55), transparent); transform: translateX(-150%) skewX(-20deg); animation: shine 3.2s 1s ease-in-out infinite; }
+.btn.primary::after { content: ""; position: absolute; top: 0; bottom: 0; width: 40%; left: 0; will-change: transform; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .55), transparent); transform: translateX(-150%) skewX(-20deg); }
+.dock.show .btn.primary::after, .banner.show .btn.primary::after { animation: shine 3.2s 1s ease-in-out infinite; }
 @keyframes shine { 0%, 60% { transform: translateX(-150%) skewX(-20deg); } 100% { transform: translateX(330%) skewX(-20deg); } }
 .btn.busy { pointer-events: none; }
 .btn.busy::before { content: ""; width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(2, 33, 38, .3); border-top-color: var(--a-ink); animation: spin .7s linear infinite; }
@@ -306,6 +316,7 @@ input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border: 0; bord
 
 .dock { position: fixed; left: 196px; right: 0; bottom: 0; z-index: 20; display: flex; align-items: center; gap: 12px; padding: 10px 24px; border-top: 1px solid rgba(var(--a-rgb), .25); background: rgba(8, 14, 20, .92); backdrop-filter: blur(10px); box-shadow: 0 -10px 40px -10px rgba(var(--a-rgb), .25); transform: translateY(110%); transition: transform .45s var(--spring); }
 .dock.show { transform: none; }
+.dock.show ~ #toasts { bottom: 74px; }
 .dock .what { flex: 1; color: var(--ash); }
 .dock .what b { color: var(--frost); font: 700 18px var(--display); margin-right: 4px; }
 
@@ -348,7 +359,7 @@ input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border: 0; bord
 .banner.show { display: flex; animation: rise .45s var(--ease); }
 .banner .t { flex: 1; } .banner b { display: block; font: 600 15.5px var(--display); } .banner span { color: var(--ash); font-size: 13.5px; }
 .banner input { flex: 1; min-width: 220px; height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--seam2); background: rgba(6, 10, 15, .6); outline: none; }
-#toasts { position: fixed; bottom: 16px; right: 16px; z-index: 60; display: flex; flex-direction: column-reverse; gap: 8px; width: min(320px, calc(100vw - 32px)); pointer-events: none; }
+#toasts { position: fixed; bottom: 16px; transition: bottom .35s var(--ease); right: 16px; z-index: 60; display: flex; flex-direction: column-reverse; gap: 8px; width: min(320px, calc(100vw - 32px)); pointer-events: none; }
 .toast { position: relative; overflow: hidden; display: flex; gap: 10px; padding: 9px 12px 11px; border-radius: 11px; font-size: 13px; border: 1px solid var(--seam2); background: rgba(12, 20, 27, .96); box-shadow: 0 18px 40px rgba(0, 0, 0, .5), 0 0 24px -10px var(--k, var(--aether)); pointer-events: auto; animation: tin .5s var(--spring); }
 .toast.out { animation: tout .35s var(--ease) forwards; }
 @keyframes tin { from { opacity: 0; transform: translateY(10px); } }
@@ -692,6 +703,9 @@ function connect() {
   es.addEventListener('note', (e) => onNote(JSON.parse(e.data), true));
   es.addEventListener('catalog', async () => { const c = await api('/api/catalog'); if (c.ok) { CAT = prepCatalog(c); renderCats(); renderList(); } });
 }
+// set innerHTML only when it changes (rebuilding restarts entrance animations and costs layout)
+const htmlCache = new Map();
+function setHTML(sel, html) { if (htmlCache.get(sel) === html) return; htmlCache.set(sel, html); $(sel).innerHTML = html; }
 function pill(id, kind, text) { const p = $(id); p.className = 'pill ' + kind; p.lastElementChild.textContent = text; }
 
 function renderApp(a) {
@@ -731,7 +745,7 @@ function onState(s) {
   liveInfo(procs);
   renderRelay();
   renderQueue();
-  $('#paths').innerHTML = `Package ${esc(s.pkg)}<br>Game ${esc(s.gameDir || 'not set up yet')}`;
+  setHTML('#paths', `Package ${esc(s.pkg)}<br>Game ${esc(s.gameDir || 'not set up yet')}`);
   if (wasRunning === true && !s.running) setTimeout(loadSave, 3500);   // gifts waiting for the close land now
   wasRunning = s.running;
   // follow the character you are playing
@@ -988,12 +1002,12 @@ function renderRelay() {
   const fns = (S.processes || []).map((p) => p.invFns).find(Boolean);
   $('#refreshInfo').textContent = !t.refresh ? 'Experimental: asks the game to reload your inventory right away.'
     : t.refreshFn ? `Working: ${t.refreshFn}. Gifts appear right away.` : fns ? `Trying ${fns.split(',').length} method${fns.includes(',') ? 's' : ''}, one per gift.` : 'Give something to start testing.';
-  $('#pending').innerHTML = (S.deliveries || []).map((d) => `<span class="chipwait"><i></i>${esc(d.what)} is saved, waiting for a loading screen</span>`).join('');
+  setHTML('#pending', (S.deliveries || []).map((d) => `<span class="chipwait"><i></i>${esc(d.what)} is saved, waiting for a loading screen</span>`).join(''));
 }
 function renderQueue() {
   const q = S.queue || [];
   $('#waitWrap').hidden = !q.length;
-  $('#queue').innerHTML = q.map((j) => `<div class="cur" style="grid-template-columns:1fr"><div>${esc(j.what)}<small>Added when you close the game</small></div></div>`).join('');
+  setHTML('#queue', q.map((j) => `<div class="cur" style="grid-template-columns:1fr"><div>${esc(j.what)}<small>Added when you close the game</small></div></div>`).join(''));
 }
 $('#clearQ').onclick = async () => { SFX.tick(); await api('/api/queue/clear', {}); toast('Cancelled', 'Nothing is waiting any more.'); };
 
@@ -1092,6 +1106,7 @@ const FPS = (() => {
     stop(); last = performance.now();
     timer = setInterval(() => {
       const now = performance.now(), dt = now - last; last = now;
+      if (document.hidden) return;   // minimised: nothing to draw
       for (const a of document.getAnimations()) {
         if (a.playState === 'running') { a.pause(); own.add(a); continue; }   // it was moving freely until now
         if (!own.has(a) || a.playState !== 'paused') continue;

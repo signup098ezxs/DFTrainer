@@ -631,6 +631,12 @@ const server = http.createServer(async (req, res) => {
       if (url.searchParams.get('t') !== TOKEN) return send(res, 403, 'Open the trainer with Start Trainer.bat.', 'text/plain');
       return send(res, 200, fs.readFileSync(UI_FILE), 'text/html; charset=utf-8');
     }
+    // the panel's own fonts (public, cached)
+    const font = /^\/fonts\/(figtree|chakra-500|chakra-600|chakra-700)\.woff$/.exec(url.pathname);
+    if (req.method === 'GET' && font) {
+      res.writeHead(200, { 'Content-Type': 'font/woff', 'Cache-Control': 'public, max-age=31536000, immutable' });
+      return res.end(fs.readFileSync(path.join(HERE, 'ui', 'fonts', font[1] + '.woff')));
+    }
     if (req.method === 'GET' && url.pathname === '/api/events') {
       // EventSource cannot send headers, so the token comes in the address here
       if (url.searchParams.get('t') !== TOKEN) return send(res, 403, { ok: false, error: 'Forbidden' });

@@ -1,5 +1,5 @@
 {
-  "version": "1.5.0",
+  "version": "1.5.1",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Color presets: Aether, Ember, Verdant, Amethyst, Crimson and Gold, in Settings. Settings is now the gear at the bottom left."
+  "notes": "Polish pass: fonts built in (faster start, same look offline), no flicker in live delivery chips, notifications stay clear of the Give bar, hidden animations no longer run, app-like text selection."
 }
