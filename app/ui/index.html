@@ -15,6 +15,15 @@
 @font-face { font-family: "Chakra Petch"; src: url("/fonts/chakra-500.woff") format("woff"); font-weight: 500; font-display: swap; }
 @font-face { font-family: "Chakra Petch"; src: url("/fonts/chakra-600.woff") format("woff"); font-weight: 600; font-display: swap; }
 @font-face { font-family: "Chakra Petch"; src: url("/fonts/chakra-700.woff") format("woff"); font-weight: 700; font-display: swap; }
+@font-face { font-family: "Inter"; src: url("/fonts/inter.woff") format("woff"); font-weight: 100 900; font-display: swap; }
+@font-face { font-family: "Orbitron"; src: url("/fonts/orbitron.woff") format("woff"); font-weight: 400 900; font-display: swap; }
+@font-face { font-family: "Exo 2"; src: url("/fonts/exo2.woff") format("woff"); font-weight: 100 900; font-display: swap; }
+@font-face { font-family: "Rajdhani"; src: url("/fonts/rajdhani-500.woff") format("woff"); font-weight: 500; font-display: swap; }
+@font-face { font-family: "Rajdhani"; src: url("/fonts/rajdhani-600.woff") format("woff"); font-weight: 600; font-display: swap; }
+@font-face { font-family: "Rajdhani"; src: url("/fonts/rajdhani-700.woff") format("woff"); font-weight: 700; font-display: swap; }
+@font-face { font-family: "Saira"; src: url("/fonts/saira.woff") format("woff"); font-weight: 100 900; font-display: swap; }
+@font-face { font-family: "Nunito"; src: url("/fonts/nunito.woff") format("woff"); font-weight: 200 1000; font-display: swap; }
+@font-face { font-family: "JetBrains Mono"; src: url("/fonts/jetbrainsmono.woff") format("woff"); font-weight: 100 800; font-display: swap; }
 :root {
   --void: #060a0f; --hull: #0c141b; --hull2: #101b24; --seam: rgba(120, 225, 255, .09); --seam2: rgba(120, 225, 255, .16);
   --aether: #3cebff; --a-rgb: 60, 235, 255; --aether-d: #0e8fa3; --d-rgb: 14, 143, 163; --a-light: #4ff3ff; --a-mid: #13b7cc; --a-deep: #0b5f6d; --a-pale: #c9f9ff; --a-ink: #022126; --arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%233cebff' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
@@ -31,6 +40,13 @@
 body { -webkit-user-select: none; user-select: none; }
 input, .item .id, .ev, .paths { -webkit-user-select: text; user-select: text; }
 header select { max-width: 220px; text-overflow: ellipsis; }
+
+/* Font presets (Settings): headings and body text */
+html[data-font="clean"] { --display: "Inter", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; --body: "Inter", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; }
+html[data-font="scifi"] { --display: "Orbitron", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; --body: "Exo 2", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; }
+html[data-font="tactical"] { --display: "Rajdhani", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; --body: "Saira", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; }
+html[data-font="rounded"] { --display: "Nunito", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; --body: "Nunito", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; }
+html[data-font="mono"] { --display: "JetBrains Mono", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; --body: "JetBrains Mono", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; }
 /* Color presets (Settings): one glowing accent on the same dark hull */
 html[data-theme="ember"] {
   --aether: #ff8a3d; --a-rgb: 255, 138, 61; --aether-d: #b8521a; --d-rgb: 184, 82, 26; --a-light: #ffa866; --a-mid: #e0661f; --a-deep: #7a3410; --a-pale: #ffdcc4; --a-ink: #2a1204; --arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23ff8a3d' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
@@ -124,13 +140,6 @@ select option { background: var(--hull); }
 .iconbtn svg { width: 17px; height: 17px; color: var(--aether); }
 .pop { position: absolute; bottom: 46px; left: 2px; width: 230px; padding: 14px; border-radius: 14px; border: 1px solid var(--seam2); background: rgba(12, 20, 27, .97); box-shadow: 0 20px 40px rgba(0, 0, 0, .5); z-index: 30;
   opacity: 0; transform: translateY(6px) scale(.98); transform-origin: bottom left; pointer-events: none; transition: opacity .18s, transform .22s var(--ease); }
-.pop.open { opacity: 1; transform: none; pointer-events: auto; }
-.pop .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--frost); font-size: 13.5px; }
-.pop .row + .row { margin-top: 8px; }
-.pop h5 { margin: 12px 0 7px; font: 600 11.5px/1 var(--display); color: var(--ash2); letter-spacing: .04em; }
-.pop h5:first-child { margin-top: 0; }
-.pop select { height: 28px; font-size: 12.5px; padding: 0 28px 0 9px; background-position: right 9px center; }
-.pop input[type=range] { height: 20px; }
 
 /* update ready + restart */
 .ver { font: 500 11.5px/1 var(--display); color: var(--ash2); letter-spacing: .04em; margin-left: -4px; align-self: flex-end; padding-bottom: 2px; }
@@ -147,9 +156,45 @@ select option { background: var(--hull); }
 #restarting.on .ring { animation: spin .9s linear infinite; }
 #restarting b { font: 600 19px var(--display); }
 #restarting span { color: var(--ash); font-size: 13.5px; }
-.pop .about span, .pop .about button { white-space: nowrap; }
-.pop { width: 280px; }
-.pop .about { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--seam); color: var(--ash); font-size: 12.5px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+
+/* ------------------------------------------------ settings page */
+nav > button.settab { margin-top: 4px; }
+.settab svg { transition: transform .6s var(--spring); }
+nav > button.settab.on svg { transform: rotate(60deg); }
+.setgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
+.setcard { padding: 14px 16px 6px; border-radius: 14px; border: 1px solid var(--seam); background: linear-gradient(180deg, var(--hull2), var(--hull)); }
+.setcard.wide { grid-column: 1 / -1; }
+.setcard h3 { margin: 0 0 4px; font: 600 15px/1.3 var(--display); color: var(--frost); }
+.setrow { display: flex; align-items: center; gap: 16px; padding: 11px 0; border-top: 1px solid var(--seam); }
+.setcard h3 + .setrow { border-top: 0; }
+.setrow .lbl { flex: 1; min-width: 0; }
+.setrow .lbl b { display: block; font-weight: 600; font-size: 14.5px; }
+.setrow .lbl small { display: block; color: var(--ash); font-size: 12.5px; margin-top: 1px; }
+.setrow .ctl { flex: none; display: flex; align-items: center; }
+.setrow select { min-width: 170px; height: 34px; font-size: 13.5px; }
+.setrow input[type=range] { width: 200px; }
+.swatches { display: flex; gap: 14px; flex-wrap: wrap; }
+.swatch { display: grid; justify-items: center; gap: 6px; border: 0; padding: 0; background: none; color: var(--ash); font-size: 12px; font-weight: 500; transition: color .2s; }
+.swatch i { display: block; width: 34px; height: 34px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, var(--sw-l), var(--sw) 55%, var(--sw-d)); box-shadow: 0 0 0 2px var(--hull), 0 0 10px -2px var(--sw); transition: transform .25s var(--spring), box-shadow .25s; }
+.swatch:hover i { transform: scale(1.08); }
+.swatch.on { color: var(--frost); }
+.swatch.on i { box-shadow: 0 0 0 2px var(--hull), 0 0 0 4px var(--sw), 0 0 16px -2px var(--sw); }
+/* the font list: a clean dropdown, each preset shown in its own fonts */
+.fontpick { position: relative; }
+.fp-btn { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 230px; height: 38px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--seam2); background: var(--hull); text-align: left; font-size: 14px; transition: border-color .2s, box-shadow .2s; }
+.fp-btn:hover, .fp-btn[aria-expanded="true"] { border-color: rgba(var(--a-rgb), .45); box-shadow: 0 0 0 3px rgba(var(--a-rgb), .08); }
+.fp-btn svg { width: 14px; height: 14px; color: var(--aether); transition: transform .25s var(--ease); }
+.fp-btn[aria-expanded="true"] svg { transform: rotate(180deg); }
+.fp-list { position: absolute; right: 0; top: 44px; z-index: 40; width: 300px; margin: 0; padding: 6px; list-style: none; border-radius: 12px; border: 1px solid var(--seam2); background: rgba(12, 20, 27, .98); box-shadow: 0 18px 40px rgba(0, 0, 0, .55); animation: rise .2s var(--ease); outline: none; }
+.fp-list li { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-radius: 8px; cursor: pointer; }
+.fp-list li:hover, .fp-list li.kb { background: rgba(var(--a-rgb), .08); }
+.fp-list li[aria-selected="true"] { background: rgba(var(--a-rgb), .14); }
+.fp-list .aa { width: 34px; flex: none; font-size: 20px; font-weight: 600; color: var(--aether); text-align: center; }
+.fp-list b { display: block; font-size: 14px; font-weight: 600; }
+.fp-list small { display: block; color: var(--ash); font-size: 12px; }
+.fp-list .tick { margin-left: auto; width: 16px; height: 16px; color: var(--aether); opacity: 0; }
+.fp-list li[aria-selected="true"] .tick { opacity: 1; }
+@media (max-width: 860px) { .setgrid { grid-template-columns: 1fr; } .setrow { flex-wrap: wrap; } .setrow select, .fp-btn { min-width: 0; } }
 
 /* ------------------------------------------------ layout */
 main { position: relative; z-index: 1; display: grid; grid-template-columns: 196px minmax(0, 1fr); min-height: 0; }
@@ -162,16 +207,6 @@ nav > button.on { color: var(--frost); background: linear-gradient(90deg, rgba(v
 nav > button.on svg { color: var(--aether); filter: drop-shadow(0 0 6px rgba(var(--a-rgb), .7)); }
 nav .count { margin-left: auto; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 99px; background: var(--aether); color: var(--a-ink); font: 700 11.5px/20px var(--display); text-align: center; box-shadow: 0 0 10px rgba(var(--a-rgb), .55); transform: scale(0); transition: transform .35s var(--spring); }
 nav .count.show { transform: scale(1); }
-nav .setwrap { position: relative; margin-top: 6px; }
-.setbtn { display: flex; align-items: center; gap: 12px; width: 100%; height: 38px; padding: 0 12px; border: 0; border-radius: 9px; background: none; color: var(--ash); font-weight: 500; font-size: 14px; transition: color .2s, background .2s; }
-.setbtn svg { width: 18px; height: 18px; transition: transform .5s var(--spring), color .2s; }
-.setbtn:hover, .setbtn.open { color: var(--frost); background: rgba(var(--a-rgb), .05); }
-.setbtn.open svg { transform: rotate(60deg); color: var(--aether); }
-.swatches { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin-bottom: 4px; }
-.swatch { position: relative; aspect-ratio: 1; border-radius: 50%; border: 0; padding: 0; background: radial-gradient(circle at 35% 30%, var(--sw-l), var(--sw) 55%, var(--sw-d)); box-shadow: 0 0 0 2px var(--hull), 0 0 10px -2px var(--sw); transition: transform .25s var(--spring), box-shadow .25s; }
-.swatch:hover { transform: scale(1.08); }
-.swatch.on { box-shadow: 0 0 0 2px var(--hull), 0 0 0 4px var(--sw), 0 0 16px -2px var(--sw); }
-.swatch-name { margin: 2px 0 2px; font-size: 12px; color: var(--ash); }
 nav .keys { margin-top: auto; padding: 10px 12px; color: var(--ash2); font-size: 12px; line-height: 1.8; }
 kbd { display: inline-block; min-width: 22px; padding: 0 6px; border-radius: 6px; border: 1px solid var(--seam2); border-bottom-width: 2px; background: var(--hull2); color: var(--aether); font: 600 11.5px/18px var(--display); text-align: center; }
 .pages { position: relative; min-height: 0; overflow: hidden; }
@@ -376,7 +411,6 @@ input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border: 0; bord
   main { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
   nav { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--seam); padding: 8px; }
   nav .bar, nav .keys { display: none; }
-  nav .setwrap { margin: 0 0 0 auto; } .setbtn { width: auto; } .pop { position: fixed; bottom: auto; top: 96px; left: auto; right: 12px; }
   nav > button { flex: none; height: 40px; }
   .tiles, .strip { grid-template-columns: 1fr; }
   .strip > div + div { border-left: 0; border-top: 1px solid var(--seam); }
@@ -433,22 +467,7 @@ input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border: 0; bord
     <button data-tab="rules"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>Game rules</button>
     <button data-tab="feed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Live feed <span class="count" id="feedCount"></span></button>
     <div class="keys">In game<br><kbd>F5</kbd> God mode<br><kbd>F6</kbd> Infinite stamina</div>
-    <div class="setwrap">
-      <button class="setbtn" id="soundBtn" aria-label="Settings" title="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</button>
-      <div class="pop" id="soundPop">
-      <h5>Color presets</h5>
-      <div class="swatches" id="themes" role="radiogroup" aria-label="Color presets"></div>
-      <h5>Display</h5>
-      <div class="row">Window size <select id="setWin"><option value="auto">Fit screen</option><option value="1024x640">1024 x 640</option><option value="1180x760">1180 x 760</option><option value="1280x800">1280 x 800</option><option value="1440x900">1440 x 900</option></select></div>
-      <div class="row">Interface scale <select id="setScale"><option value="0.9">90%</option><option value="1">100%</option><option value="1.1">110%</option><option value="1.25">125%</option></select></div>
-      <div class="row">Frame rate <select id="setFps"><option value="display">Display</option><option value="60">60 fps</option><option value="30">30 fps</option><option value="off">No animation</option></select></div>
-      <h5>Sound</h5>
-      <div class="row">Sound effects <label class="sw sm"><input type="checkbox" id="sfxOn" checked><span class="track"></span><span class="knob"></span></label></div>
-      <div class="row">Volume <input type="range" id="sfxVol" min="0" max="1" step="0.05" style="width:120px"></div>
-      <h5>Startup</h5>
-      <div class="row">Play the intro <label class="sw sm"><input type="checkbox" id="introOn" checked><span class="track"></span><span class="knob"></span></label></div>
-      <div class="about"><span id="aboutVer">DF Trainer</span><button class="link" id="checkUpd" hidden>Check for updates</button></div>
-    </div>
+    <button data-tab="settings" class="settab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</button>
   </nav>
 
   <div class="pages">
@@ -533,6 +552,32 @@ input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border: 0; bord
     <section id="tab-rules">
       <div class="head"><div><h2>Game rules</h2><p class="lede">Applies the next time you press Play.</p></div></div>
       <div class="wrap"><div class="list" id="rules"></div></div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section id="tab-settings">
+      <div class="head"><div><h2>Settings</h2><p class="lede">Changes apply at once and are kept across restarts and updates.</p></div></div>
+      <div class="wrap setgrid">
+        <div class="setcard wide"><h3>Appearance</h3>
+          <div class="setrow"><div class="lbl"><b>Color preset</b><small>The accent color of the whole panel.</small></div><div class="ctl"><div class="swatches" id="themes" role="radiogroup" aria-label="Color presets"></div></div></div>
+          <div class="setrow"><div class="lbl"><b>Font</b><small>Every font comes with DF Trainer: nothing is downloaded.</small></div><div class="ctl"><div class="fontpick" id="fontPick"><button class="fp-btn" id="fpBtn" aria-haspopup="listbox" aria-expanded="false"><span id="fpName"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></button><ul class="fp-list" id="fpList" role="listbox" tabindex="-1" hidden></ul></div></div></div>
+        </div>
+        <div class="setcard"><h3>Display</h3>
+          <div class="setrow"><div class="lbl"><b>Window size</b><small>Resizes the window now and when it opens.</small></div><div class="ctl"><select id="setWin"><option value="auto">Fit screen</option><option value="1024x640">1024 x 640</option><option value="1180x760">1180 x 760</option><option value="1280x800">1280 x 800</option><option value="1440x900">1440 x 900</option></select></div></div>
+          <div class="setrow"><div class="lbl"><b>Interface scale</b><small>Makes everything larger or smaller.</small></div><div class="ctl"><select id="setScale"><option value="0.9">90%</option><option value="1">100%</option><option value="1.1">110%</option><option value="1.25">125%</option></select></div></div>
+          <div class="setrow"><div class="lbl"><b>Frame rate</b><small>Lower it to save power on laptops.</small></div><div class="ctl"><select id="setFps"><option value="display">Display</option><option value="60">60 fps</option><option value="30">30 fps</option><option value="off">No animation</option></select></div></div>
+        </div>
+        <div class="setcard"><h3>Sound</h3>
+          <div class="setrow"><div class="lbl"><b>Sound effects</b><small>Clicks, switches and delivery chimes.</small></div><div class="ctl"><label class="sw sm"><input type="checkbox" id="sfxOn" checked><span class="track"></span><span class="knob"></span></label></div></div>
+          <div class="setrow"><div class="lbl"><b>Volume</b><small></small></div><div class="ctl"><input type="range" id="sfxVol" min="0" max="1" step="0.05"></div></div>
+        </div>
+        <div class="setcard"><h3>Startup</h3>
+          <div class="setrow"><div class="lbl"><b>Play the intro</b><small>The DF Trainer logo when the panel opens.</small></div><div class="ctl"><label class="sw sm"><input type="checkbox" id="introOn" checked><span class="track"></span><span class="knob"></span></label></div></div>
+        </div>
+        <div class="setcard"><h3>About</h3>
+          <div class="setrow"><div class="lbl"><b>Version</b><small><span id="aboutVer">DF Trainer</span></small></div><div class="ctl"><button class="btn" id="checkUpd" hidden>Check for updates</button></div></div>
+        </div>
+      </div>
     </section>
 
     <!-- FEED -->
@@ -654,7 +699,7 @@ function runIntro(done) {
 }
 function reveal() {
   // the panel assembles itself: header drops in, the rail slides in, the page settles piece by piece
-  $$('nav > button, nav .keys, nav .setwrap').forEach((el, i) => el.style.setProperty('--i', i));
+  $$('nav > button, nav .keys').forEach((el, i) => el.style.setProperty('--i', i));
   const page = $('section.on');
   const parts = page ? [...page.querySelectorAll(':scope > .banner.show, :scope > .head')] : [];
   if (page) for (const c of page.querySelectorAll(':scope > .wrap > *')) parts.push(...(c.classList.contains('tiles') ? c.children : [c]));
@@ -1126,14 +1171,35 @@ function applyTheme(id) {
   if (!PRESETS.some((p) => p[0] === id)) id = 'aether';
   if (id === 'aether') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = id;
   $$('#themes .swatch').forEach((b) => { const on = b.dataset.id === id; b.classList.toggle('on', on); b.setAttribute('aria-checked', on); });
-  $('#themeName').textContent = PRESETS.find((p) => p[0] === id)[1];
 }
-$('#themes').innerHTML = PRESETS.map(([id, name, c, l, d]) => `<button class="swatch" role="radio" data-id="${id}" title="${name}" aria-label="${name}" style="--sw:${c};--sw-l:${l};--sw-d:${d}"></button>`).join('') + '';
-$('#themes').insertAdjacentHTML('afterend', '<div class="swatch-name" id="themeName"></div>');
+$('#themes').innerHTML = PRESETS.map(([id, name, c, l, d]) => `<button class="swatch" role="radio" data-id="${id}" style="--sw:${c};--sw-l:${l};--sw-d:${d}"><i></i>${name}</button>`).join('');
 $('#themes').addEventListener('click', (e) => {
   const b = e.target.closest('.swatch'); if (!b || b.classList.contains('on')) return;
   SFX.select(true); store.set('theme', b.dataset.id); applyTheme(b.dataset.id);
 });
+const FONTS = [['aether', 'Aether', 'Chakra Petch', 'Figtree', 'The default: sharp headings, easy body text'], ['clean', 'Clean', 'Inter', 'Inter', 'Neutral and very readable'], ['scifi', 'Sci-fi', 'Orbitron', 'Exo 2', 'Wide, futuristic headings'], ['tactical', 'Tactical', 'Rajdhani', 'Saira', 'Condensed, HUD-like'], ['rounded', 'Rounded', 'Nunito', 'Nunito', 'Soft and friendly'], ['mono', 'Mono', 'JetBrains Mono', 'JetBrains Mono', 'Even-width, technical']];
+function applyFont(id) {
+  if (!FONTS.some((f) => f[0] === id)) id = 'aether';
+  if (id === 'aether') delete document.documentElement.dataset.font; else document.documentElement.dataset.font = id;
+  const f = FONTS.find((x) => x[0] === id);
+  $('#fpName').textContent = f[1]; $('#fpName').style.fontFamily = `"${f[3]}"`;
+  $$('#fpList li').forEach((li) => li.setAttribute('aria-selected', li.dataset.id === id));
+  // new letter widths: sliding markers re-measure once the font is in
+  document.fonts.ready.then(() => requestAnimationFrame(() => { placeNav(); $$('section.on .seg').forEach(placeInd); }));
+}
+$('#fpList').innerHTML = FONTS.map(([id, name, d, b, about]) => `<li role="option" data-id="${id}"><span class="aa" style="font-family:'${d}'">Aa</span><div><b style="font-family:'${d}'">${name}</b><small style="font-family:'${b}'">${about}</small></div><svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></li>`).join('');
+const fp = { open() { $('#fpList').hidden = false; $('#fpBtn').setAttribute('aria-expanded', 'true'); this.kb = Math.max(0, FONTS.findIndex((f) => f[0] === store.get('font', 'aether'))); this.mark(); $('#fpList').focus(); },
+  close() { $('#fpList').hidden = true; $('#fpBtn').setAttribute('aria-expanded', 'false'); },
+  mark() { $$('#fpList li').forEach((li, i) => li.classList.toggle('kb', i === this.kb)); },
+  pick(id) { SFX.select(true); store.set('font', id); applyFont(id); this.close(); $('#fpBtn').focus(); } };
+$('#fpBtn').addEventListener('click', (e) => { e.stopPropagation(); SFX.tick(); $('#fpList').hidden ? fp.open() : fp.close(); });
+$('#fpList').addEventListener('click', (e) => { const li = e.target.closest('li'); if (li) fp.pick(li.dataset.id); });
+$('#fpList').addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); fp.kb = (fp.kb + (e.key === 'ArrowDown' ? 1 : FONTS.length - 1)) % FONTS.length; fp.mark(); }
+  else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fp.pick(FONTS[fp.kb][0]); }
+  else if (e.key === 'Escape') { fp.close(); $('#fpBtn').focus(); }
+});
+document.addEventListener('click', (e) => { if (!e.target.closest('#fontPick')) fp.close(); });
 function applyScale(v) { document.documentElement.style.zoom = v; requestAnimationFrame(() => { placeNav(); $$('section.on .seg').forEach(placeInd); }); }
 // Window size: resized now, and remembered for the next start (the launcher opens the window at that size)
 function fitSize() {
@@ -1152,15 +1218,13 @@ function applyWindow(v, announce) {
 function initSettings() {
   $('#sfxOn').checked = SFX.on; $('#sfxVol').value = SFX.vol; $('#introOn').checked = store.get('intro', true);
   $('#setScale').value = String(store.get('scale', 1)); $('#setFps').value = store.get('fps', 'display'); $('#setWin').value = store.get('win', 'auto');
-  paintVol(); applyTheme(store.get('theme', 'aether')); applyScale(store.get('scale', 1)); FPS.set(store.get('fps', 'display'));
+  paintVol(); applyTheme(store.get('theme', 'aether')); applyFont(store.get('font', 'aether')); applyScale(store.get('scale', 1)); FPS.set(store.get('fps', 'display'));
   // a window taller or wider than the screen (high display scaling) is brought back inside it
   if (!window.dftResize && (window.outerWidth > screen.availWidth || window.outerHeight > screen.availHeight)) applyWindow(store.get('win', 'auto'));
 }
 $('#setScale').onchange = (e) => { SFX.tick(); store.set('scale', Number(e.target.value)); applyScale(Number(e.target.value)); };
 $('#setFps').onchange = (e) => { SFX.tick(); store.set('fps', e.target.value); FPS.set(e.target.value); };
 $('#setWin').onchange = (e) => { SFX.tick(); store.set('win', e.target.value); applyWindow(e.target.value, true); };
-$('#soundBtn').onclick = (e) => { e.stopPropagation(); SFX.unlock(); const o = $('#soundPop').classList.toggle('open'); $('#soundBtn').classList.toggle('open', o); SFX.tick(); };
-document.addEventListener('click', (e) => { if (!e.target.closest('#soundPop') && !e.target.closest('#soundBtn')) { $('#soundPop').classList.remove('open'); $('#soundBtn').classList.remove('open'); } });
 $('#sfxOn').onchange = (e) => { SFX.setOn(e.target.checked); if (e.target.checked) SFX.switchOn(); };
 $('#sfxVol').oninput = (e) => { SFX.setVol(Number(e.target.value)); paintVol(); };
 $('#sfxVol').onchange = () => SFX.select(true);

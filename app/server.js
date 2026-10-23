@@ -601,6 +601,7 @@ const routes = {
     ok('vol', (v) => typeof v === 'number' && v >= 0 && v <= 1);
     ok('scale', (v) => [0.9, 1, 1.1, 1.25].includes(v));
     ok('fps', (v) => ['display', '60', '30', 'off'].includes(v));
+    ok('font', (v) => ['aether', 'clean', 'scifi', 'tactical', 'rounded', 'mono'].includes(v));
     ok('theme', (v) => ['aether', 'ember', 'verdant', 'amethyst', 'crimson', 'gold'].includes(v));
     ok('win', (v) => ['auto', '1024x640', '1180x760', '1280x800', '1440x900'].includes(v));
     ok('winSize', (v) => Array.isArray(v) && v.length === 2 && v.every((n) => Number.isInteger(n) && n >= 600 && n <= 4000));
@@ -632,7 +633,7 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, fs.readFileSync(UI_FILE), 'text/html; charset=utf-8');
     }
     // the panel's own fonts (public, cached)
-    const font = /^\/fonts\/(figtree|chakra-500|chakra-600|chakra-700)\.woff$/.exec(url.pathname);
+    const font = /^\/fonts\/(figtree|chakra-500|chakra-600|chakra-700|inter|orbitron|exo2|rajdhani-500|rajdhani-600|rajdhani-700|saira|nunito|jetbrainsmono)\.woff$/.exec(url.pathname);
     if (req.method === 'GET' && font) {
       res.writeHead(200, { 'Content-Type': 'font/woff', 'Cache-Control': 'public, max-age=31536000, immutable' });
       return res.end(fs.readFileSync(path.join(HERE, 'ui', 'fonts', font[1] + '.woff')));

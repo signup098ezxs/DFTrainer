@@ -1,5 +1,5 @@
 {
-  "version": "1.5.2",
+  "version": "1.6.0",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "The Cheats tab is now Player, with a player icon."
+  "notes": "Settings is now its own page (bottom of the sidebar), larger and easier to read. Six font presets that come with DF Trainer: Aether, Clean, Sci-fi, Tactical, Rounded and Mono."
 }
