@@ -1496,8 +1496,13 @@ async function runItems(job, btn) {
   if (btn) btn.classList.remove('busy');
   if (!r.ok) { SFX.error(); toast('Not added', r.error || 'That did not work.', 'error', 7000); return false; }
   SFX.give();
-  if (r.nothingNew) toast('Already there', 'Your character has all of that already.', 'ok');
-  else if (r.queued && !r.live) toast('Waiting for the game to close', r.note || 'It is added the moment you close the game.', 'queued', 5500);
+  // "already own" only when the save itself listed those items as yours
+  if (r.nothingNew) toast(r.message || (r.owned ? `You already own ${r.owned}.` : 'Nothing new to add.'), r.unknownNames ? `Not in the 1.6.2 catalog: ${r.unknownNames}.` : '', 'ok', 5000);
+  else {
+    if (r.queued && !r.live) toast('Waiting for the game to close', r.raiseLater ? `You already own ${r.raiseLater}: it is raised to max level when you close the game.` : (r.note || 'It is added the moment you close the game.'), 'queued', 6000);
+    if (r.owned) toast(`You already own ${r.owned}.`, 'Those were left as they are; the rest was added.', 'ok', 5000);
+    if (r.raisedNames) toast(`You already own ${r.raisedNames}.`, 'It is raised to max level instead.', 'applied', 5000);
+  }
   return true;
 }
 $('#give').addEventListener('click', async () => {

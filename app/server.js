@@ -179,6 +179,16 @@ function runTool(p, script, args, { timeout = 60000 } = {}) {
     });
   });
 }
+// Lantern Client's own scripts that work on the save (offline.js), run like the package's tools: its Node.js, its folder
+function runOwn(p, script, args, { timeout = 120000 } = {}) {
+  return new Promise((resolve) => {
+    execFile(p.node, [path.join(HERE, script), ...args], { cwd: p.pkg, timeout, windowsHide: true, maxBuffer: 16 * 1024 * 1024 }, (e, out) => {
+      const text = String(out || '').trim();
+      try { resolve(JSON.parse(text)); }
+      catch { resolve({ ok: false, error: e ? `${script} failed: ${e.message.split('\n')[0]}` : `${script} gave no answer.` }); }
+    });
+  });
+}
 function copyDir(from, to, skip = new Set()) {
   fs.mkdirSync(to, { recursive: true });
   for (const e of fs.readdirSync(from, { withFileTypes: true })) {
@@ -350,10 +360,26 @@ async function applyJob(p, job, live = false) {
       const res = await LIVE.give(p.pkg, job, ((mine && mine.characters) || []).map((c) => c.id));
       r = { ok: true, ...res };
     } catch (e) { r = { ok: false, error: e.message }; }
+  } else if (job.action === 'addgearmax' || job.action === 'surgeall') {
+    // the package's items.js only adds gear at level 0 (it has no addgearmax or surgeall): offline.js does these
+    const mine = await runTool(p, 'items.js', ['list']);
+    r = mine && mine.ok ? await runOwn(p, 'offline.js', [p.pkg, JSON.stringify(job), JSON.stringify((mine.characters || []).map((c) => c.id))])
+      : (mine || { ok: false, error: 'Could not read your characters.' });
   } else r = await runTool(p, 'items.js', itemArgs(job));
   history.unshift({ at: Date.now(), what: describe(job), ok: !!r.ok, live, error: r.ok ? undefined : r.error });
   history.length = Math.min(history.length, 40);
   return r;
+}
+function giftOutcome(p, job, r) {
+  const ids = (k) => (Array.isArray(r[k]) ? r[k] : []);
+  const added = ids('added'), raised = ids('raised'), already = ids('already'), unknown = ids('unknown');
+  const o = { added: added.length, raised: raised.length };
+  if (already.length) o.owned = listNames(p, already, 3);
+  if (raised.length) o.raisedNames = listNames(p, raised, 3);   // gear you already owned, now at max level
+  if (unknown.length) o.unknownNames = listNames(p, unknown, 3);
+  o.nothingNew = !added.length && !raised.length && !r.queued;
+  if (o.nothingNew && already.length) o.message = job.action === 'surgeall' ? 'All your gear is already at max level.' : `You already own ${o.owned}.`;
+  return o;
 }
 function enqueue(job) { queue.push(job); settings.queue = queue; saveSettings(); }
 
@@ -376,8 +402,10 @@ async function giveLive(p, job) {
     requestRefresh(p);
   }
   if (later) { enqueue(later); note('queued', 'Waiting for the game to close', later.label); }
-  if (!liveJob && !later) return { ok: true, live: true, nothingNew: true };
-  return { ok: true, live: !!liveJob, queued: !!later, added: r.added.length };
+  const o = giftOutcome(p, job, { added: r.added, already: r.already, unknown: r.unknown, queued: !!later });
+  if (later) o.raiseLater = listNames(p, r.ownedForMax, 3);
+  if (!liveJob && !later) return { ok: true, live: true, ...o };
+  return { ok: true, live: !!liveJob, queued: !!later, ...o };
 }
 
 let draining = false;
@@ -392,7 +420,11 @@ async function drainQueue() {
       const r = await applyJob(p, job);
       if (!r.ok && /still running|close the game/i.test(r.error || '')) break;   // started again meanwhile
       queue.shift(); settings.queue = queue; saveSettings();
-      if (r.ok) note('applied', 'Added to your save', jobSummary(p, job)); else note('error', 'Could not apply', r.error || describe(job));
+      if (!r.ok) note('error', 'Could not apply', r.error || describe(job));
+      else if (r.raised && r.raised.length) note('applied', 'Raised to max level', listNames(p, r.raised));
+      else if (r.added && r.added.length) note('applied', 'Added to your save', listNames(p, r.added));
+      else if (job.action === 'set' || job.list === 'all') note('applied', 'Added to your save', jobSummary(p, job));
+      else if (r.already && r.already.length) note('ok', 'Already yours', `You already own ${listNames(p, r.already, 3)}.`);
     }
   } finally { draining = false; }
 }
@@ -646,8 +678,13 @@ const routes = {
     if (await backendUp()) return giveLive(p, job);
     if (queue.length) { enqueue(job); return { ok: true, queued: true }; }
     const r = await applyJob(p, job);
-    if (r.ok) note('applied', 'Added to your save', jobSummary(p, job));
-    return r;
+    if (!r.ok) return r;
+    if (job.action === 'set' || (job.action === 'addcosmetic' && job.list === 'all')) { note('applied', 'Added to your save', jobSummary(p, job)); return { ok: true }; }
+    const o = giftOutcome(p, job, r);
+    if (r.added && r.added.length) note('applied', 'Added to your save', listNames(p, r.added));
+    if (r.raised && r.raised.length) note('applied', 'Raised to max level', listNames(p, r.raised));
+    if (job.action === 'surgeall' && !o.raised) return { ok: true, nothingNew: true, message: 'All your gear is already at max level.' };
+    return { ok: true, ...o };
   },
   'POST /api/queue/clear': async () => { queue = []; settings.queue = queue; saveSettings(); return { ok: true }; },
   'GET /api/prefs': async () => settings.prefs || {},

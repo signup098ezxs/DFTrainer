@@ -1,5 +1,5 @@
 {
-  "version": "2.4.0",
+  "version": "2.4.1",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Cheats now hook into the game: the mod was waiting on a game-thread call that never runs in Dauntless 1.6.2. They are owner-only now (Owner > Cheats), with F8/F9 as hotkeys, and the panel keeps the installed game mod up to date."
+  "notes": "Giving yourself an item you already own now says \"You already own <item>\" instead of \"Unknown command\". Max level gifts and Max all my gear work again with the game closed."
 }

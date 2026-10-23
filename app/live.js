@@ -118,8 +118,12 @@ function plan(job, inv, cat) {
     // addgear / addgearmax
     if (!cat.gearIds.has(id)) { out.unknown.push(id); continue; }
     if (cat.stacked.has(id)) { unlock(id); continue; }
-    if (inv.instanced.some((i) => i && i.catalogId === id)) {
-      if (job.action === 'addgearmax' && topLevel(id) !== null) out.ownedForMax.push(id); else out.already.push(id);
+    const mineNow = inv.instanced.filter((i) => i && i.catalogId === id);
+    if (mineNow.length) {
+      // yours already: only something to do if it was asked for at max level and is below it
+      const levelOf = (i) => { try { return Number(JSON.parse(i.itemData || '{}').CurrentLevel) || 0; } catch { return 0; } };
+      const t = topLevel(id);
+      if (job.action === 'addgearmax' && t !== null && mineNow.some((i) => levelOf(i) < t)) out.ownedForMax.push(id); else out.already.push(id);
       continue;
     }
     const iid = newInstanceId(id); ids.add(iid);
