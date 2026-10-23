@@ -7,9 +7,14 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"syscall"
+	"time"
 	"unsafe"
+
+	"dftrainer/launcher/internal/third_party/xsys/windows"
+	"dftrainer/launcher/internal/third_party/xsys/windows/registry"
 )
 
 const (
@@ -20,7 +25,6 @@ const (
 	createNoWindow        = 0x08000000
 	createNewProcessGroup = 0x00000200
 	stillActive           = 259
-	uninstallKey          = `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\DFTrainer` // kept from before the rename, so the entry is updated, not doubled
 )
 
 var (
@@ -87,12 +91,6 @@ func startDetached(exe string, args []string) error {
 	return cmd.Process.Release()
 }
 
-func runHidden(name string, args ...string) error {
-	cmd := exec.Command(name, args...)
-	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: createNoWindow}
-	return cmd.Run()
-}
-
 func messageBox(title, text string, flags uintptr) int {
 	t, _ := syscall.UTF16PtrFromString(title)
 	m, _ := syscall.UTF16PtrFromString(text)
@@ -107,58 +105,147 @@ func confirm(title, text string) bool {
 	return messageBox(title, text, 0x4|0x20|0x100|0x10000 /* YESNO|QUESTION|DEFBUTTON2|SETFOREGROUND */) == 6
 }
 
-// Start Menu and Desktop shortcuts, through the Windows shell (the exe path goes in an environment variable, so no
-// quoting can go wrong)
-const shortcutScript = `$s = New-Object -ComObject WScript.Shell
-foreach ($d in @([Environment]::GetFolderPath('Desktop'), [Environment]::GetFolderPath('Programs'))) {
-  if (-not $d) { continue }
-  Remove-Item -LiteralPath (Join-Path $d 'DF Trainer.lnk') -ErrorAction SilentlyContinue
-  $l = $s.CreateShortcut((Join-Path $d 'Lantern Client.lnk'))
-  $l.TargetPath = $env:DFT_EXE
-  $l.WorkingDirectory = (Split-Path -Parent $env:DFT_EXE)
-  $l.IconLocation = $env:DFT_EXE + ',0'
-  $l.Description = 'Lantern Client for Dauntless Forever'
-  $l.Save()
-}`
-const removeShortcutScript = `foreach ($d in @([Environment]::GetFolderPath('Desktop'), [Environment]::GetFolderPath('Programs'))) {
-  if ($d) { foreach ($n in @('Lantern Client.lnk', 'DF Trainer.lnk')) { Remove-Item -LiteralPath (Join-Path $d $n) -ErrorAction SilentlyContinue } }
-}`
+// ------------------------------------------------------------------ shortcuts, Apps & features, uninstall, links
+// All through the Windows API directly (shell links over COM, the registry API, ShellExecute). No PowerShell, reg.exe,
+// cmd or rundll32: scripts and system tools started hidden are what antivirus heuristics look for.
 
-func powershell(script string, env ...string) error {
-	cmd := exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script)
-	cmd.Env = append(os.Environ(), env...)
-	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: createNoWindow}
-	return cmd.Run()
+type guid struct {
+	d1     uint32
+	d2, d3 uint16
+	d4     [8]byte
 }
-func createShortcuts(exe string) error { return powershell(shortcutScript, "DFT_EXE="+exe) }
-func removeShortcuts()                 { _ = powershell(removeShortcutScript) }
+
+var (
+	ole32                = syscall.NewLazyDLL("ole32.dll")
+	procCoInitializeEx   = ole32.NewProc("CoInitializeEx")
+	procCoUninitialize   = ole32.NewProc("CoUninitialize")
+	procCoCreateInstance = ole32.NewProc("CoCreateInstance")
+
+	clsidShellLink = guid{0x00021401, 0, 0, [8]byte{0xC0, 0, 0, 0, 0, 0, 0, 0x46}}
+	iidShellLinkW  = guid{0x000214F9, 0, 0, [8]byte{0xC0, 0, 0, 0, 0, 0, 0, 0x46}}
+	iidPersistFile = guid{0x0000010B, 0, 0, [8]byte{0xC0, 0, 0, 0, 0, 0, 0, 0x46}}
+)
+
+// comCall calls method i of a COM object's vtable
+func comCall(obj uintptr, i int, args ...uintptr) uintptr {
+	vtbl := *(*uintptr)(unsafe.Pointer(obj))
+	fn := *(*uintptr)(unsafe.Pointer(vtbl + uintptr(i)*unsafe.Sizeof(uintptr(0))))
+	r, _, _ := syscall.SyscallN(fn, append([]uintptr{obj}, args...)...)
+	return r
+}
+
+func wstr(s string) uintptr { p, _ := syscall.UTF16PtrFromString(s); return uintptr(unsafe.Pointer(p)) }
+
+// writeShortcut saves a .lnk at path pointing at exe (IShellLinkW + IPersistFile)
+func writeShortcut(path, exe, description string) error {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	if hr, _, _ := procCoInitializeEx.Call(0, 2 /* COINIT_APARTMENTTHREADED */); hr == 0 || hr == 1 {
+		defer procCoUninitialize.Call()
+	}
+	var link uintptr
+	if hr, _, _ := procCoCreateInstance.Call(uintptr(unsafe.Pointer(&clsidShellLink)), 0, 1 /* CLSCTX_INPROC_SERVER */, uintptr(unsafe.Pointer(&iidShellLinkW)), uintptr(unsafe.Pointer(&link))); hr != 0 || link == 0 {
+		return fmt.Errorf("shell link: 0x%x", uint32(hr))
+	}
+	defer comCall(link, 2)                    // Release
+	comCall(link, 20, wstr(exe))              // SetPath
+	comCall(link, 9, wstr(filepath.Dir(exe))) // SetWorkingDirectory
+	comCall(link, 7, wstr(description))       // SetDescription
+	comCall(link, 17, wstr(exe), 0)           // SetIconLocation
+	var pf uintptr
+	if hr := comCall(link, 0, uintptr(unsafe.Pointer(&iidPersistFile)), uintptr(unsafe.Pointer(&pf))); hr != 0 || pf == 0 {
+		return fmt.Errorf("persist file: 0x%x", uint32(hr))
+	}
+	defer comCall(pf, 2)
+	if hr := comCall(pf, 6, wstr(path), 1); hr != 0 { // Save
+		return fmt.Errorf("save %s: 0x%x", path, uint32(hr))
+	}
+	return nil
+}
+
+func shortcutDirs() []string {
+	var out []string
+	for _, id := range []*windows.KNOWNFOLDERID{windows.FOLDERID_Desktop, windows.FOLDERID_Programs} {
+		if d, err := windows.KnownFolderPath(id, 0); err == nil && d != "" {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
+// Start Menu and Desktop shortcuts (the one from before the rename goes)
+func createShortcuts(exe string) error {
+	var firstErr error
+	for _, d := range shortcutDirs() {
+		_ = os.Remove(filepath.Join(d, "DF Trainer.lnk"))
+		if err := writeShortcut(filepath.Join(d, "Lantern Client.lnk"), exe, "Lantern Client for Dauntless Forever"); err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	return firstErr
+}
+func removeShortcuts() {
+	for _, d := range shortcutDirs() {
+		for _, n := range []string{"Lantern Client.lnk", "DF Trainer.lnk"} {
+			_ = os.Remove(filepath.Join(d, n))
+		}
+	}
+}
 
 // "Apps & features" entry for this user (no admin rights needed)
+const uninstallSubkey = `Software\Microsoft\Windows\CurrentVersion\Uninstall\DFTrainer` // kept from before the rename, so the entry is updated, not doubled
+
 func registerUninstall(exe, version string) error {
-	vals := [][3]string{
-		{"DisplayName", "REG_SZ", "Lantern Client"},
-		{"DisplayVersion", "REG_SZ", version},
-		{"Publisher", "REG_SZ", "Alex"},
-		{"DisplayIcon", "REG_SZ", exe + ",0"},
-		{"InstallLocation", "REG_SZ", filepath.Dir(exe)},
-		{"UninstallString", "REG_SZ", fmt.Sprintf(`"%s" --uninstall`, exe)},
-		{"NoModify", "REG_DWORD", "1"},
-		{"NoRepair", "REG_DWORD", "1"},
-		{"EstimatedSize", "REG_DWORD", "2048"},
+	k, _, err := registry.CreateKey(registry.CURRENT_USER, uninstallSubkey, registry.SET_VALUE)
+	if err != nil {
+		return err
 	}
-	for _, v := range vals {
-		if err := runHidden("reg.exe", "add", uninstallKey, "/v", v[0], "/t", v[1], "/d", v[2], "/f"); err != nil {
+	defer k.Close()
+	for _, v := range [][2]string{
+		{"DisplayName", "Lantern Client"}, {"DisplayVersion", version}, {"Publisher", "Alex"},
+		{"DisplayIcon", exe + ",0"}, {"InstallLocation", filepath.Dir(exe)}, {"UninstallString", fmt.Sprintf(`"%s" --uninstall`, exe)},
+	} {
+		if err := k.SetStringValue(v[0], v[1]); err != nil {
+			return err
+		}
+	}
+	for _, v := range []struct {
+		n string
+		d uint32
+	}{{"NoModify", 1}, {"NoRepair", 1}, {"EstimatedSize", 20480}} {
+		if err := k.SetDWordValue(v.n, v.d); err != nil {
 			return err
 		}
 	}
 	return nil
 }
-func unregisterUninstall() { _ = runHidden("reg.exe", "delete", uninstallKey, "/f") }
+func unregisterUninstall() { _ = registry.DeleteKey(registry.CURRENT_USER, uninstallSubkey) }
 
-// the folder holds this running exe, so a hidden cmd deletes it a moment after we exit
+// scheduleDelete removes the install folder. This exe is running from it, so it first moves itself to the temp folder
+// (Windows lets a running exe be moved, not deleted), where it is removed at the next restart or by Disk Clean-up.
 func scheduleDelete(dir string) {
-	cmd := exec.Command("cmd.exe")
-	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: createNoWindow | createNewProcessGroup,
-		CmdLine: fmt.Sprintf(`cmd.exe /c ping -n 3 127.0.0.1 >nul & rmdir /s /q "%s"`, dir)}
-	_ = cmd.Start()
+	if self, err := os.Executable(); err == nil {
+		tmp := filepath.Join(os.TempDir(), fmt.Sprintf("lantern-client-removed-%d.exe", time.Now().UnixNano()))
+		if os.Rename(self, tmp) == nil {
+			if p, err := syscall.UTF16PtrFromString(tmp); err == nil {
+				_ = windows.MoveFileEx(p, nil, windows.MOVEFILE_DELAY_UNTIL_REBOOT) // works only with admin rights; fine if not
+			}
+		}
+	}
+	for i := 0; i < 20; i++ { // the panel or the window may still be letting go of files for a moment
+		if os.RemoveAll(dir) == nil {
+			return
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+}
+
+// openURL opens a web page in the default browser (https only)
+func openURL(u string) {
+	if !strings.HasPrefix(u, "https://") {
+		return
+	}
+	verb, _ := syscall.UTF16PtrFromString("open")
+	file, _ := syscall.UTF16PtrFromString(u)
+	_ = windows.ShellExecute(0, verb, file, nil, nil, 1 /* SW_SHOWNORMAL */)
 }

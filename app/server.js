@@ -22,7 +22,7 @@ const UI_FILE = path.join(HERE, 'ui', 'index.html');
 const MOD_SRC = path.join(HERE, 'mod', 'DFTrainer');
 const LIVE = require('./live');
 // Installed by the launcher, each version lives in its own folder (app\<version>): settings live one level up, in the
-// install folder (DFT_ROOT), so updates keep them. Started by hand (Start Trainer.bat), they stay next to this file.
+// install folder (DFT_ROOT), so updates keep them. Started by hand (node server.js), they stay next to this file.
 const ROOT = process.env.DFT_ROOT || null;
 const LAUNCHER = process.env.DFT_LAUNCHER && fs.existsSync(process.env.DFT_LAUNCHER) ? process.env.DFT_LAUNCHER : null;
 const SETTINGS = path.join(ROOT || HERE, 'trainer-settings.json');
@@ -649,12 +649,7 @@ const routes = {
   'POST /api/owner/generate': async (b) => LIC.generate(b),
   'POST /api/owner/revoke': async (b) => LIC.revoke(b),
   'POST /api/owner/refresh': async () => { LIC.fetchRevoked(); return { ok: true }; },
-  // the owner's browser, on the GitHub page that lists revoked keys
-  'POST /api/owner/open-revoke': async () => {
-    const k = LIC.keys(); if (!k.ok || !k.revokeUrl) return { ok: false };
-    if (IS_WIN) spawn('rundll32.exe', ['url.dll,FileProtocolHandler', k.revokeUrl], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
-    return { ok: true, url: k.revokeUrl };
-  },
+
   'POST /api/rules': async (b) => {
     const p = places(); if (!p.pkg) return { ok: false, error: 'Package not found.' };
     return { ok: true, rules: writeRules(p, b || {}) };
@@ -705,12 +700,10 @@ setInterval(() => {
   if (everSeen && !clients.size && Date.now() - lastClientAt > 180000 && !queue.length) process.exit(0);
 }, 5000);
 
-// Lantern Client.exe shows the panel in its own window. Started without it (Start Trainer.bat), the panel opens in your
-// default browser instead.
+// Lantern Client.exe shows the panel in its own window. Started by hand (node server.js), it prints the address to open.
 function openWindow(url) {
   if (NO_OPEN || LAUNCHER) return;
-  if (IS_WIN) spawn('cmd', ['/c', 'start', '', url], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
-  else console.log('Open ' + url);
+  console.log('Open ' + url);
 }
 
 function listen(tries = 0) {

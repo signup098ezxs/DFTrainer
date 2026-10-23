@@ -42,6 +42,10 @@ The update channel is the repository the workflow runs in (`GITHUB_REPOSITORY`),
 - If a new version does not start, the launcher goes back to the previous one and never retries that version.
 - The launcher can replace itself (a running exe can be renamed on Windows, not overwritten).
 
+## Antivirus and code signing
+
+The launcher avoids what antivirus heuristics flag in small unsigned tools: no PowerShell, `reg.exe`, `cmd` or `rundll32` (shortcuts, the Apps & features entry, uninstalling and opening links go through the Windows API), no scripts in the app package, and the exe keeps its symbol table. An unsigned exe can still be flagged by Windows Defender's machine-learning check; the lasting fix is an Authenticode signature. The workflow signs the exe when two repository secrets exist: `SIGN_PFX_BASE64` (the code-signing certificate as a base64 .pfx) and `SIGN_PASS` (its password).
+
 ## Keys
 
 Keys are signed with the owner key (Ed25519, separate from the release key) and checked offline by `app/license.js` against the public half built into it. A key holds an id, a name, when it was made and when it runs out (or never). The owner imports `lantern-owner-key.pem` in the client to get the Keys page, which makes, lists and revokes keys. Revoking means adding the key id to `licenses/revoked.txt` here. Without a valid key the panel answers only the key screen, settings and updates, and tells the game mod to stay off.

@@ -46,11 +46,26 @@ jobs:
         with:
           node-version: 22
 
+      # Optional Authenticode signing: add the secrets SIGN_PFX_BASE64 (the .pfx, base64) and SIGN_PASS to turn it on
+      - name: Code-signing certificate
+        id: cert
+        if: steps.v.outputs.skip != 'true'
+        run: |
+          if [ -n "$SIGN_PFX_BASE64" ]; then
+            sudo apt-get install -y -qq osslsigncode >/dev/null
+            echo "$SIGN_PFX_BASE64" | base64 -d > "$RUNNER_TEMP/sign.pfx"
+            echo "pfx=$RUNNER_TEMP/sign.pfx" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          SIGN_PFX_BASE64: ${{ secrets.SIGN_PFX_BASE64 }}
+
       - name: Build and sign
         if: steps.v.outputs.skip != 'true'
         run: node tools/build.mjs --out dist
         env:
           DFT_RELEASE_KEY: ${{ secrets.DFT_RELEASE_KEY }}
+          SIGN_PFX: ${{ steps.cert.outputs.pfx }}
+          SIGN_PASS: ${{ secrets.SIGN_PASS }}
 
       - name: Publish
         if: steps.v.outputs.skip != 'true'

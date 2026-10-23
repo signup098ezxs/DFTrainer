@@ -1156,7 +1156,7 @@ $('#kList').addEventListener('click', async (e) => {
   if (!undo) {
     const copied = await copyText(id);
     toast('Now add it on GitHub', `${copied ? 'The id ' + id + ' is copied. ' : ''}Paste it as a new line in licenses/revoked.txt and commit. Clients pick it up within a few hours, or at their next start.`, 'queued', 9000);
-    api('/api/owner/open-revoke', {});
+    if (revokeUrl) { if (window.dftOpen) window.dftOpen(revokeUrl); else window.open(revokeUrl, '_blank', 'noopener'); }
   } else toast('Revoke undone', `If ${id} is already in licenses/revoked.txt, delete that line too.`, 'ok', 6000);
   loadKeys();
 });

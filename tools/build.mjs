@@ -10,7 +10,7 @@
 import { createHash, createPrivateKey, createPublicKey, sign } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { deflateRawSync } from 'node:zlib';
-import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -90,8 +90,18 @@ writeFileSync(join(L, 'embedded', 'app-version.txt'), rel.version);
 const env = { ...process.env, CGO_ENABLED: '0', GOOS, GOARCH: 'amd64' };
 if (GOOS === 'windows') execFileSync('go', ['run', './cmd/mkres', '-ico', 'icon.ico', '-version', launcherVersion, '-app', rel.version, '-o', 'rsrc_windows_amd64.syso'], { cwd: L, stdio: 'inherit', env: { ...process.env } });
 const exeFile = GOOS === 'windows' ? 'Lantern-Client-Setup.exe' : 'lantern-client-launcher';
-const ldflags = [`-s -w`, GOOS === 'windows' ? '-H windowsgui' : '', `-X main.launcherVersion=${launcherVersion}`, `-X main.pubKeyB64=${pubKey}`, `-X main.defaultRepo=${repo}`].filter(Boolean).join(' ');
+// not stripped (-s): a Go exe with its symbol table looks less like a packed one to antivirus heuristics
+const ldflags = [`-w`, GOOS === 'windows' ? '-H windowsgui' : '', `-X main.launcherVersion=${launcherVersion}`, `-X main.pubKeyB64=${pubKey}`, `-X main.defaultRepo=${repo}`].filter(Boolean).join(' ');
 execFileSync('go', ['build', '-trimpath', '-ldflags', ldflags, '-o', join(OUT, exeFile), '.'], { cwd: L, stdio: 'inherit', env });
+// Authenticode signature, when a code-signing certificate is available (SIGN_PFX = .pfx file, SIGN_PASS = its
+// password; osslsigncode does the signing). Signed exes are what Windows Defender and SmartScreen trust.
+if (GOOS === 'windows' && process.env.SIGN_PFX) {
+  const out = join(OUT, exeFile), signed = out + '.signed';
+  execFileSync('osslsigncode', ['sign', '-pkcs12', process.env.SIGN_PFX, '-pass', process.env.SIGN_PASS || '', '-n', 'Lantern Client',
+    '-i', repo ? `https://github.com/${repo}` : 'https://github.com', '-h', 'sha256', '-t', 'http://timestamp.digicert.com', '-in', out, '-out', signed], { stdio: 'inherit' });
+  renameSync(signed, out);
+  console.log('signed', exeFile);
+}
 const exe = readFileSync(join(OUT, exeFile));
 
 // ------------------------------------------------------------ the signed manifest

@@ -98,7 +98,6 @@ FILES (in %LOCALAPPDATA%\DFTrainer once installed; the folder kept its name from
   trainer-settings.json .. your choices and waiting gifts
   license.json ........... your key
   logs\ .................. launcher.log and panel.log, if something needs looking into
-  Start Trainer.bat (inside app\<version>) still opens the panel without the launcher, without updates.
 
 To turn the game mod off: Dauntless Forever launcher > 1.6.2 > Mods, Lantern Client off.
 

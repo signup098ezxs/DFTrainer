@@ -1,5 +1,5 @@
 {
-  "version": "2.2.1",
+  "version": "2.3.0",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "The welcome greeting is calmer: no light rays, the words simply fade in."
+  "notes": "Fewer antivirus false alarms: the launcher no longer uses PowerShell, reg.exe, cmd or rundll32 for shortcuts, the Apps & features entry, uninstalling or opening links; it talks to Windows directly."
 }

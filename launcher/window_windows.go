@@ -197,7 +197,7 @@ func openAppWindow(url string) {
 	if wv == nil {
 		logf("WebView2 could not start")
 		if confirm("Lantern Client", "Lantern Client needs the Microsoft WebView2 Runtime, which is part of Windows 11 and of an up-to-date Windows 10, but is missing here.\n\nOpen the download page now? Install it, then open Lantern Client again.") {
-			_ = startDetached("rundll32.exe", []string{"url.dll,FileProtocolHandler", "https://go.microsoft.com/fwlink/p/?LinkId=2124703"})
+			openURL("https://go.microsoft.com/fwlink/p/?LinkId=2124703")
 		}
 		return
 	}
@@ -216,6 +216,7 @@ func openAppWindow(url string) {
 	})
 	_ = wv.Bind("dftClose", func() { wv.Dispatch(wv.Terminate) })
 	_ = wv.Bind("dftClipboard", func() string { return readClipboard() })
+	_ = wv.Bind("dftOpen", func(u string) { openURL(u) }) // links from the panel (https only) open in the default browser
 
 	wv.Navigate(url)
 	logf("window open")
