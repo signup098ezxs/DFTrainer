@@ -106,27 +106,6 @@ func confirm(title, text string) bool {
 	return messageBox(title, text, 0x4|0x20|0x100|0x10000 /* YESNO|QUESTION|DEFBUTTON2|SETFOREGROUND */) == 6
 }
 
-// the panel's own Edge app window (same profile and flags as server.js uses)
-func openAppWindow(url string) {
-	var edge string
-	for _, env := range []string{"ProgramFiles(x86)", "ProgramFiles", "LOCALAPPDATA"} {
-		if d := os.Getenv(env); d != "" {
-			p := filepath.Join(d, "Microsoft", "Edge", "Application", "msedge.exe")
-			if fileExists(p) {
-				edge = p
-				break
-			}
-		}
-	}
-	if edge == "" {
-		_ = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
-		return
-	}
-	profile := filepath.Join(defaultRoot(), "window")
-	_ = startDetached(edge, []string{"--app=" + url, "--user-data-dir=" + profile, "--window-size=" + windowSize(), "--no-first-run",
-		"--no-default-browser-check", "--autoplay-policy=no-user-gesture-required", "--disable-features=Translate,msEdgeSidebarV2"})
-}
-
 // Start Menu and Desktop shortcuts, through the Windows shell (the exe path goes in an environment variable, so no
 // quoting can go wrong)
 const shortcutScript = `$s = New-Object -ComObject WScript.Shell

@@ -71,9 +71,9 @@ GOOD TO KNOW
     someone else's game, their server decides, so the cheats do nothing there.
   - With the game closed, items go into your save through the package's own tools\items.js, which backs the save up
     first (backup\inventory, last 10 kept).
-  - The panel opens in its own Microsoft Edge app window. It closes by itself about 3 minutes after that window is
-    closed (not while gifts are waiting for the game to close). Opening DF Trainer again in the meantime just
-    brings the window back.
+  - DF Trainer is its own window (drawn by WebView2, the web engine built into Windows 10 and 11; no browser
+    opens). Closing it closes DF Trainer; the part that delivers gifts keeps running about 3 minutes longer (or
+    until gifts waiting for the game to close are in). Opening DF Trainer again brings the window back.
 
 FILES (in %LOCALAPPDATA%\DFTrainer once installed)
   DF Trainer.exe ......... the launcher: opens the panel, installs updates

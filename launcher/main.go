@@ -7,7 +7,8 @@
 //  1. if the panel already runs, just opens its window again (one panel at a time)
 //  2. checks the update channel (GitHub Releases) for a newer signed version and installs it (a few seconds at most;
 //     offline or slow, it starts what it has and the panel finishes the update in the background)
-//  3. starts the panel (server.js) with the Node.js Dauntless Forever installed, hidden
+//  3. starts the panel (server.js) with the Node.js Dauntless Forever installed, hidden, and shows it in its own
+//     window (WebView2, the web engine built into Windows); closing the window closes DF Trainer
 //  4. if a freshly updated version does not come up, it goes back to the previous one and never retries that version
 //
 // Other modes: --stage (used by the panel: fetch and install an update, answer JSON), --check (JSON only),
@@ -336,7 +337,7 @@ func copySelfTo(self, dst string) error {
 func launch(noUpdate bool) {
 	cleanupOldExe()
 	if r, ok := readRunning(); ok && pingPanel(r.URL) {
-		logf("panel already running (pid %d): opening its window", r.Pid)
+		logf("panel already running (pid %d): showing its window", r.Pid)
 		openAppWindow(r.URL)
 		return
 	}
@@ -366,8 +367,9 @@ func launch(noUpdate bool) {
 			st.Current = v
 			_ = saveState(st)
 		}
-		err := startPanel(v)
+		url, err := startPanel(v)
 		if err == nil {
+			openAppWindow(url) // returns when the window is closed
 			return
 		}
 		logf("version %s did not start: %v", v, err)
@@ -391,17 +393,17 @@ func launch(noUpdate bool) {
 var errNoNode = errors.New("node.js not found")
 var urlRe = regexp.MustCompile(`DF Trainer panel: (http://127\.0\.0\.1:\d+/\?t=[0-9a-f]+)`)
 
-func startPanel(v string) error {
+func startPanel(v string) (string, error) {
 	node := findNode()
 	if node == "" {
-		return errNoNode
+		return "", errNoNode
 	}
 	dir := appDir(v)
 	_ = os.MkdirAll(logDir(), 0o755)
 	logPath := filepath.Join(logDir(), "panel.log")
 	lf, err := os.Create(logPath)
 	if err != nil {
-		return err
+		return "", err
 	}
 	cmd := exec.Command(node, filepath.Join(dir, "server.js"))
 	cmd.Dir = dir
@@ -411,7 +413,7 @@ func startPanel(v string) error {
 	hideAndDetach(cmd)
 	if err := cmd.Start(); err != nil {
 		lf.Close()
-		return err
+		return "", err
 	}
 	lf.Close()
 	pid := cmd.Process.Pid
@@ -421,16 +423,16 @@ func startPanel(v string) error {
 	for time.Now().Before(deadline) {
 		time.Sleep(120 * time.Millisecond)
 		b, _ := os.ReadFile(logPath)
-		if urlRe.Match(b) {
-			return nil
+		if m := urlRe.FindSubmatch(b); m != nil {
+			return string(m[1]), nil
 		}
 		if !processAlive(pid) {
-			return fmt.Errorf("the panel stopped: %s", lastLines(string(b), 6))
+			return "", fmt.Errorf("the panel stopped: %s", lastLines(string(b), 6))
 		}
 	}
 	b, _ := os.ReadFile(logPath)
 	killProcess(pid)
-	return fmt.Errorf("the panel did not answer in time: %s", lastLines(string(b), 6))
+	return "", fmt.Errorf("the panel did not answer in time: %s", lastLines(string(b), 6))
 }
 
 func lastLines(s string, n int) string {
@@ -552,6 +554,7 @@ func main() {
 			}
 		}
 		_ = os.Remove(runningPath())
+		waitWindowClosed()
 	}
 	launch(has("--no-update"))
 }

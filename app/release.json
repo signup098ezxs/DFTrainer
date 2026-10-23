@@ -1,5 +1,5 @@
 {
-  "version": "1.2.0",
+  "version": "1.3.0",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Cleaner, more compact panel. New Settings menu: window size, interface scale and frame rate. Calmer intro. The Restart to update button only shows when an update is ready. Proper window icon."
+  "notes": "DF Trainer is now its own app window: no browser opens. It has its own icon and title bar, fits your screen at any display scaling, and Settings > Window size resizes it instantly."
 }

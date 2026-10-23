@@ -598,23 +598,12 @@ setInterval(() => {
   if (everSeen && !clients.size && Date.now() - lastClientAt > 180000 && !queue.length) process.exit(0);
 }, 5000);
 
+// DF Trainer.exe shows the panel in its own window. Started without it (Start Trainer.bat), the panel opens in your
+// default browser instead.
 function openWindow(url) {
-  if (NO_OPEN) return;
-  if (IS_WIN) {
-    const pf = [process.env['ProgramFiles(x86)'], process.env.ProgramFiles, process.env.LOCALAPPDATA].filter(Boolean);
-    const edge = pf.map((d) => path.join(d, 'Microsoft', 'Edge', 'Application', 'msedge.exe')).find((f) => fs.existsSync(f));
-    if (edge) {
-      // its own profile: a fresh browser process, so the window is the app alone and its sounds may play at once
-      const profile = path.join(process.env.LOCALAPPDATA || HERE, 'DFTrainer', 'window');
-      const ws = (settings.prefs && settings.prefs.winSize) || [1180, 760];   // the size picked in Settings (it fits the screen)
-      spawn(edge, [`--app=${url}`, `--user-data-dir=${profile}`, `--window-size=${ws[0]},${ws[1]}`, '--no-first-run', '--no-default-browser-check',
-        '--autoplay-policy=no-user-gesture-required', '--disable-features=Translate,msEdgeSidebarV2'], { detached: true, stdio: 'ignore' }).unref();
-      return;
-    }
-    spawn('cmd', ['/c', 'start', '', url], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
-  } else {
-    console.log('Open ' + url);
-  }
+  if (NO_OPEN || LAUNCHER) return;
+  if (IS_WIN) spawn('cmd', ['/c', 'start', '', url], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+  else console.log('Open ' + url);
 }
 
 function listen(tries = 0) {

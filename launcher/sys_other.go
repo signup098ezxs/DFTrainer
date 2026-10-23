@@ -60,6 +60,7 @@ func openAppWindow(url string) {
 	logf("open window %s", url)
 	_ = os.WriteFile(filepath.Join(rootDir(), "opened-window.txt"), []byte(url), 0o644)
 }
+func waitWindowClosed()                           {}
 func createShortcuts(exe string) error            { logf("shortcuts for %s", exe); return nil }
 func removeShortcuts()                            {}
 func registerUninstall(exe, version string) error { return nil }

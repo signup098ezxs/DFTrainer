@@ -677,7 +677,7 @@ $('#updBtn').addEventListener('click', async () => {
   const r = await api('/api/update/restart', {}).catch(() => ({ ok: true }));
   if (!r.ok) { $('#restarting').classList.remove('on'); SFX.error(); toast('Could not restart', r.error, 'error'); return; }
   // the new version opens its own window; this one closes
-  setTimeout(() => window.close(), 1200);
+  setTimeout(() => { if (window.dftClose) window.dftClose(); else window.close(); }, 600);
 });
 $('#checkUpd').addEventListener('click', () => { SFX.tick(); $('#checkUpd').textContent = 'Checking...'; api('/api/update/check', {}); });
 
@@ -1070,16 +1070,18 @@ function fitSize() {
 function applyWindow(v, announce) {
   const [w, h] = v === 'auto' ? fitSize() : v.split('x').map(Number);
   const W = Math.min(w, screen.availWidth), H = Math.min(h, screen.availHeight);
-  try { window.resizeTo(W, H); window.moveTo(screen.availLeft + Math.round((screen.availWidth - W) / 2), screen.availTop + Math.round((screen.availHeight - H) / 2)); } catch {}
+  // DF Trainer's own window resizes itself (dftResize); in a browser tab this may do nothing
+  if (window.dftResize) window.dftResize(W, H).catch(() => {});
+  else try { window.resizeTo(W, H); window.moveTo(screen.availLeft + Math.round((screen.availWidth - W) / 2), screen.availTop + Math.round((screen.availHeight - H) / 2)); } catch {}
   store.set('winSize', [W, H]);
-  if (announce) setTimeout(() => { if (Math.abs(window.outerWidth - W) > 40) toast('Window size saved', 'It applies the next time DF Trainer opens.'); }, 400);
+  if (announce && !window.dftResize) setTimeout(() => { if (Math.abs(window.outerWidth - W) > 40) toast('Window size saved', 'It applies the next time DF Trainer opens.'); }, 400);
 }
 function initSettings() {
   $('#sfxOn').checked = SFX.on; $('#sfxVol').value = SFX.vol; $('#introOn').checked = store.get('intro', true);
   $('#setScale').value = String(store.get('scale', 1)); $('#setFps').value = store.get('fps', 'display'); $('#setWin').value = store.get('win', 'auto');
   paintVol(); applyScale(store.get('scale', 1)); FPS.set(store.get('fps', 'display'));
   // a window taller or wider than the screen (high display scaling) is brought back inside it
-  if (window.outerWidth > screen.availWidth || window.outerHeight > screen.availHeight) applyWindow(store.get('win', 'auto'));
+  if (!window.dftResize && (window.outerWidth > screen.availWidth || window.outerHeight > screen.availHeight)) applyWindow(store.get('win', 'auto'));
 }
 $('#setScale').onchange = (e) => { SFX.tick(); store.set('scale', Number(e.target.value)); applyScale(Number(e.target.value)); };
 $('#setFps').onchange = (e) => { SFX.tick(); store.set('fps', e.target.value); FPS.set(e.target.value); };

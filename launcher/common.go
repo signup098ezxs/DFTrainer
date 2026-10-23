@@ -37,7 +37,7 @@ func uninstall() {
 	os.Exit(0)
 }
 
-// windowSize: the panel window size picked in Settings (saved by the panel), else a size that fits most screens
+// windowSize: the panel window size picked in Settings ("w,h" in screen points, saved by the panel), or ""
 func windowSize() string {
 	var st struct {
 		Prefs struct {
@@ -49,5 +49,5 @@ func windowSize() string {
 			return fmt.Sprintf("%d,%d", w[0], w[1])
 		}
 	}
-	return "1180,760"
+	return ""
 }
