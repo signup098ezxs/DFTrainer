@@ -1,5 +1,5 @@
 {
-  "version": "3.7.0",
+  "version": "3.7.1",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "New Build Creator tab: answer a few questions (goals in priority order, weapon, target, Omnicell, play style, owned gear) and get a full Dauntless 1.14.7 build (weapon, bond, parts, armour, cells, lantern, Omnicell) checked against the game's slot, perk-cap, bond and Exotic rules, with why each piece is there, how to play it, sources and a confidence level. Built from community-researched 1.14.6/1.14.7 data and 500+ community meta builds; works offline."
+  "notes": "Build Creator: the questions now sit in one compact card (six steps, a progress bar, Back, and your answers as chips you can click to change), and the target question has a new Universal option: one build for every behemoth, with no element favoured and armour whose weaknesses are spread out."
 }

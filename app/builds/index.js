@@ -23,6 +23,7 @@ function options() {
     omnicells: K.omnicells.map((o) => ({ name: o.name, passive: o.passive, active: o.active })),
     behemoths: Object.entries(K.behemoths).map(([name, element]) => ({ name, element })).sort((a, b) => a.name.localeCompare(b.name)),
     elements: ['Blaze', 'Frost', 'Shock', 'Terra', 'Radiant', 'Umbral', 'Neutral'],
+    universal: 'One build for every behemoth: no element favoured, and armour whose weaknesses are spread out so no single element hits every piece.',
   };
 }
 
@@ -34,9 +35,11 @@ function context(req) {
   if (!K.weaponTypes.includes(req.weaponType)) return { error: 'Pick a weapon type.' };
   const weapon = req.weapon && K.weapons.some((w) => w.name === req.weapon && w.type === req.weaponType) ? req.weapon : null;
   const elements = ['Blaze', 'Frost', 'Shock', 'Terra', 'Radiant', 'Umbral', 'Neutral'];
-  const target = elements.includes(req.target) ? req.target : (K.behemoths[req.target] || null);
+  // Universal: one build for every behemoth (no element favoured, armour weaknesses spread)
+  const universal = req.target === 'Universal';
+  const target = universal ? null : elements.includes(req.target) ? req.target : (K.behemoths[req.target] || null);
   return {
-    weaponType: req.weaponType, weapon, goals, target,
+    weaponType: req.weaponType, weapon, goals, target, universal,
     content: ['hunts', 'escalation', 'trials'].includes(req.content) ? req.content : 'hunts',
     risk: req.risk === 'safe' ? 'safe' : 'any',
     omnicell: K.omnicells.some((o) => o.name === req.omnicell) ? req.omnicell : 'auto',

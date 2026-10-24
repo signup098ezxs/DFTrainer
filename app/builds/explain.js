@@ -54,6 +54,9 @@ function describe(ctx, result, owned) {
   const target = ctx.target && ctx.target !== 'Neutral' ? ctx.target : null;
   const weak = target ? K.weakTo[target] : null;
   const goalNames = ctx.goals.map((g) => GOALS[g].label);
+  // Universal: how the armour's weaknesses are spread
+  const weakSpread = {};
+  for (const [k] of ARMOUR_SLOTS) { const a = K.armourByName[b[k]]; if (a && a.weakness) weakSpread[a.weakness] = (weakSpread[a.weakness] || 0) + 1; }
   // ---- perks, best for the goals first
   const perks = Object.entries(totals).map(([name, t]) => {
     const p = K.perks[name] || {};
@@ -95,6 +98,13 @@ function describe(ctx, result, owned) {
     if (resist) strengths.push(`${resist} armour piece${resist > 1 ? 's are' : ' is'} ${target}, the target's own element.`);
     if (weakP) weaknesses.push(`${weakP} armour piece${weakP > 1 ? 's are' : ' is'} weak to ${target}.`);
   }
+  if (ctx.universal) {
+    const spread = Object.entries(weakSpread).sort((a, c) => c[1] - a[1]);
+    const most = spread.length ? spread[0][1] : 0;
+    if (most <= 1) strengths.push(`Universal: no two armour pieces share a weakness${spread.length ? ` (${spread.map(([e]) => e).join(', ')})` : ''}, so no single element hits every piece.`);
+    else weaknesses.push(`Universal: ${most} armour pieces are weak to ${spread[0][0]}; the gear that fits your goals best made a fully spread set cost too much.`);
+    if (w.element) synergies.push(`Your ${w.element} weapon does extra damage to ${Object.keys(K.weakTo).filter((e) => K.weakTo[e] === w.element).join(' and ')} behemoths; against the rest it hits normally.`);
+  }
   for (const c of coverage) if (c.pct < 35) weaknesses.push(`${c.label} is only lightly covered (${c.pct}%): the gear that fits the other goals left little room for it.`);
   const surv = ['Tough', 'Evasion', 'Nine Lives', 'Water', 'Fortress', 'Parasitic', 'Aegis'].filter((n) => (totals[n] || {}).level >= 3);
   if (!ctx.goals.includes('survival') && !surv.length) weaknesses.push('Little defence: no survival perk at +3 or more. Dodge well, or swap a cell for Tough or Evasion.');
@@ -104,7 +114,7 @@ function describe(ctx, result, owned) {
   const poss = (n) => (/s$/.test(n) ? n + "'" : n + "'s");
   if (bond) synergies.push(`${w.name} is a legendary weapon: bonded with ${bond.name}, it takes ${poss(bond.name)} perks and effects.`);
   const playstyle = `A ${o.name} ${typeName} build for ${goalNames.join(', ').replace(/, ([^,]*)$/, ' and $1').toLowerCase()}`
-    + `${target ? ` against ${target} behemoths` : ''}. `
+    + `${target ? ` against ${target} behemoths` : ctx.universal ? ', made to take into any hunt' : ''}. `
     + (key.length ? `It is built around ${key.map((p) => `${p.name} +${p.counts}`).join(', ').replace(/, ([^,]*)$/, ' and $1')}.` : '');
   // ---- how to use it: only what the build's own texts say
   const usage = [];
@@ -155,7 +165,7 @@ function describe(ctx, result, owned) {
     const seen = new Set(); missing.cells = missing.cells.filter((c) => !seen.has(c.id) && seen.add(c.id));
   }
   return {
-    name, subtitle: `${w.name}${bond ? ` + ${bond.name}` : ''} · ${o.name}${target ? ` · vs ${target}` : ''}`,
+    name, subtitle: `${w.name}${bond ? ` + ${bond.name}` : ''} · ${o.name}${target ? ` · vs ${target}` : ctx.universal ? ' · Universal' : ''}`,
     weapon, armour, lantern, omnicell, perks, goals: coverage,
     explanation: { playstyle, strengths, weaknesses, synergies },
     usage, notes, sources, meta,

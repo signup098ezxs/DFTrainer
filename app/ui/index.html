@@ -644,32 +644,40 @@ input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border: 0; bord
 .bcpast button:hover { border-color: rgba(var(--a-rgb), .45); transform: translateY(-1px); }
 .bcpast button b { display: block; font: 600 13.5px var(--display); }
 .bcpast button small { color: var(--ash); font-size: 11.5px; }
-/* chat */
-.bcchat { display: flex; flex-direction: column; gap: 10px; }
-.bcmsg { display: flex; gap: 10px; align-items: flex-start; animation: rise .35s var(--ease) both; }
-.bcmsg .av { flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: radial-gradient(circle at 50% 35%, rgba(var(--a-rgb), .35), rgba(var(--a-rgb), .08)); border: 1px solid rgba(var(--a-rgb), .4); color: var(--aether); }
-.bcmsg .av svg { width: 16px; height: 16px; }
-.bcmsg .bub { max-width: 78ch; border: 1px solid var(--seam); background: var(--hull2); border-radius: 4px 14px 14px 14px; padding: 10px 13px; font-size: 14px; }
-.bcmsg .bub small { display: block; color: var(--ash); font-size: 12.5px; margin-top: 3px; }
-.bcmsg.me { justify-content: flex-end; }
-.bcmsg.me .bub { border-radius: 14px 4px 14px 14px; background: rgba(var(--a-rgb), .12); border-color: rgba(var(--a-rgb), .35); cursor: pointer; }
-.bcmsg.me .bub:hover { border-color: rgba(var(--a-rgb), .7); }
-.bcmsg.me .bub small { color: var(--a-pale); opacity: .7; }
-.bctyping .bub { display: flex; gap: 4px; padding: 13px 14px; }
-.bctyping i { width: 6px; height: 6px; border-radius: 50%; background: var(--aether); animation: pulse 1s infinite; }
-.bctyping i:nth-child(2) { animation-delay: .15s; } .bctyping i:nth-child(3) { animation-delay: .3s; }
-.bcopts { margin: 2px 0 4px 40px; display: flex; flex-wrap: wrap; gap: 7px; animation: rise .35s .08s var(--ease) both; }
-.bcopt { position: relative; display: inline-flex; flex-direction: column; align-items: flex-start; gap: 1px; min-height: 34px; padding: 7px 12px; border-radius: 10px; border: 1px solid var(--seam2); background: var(--hull2); color: var(--frost); font-size: 13.5px; font-weight: 600; text-align: left; transition: border-color .2s, background .2s, box-shadow .2s, transform .15s; }
-.bcopt small { font-weight: 400; color: var(--ash); font-size: 11.5px; max-width: 34ch; }
+/* questions: one compact card */
+.bcflow { border-radius: 16px; border: 1px solid var(--seam2); background: linear-gradient(180deg, var(--hull2), var(--hull)); overflow: hidden; max-width: 860px; }
+.bcflowhead { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--seam); }
+.bcflowhead > b { font: 600 15px var(--display); }
+.bcprog2 { flex: 1; height: 4px; border-radius: 4px; background: rgba(255, 255, 255, .07); overflow: hidden; }
+.bcprog2 i { display: block; height: 100%; background: linear-gradient(90deg, var(--a-mid), var(--a-light)); box-shadow: 0 0 10px rgba(var(--a-rgb), .6); transform-origin: left; transform: scaleX(0); transition: transform .45s var(--ease); }
+#bcStepN { color: var(--ash); font-size: 12px; min-width: 42px; text-align: right; }
+#bcBack { height: 28px; padding: 0 10px; font-size: 12.5px; }
+.bcchips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 16px; }
+.bcchips:not(:empty) { padding-top: 12px; }
+.bcchip { display: inline-flex; align-items: center; gap: 7px; max-width: 100%; height: 28px; padding: 0 10px; border-radius: 99px; border: 1px solid rgba(var(--a-rgb), .3); background: rgba(var(--a-rgb), .08); color: var(--a-pale); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; animation: okpop .3s var(--ease); transition: border-color .2s; }
+.bcchip span { color: var(--ash); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+.bcchip:hover { border-color: var(--aether); }
+.bcq { padding: 14px 16px 16px; }
+.bcq.in { animation: rise .3s var(--ease) both; }
+.bcask { display: flex; gap: 11px; align-items: flex-start; margin-bottom: 12px; }
+.bcask .av { flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: radial-gradient(circle at 50% 35%, rgba(var(--a-rgb), .35), rgba(var(--a-rgb), .08)); border: 1px solid rgba(var(--a-rgb), .4); color: var(--aether); }
+.bcask .av svg { width: 16px; height: 16px; }
+.bcask b { display: block; font: 600 16px/1.3 var(--display); margin-top: 4px; }
+.bcask small { display: block; color: var(--ash); font-size: 12.5px; margin-top: 2px; }
+.bcopts { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 7px; }
+.bcopt { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 40px; padding: 8px 11px; border-radius: 10px; border: 1px solid var(--seam2); background: rgba(0, 0, 0, .18); color: var(--frost); font-size: 13.5px; font-weight: 600; text-align: left; transition: border-color .2s, background .2s, box-shadow .2s, transform .15s; }
+.bcopt.wide { grid-column: 1 / -1; }
+.bcopt small { font-weight: 400; color: var(--ash); font-size: 11.5px; line-height: 1.35; }
 .bcopt:hover { border-color: rgba(var(--a-rgb), .5); }
-.bcopt:active { transform: scale(.97); }
+.bcopt:active { transform: scale(.98); }
 .bcopt.on { background: rgba(var(--a-rgb), .14); border-color: var(--aether); box-shadow: 0 0 16px -4px rgba(var(--a-rgb), .6); }
 .bcopt .n { position: absolute; top: -7px; right: -7px; width: 19px; height: 19px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; color: var(--a-ink); background: var(--aether); box-shadow: 0 0 10px rgba(var(--a-rgb), .6); animation: okpop .25s var(--ease); }
-.bcopt .el { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
-.bcrow { flex-basis: 100%; display: flex; gap: 8px; align-items: center; margin-top: 4px; }
-.bcrow select { min-width: 240px; height: 34px; }
-.bcsum { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; font-size: 13.5px; margin-top: 6px; }
-.bcsum dt { color: var(--ash); } .bcsum dd { margin: 0; }
+.bcopt .el { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; vertical-align: 1px; }
+.bcgroup + .bcgroup { margin-top: 12px; }
+.bcgroup .gl { font-size: 12.5px; color: var(--ash); margin-bottom: 6px; }
+.bcfoot { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 12px; }
+.bcfoot select { flex: 1; max-width: 420px; height: 34px; margin-right: auto; }
+.bcpicked { margin-right: auto; color: var(--ash); font-size: 12.5px; }
 /* creating */
 .bcforge { display: grid; place-items: center; text-align: center; padding: 40px 10px 30px; }
 .bcforge h3 { margin: 18px 0 4px; font: 700 22px var(--display); letter-spacing: .04em; }
@@ -738,7 +746,7 @@ input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border: 0; bord
 .bcerr { border: 1px solid rgba(255, 90, 116, .45); background: rgba(255, 90, 116, .08); border-radius: 14px; padding: 16px 18px; }
 .bcerr h4 { margin: 0 0 4px; font: 600 16px var(--display); color: #ffd0d8; }
 .bcerr p { margin: 0 0 12px; color: var(--frost); font-size: 13.5px; }
-@media (max-width: 760px) { .bcsteps, .bcgrid { grid-template-columns: 1fr; } .bcopts { margin-left: 0; } .bcconf { position: static; margin-bottom: 8px; } }
+@media (max-width: 760px) { .bcsteps, .bcgrid { grid-template-columns: 1fr; } .bcopts { grid-template-columns: 1fr 1fr; } .bcflowhead > b { display: none; } .bcconf { position: static; margin-bottom: 8px; } }
 @media (prefers-reduced-motion: reduce) { .bchero .rune, .bcring .r1, .bcring .r2, .bcring .core, .bcring .spark, .bctop::after { animation: none; } }
 </style>
 </head>
@@ -913,7 +921,13 @@ input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border: 0; bord
           <div class="bcpast" id="bcPast" hidden><h4>Your recent builds</h4><div class="list" id="bcPastList"></div></div>
         </div>
         <!-- questions -->
-        <div class="bcstage" id="bcAsk"><div class="bcchat" id="bcChat"></div></div>
+        <div class="bcstage" id="bcAsk">
+          <div class="bcflow">
+            <div class="bcflowhead"><b>New build</b><div class="bcprog2"><i id="bcBar"></i></div><span id="bcStepN">1 of 6</span><button class="btn" id="bcBack">Back</button></div>
+            <div class="bcchips" id="bcChips"></div>
+            <div class="bcq" id="bcQ"></div>
+          </div>
+        </div>
         <!-- creating -->
         <div class="bcstage" id="bcMaking">
           <div class="bcforge">
@@ -1819,130 +1833,126 @@ $('#bcPastList').addEventListener('click', (e) => {
   SFX.select(); BC.req = p.req; BC.a = { ...p.req }; bcShow(p.view, p.req);
 });
 
-// ---- the questions
+// ---- the questions: one compact card. The current question is shown alone; answered ones become chips above it
+// (click one to change it); a progress bar and Back keep the place.
 const BC_STEPS = [
-  { key: 'goals', ask: () => 'What should this build be best at? Pick up to four: the order you pick them in is their priority.',
+  { key: 'goals', title: 'Goals', ask: () => 'What should this build be best at?', hint: 'Pick up to four. The order you pick them in is their priority.',
     opts: () => BC.opts.goals.map((g) => ({ v: g.id, t: g.label, s: g.blurb })), multi: 4,
-    say: (v) => v.map((id, i) => `${i + 1}. ${BC.opts.goals.find((g) => g.id === id).label}`).join('  ') },
-  { key: 'weaponType', ask: () => 'Which weapon do you want to play?',
+    say: (v) => v.map((id) => BC.opts.goals.find((g) => g.id === id).label).join(' › ') },
+  { key: 'weaponType', title: 'Weapon', ask: () => 'Which weapon do you want to play?', hint: 'Lantern picks the best one of that type, or choose it yourself below.',
     opts: () => BC.opts.weaponTypes.map((t) => ({ v: t, t: t === 'Repeater' ? 'Repeaters' : t, s: `${BC.opts.weapons[t].length} in 1.14.7` })),
-    say: (v) => (v === 'Repeater' ? 'Repeaters' : v) },
-  { key: 'weapon', ask: () => `Any particular ${BC.a.weaponType === 'Repeater' ? 'Repeaters' : BC.a.weaponType}? Lantern can pick the best one for your goals and target.`,
-    opts: () => [{ v: '', t: 'Pick the best one for me' }], select: () => BC.opts.weapons[BC.a.weaponType].map((w) => ({ v: w.name, t: `${w.name}${w.element ? ' · ' + w.element : ''}${w.legendary ? ' · legendary' : ''}${w.exotic ? ' · Exotic' : ''}` })),
-    say: (v) => v || 'Pick the best one for me' },
-  { key: 'target', ask: () => 'What will you hunt with it? Elements decide the weapon element and the armour.',
-    opts: () => [{ v: '', t: 'Any behemoth', s: 'No element preference' }, ...BC.opts.elements.map((e) => ({ v: e, t: e, el: e }))],
-    select: () => BC.opts.behemoths.map((b) => ({ v: b.name, t: `${b.name} · ${b.element}` })), selectLabel: 'or a behemoth',
-    say: (v) => v ? (BC.opts.behemoths.find((b) => b.name === v) ? `${v} (${BC.opts.behemoths.find((b) => b.name === v).element})` : `${v} behemoths`) : 'Any behemoth' },
-  { key: 'omnicell', ask: () => 'Which Omnicell? Lantern can pick the one whose abilities suit your goals.',
-    opts: () => [{ v: 'auto', t: 'Pick for me' }, ...BC.opts.omnicells.map((o) => ({ v: o.name, t: o.name, s: o.passive.split('. ')[0] + '.' }))],
-    say: (v) => v === 'auto' ? 'Pick the Omnicell for me' : v },
-  { key: 'risk', ask: () => 'Some perks trade safety for damage (less max health, self-damage, slower attacks). Are those fine?',
-    opts: () => [{ v: 'any', t: 'Yes, maximise the goals' }, { v: 'safe', t: 'No, keep it safe', s: 'Leaves out Berserker, Fire, Reduce and Drop, and the high-risk Omnicells' }],
-    say: (v) => v === 'safe' ? 'Keep it safe' : 'Risky perks are fine' },
-  { key: 'content', ask: () => 'Where will you use it?',
-    opts: () => [{ v: 'hunts', t: 'Hunts and Trials' }, { v: 'escalation', t: 'Escalations', s: 'Fauna and aether-charged behemoth perks start to count' }],
-    say: (v) => v === 'escalation' ? 'Escalations' : 'Hunts and Trials' },
-  { key: 'ownedOnly', ask: () => (charId() && charId() !== '*') ? 'Last one: use any 1.14.7 gear, or only what this character already owns?' : 'Last one: use any 1.14.7 gear? (Pick a character at the top to build from what they own.)',
-    opts: () => [{ v: false, t: 'Any 1.14.7 gear', s: 'The best build; you can give yourself the missing pieces' }, ...((charId() && charId() !== '*') ? [{ v: true, t: 'Only gear I own', s: 'Uses this character\'s weapons, armour and cells' }] : [])],
+    sub: true, say: (v) => (v === 'Repeater' ? 'Repeaters' : v) + (BC.a.weapon ? ` · ${BC.a.weapon}` : '') },
+  { key: 'target', title: 'Target', ask: () => 'What will you hunt with it?', hint: 'The target decides the weapon element and the armour.',
+    opts: () => [{ v: 'Universal', t: 'Universal', s: BC.opts.universal, wide: true }, ...BC.opts.elements.map((e) => ({ v: e, t: e, el: e }))],
+    select: () => BC.opts.behemoths.map((b) => ({ v: b.name, t: `${b.name} · ${b.element}` })), selectLabel: 'Or a behemoth',
+    say: (v) => v === 'Universal' ? 'Universal' : (BC.opts.behemoths.find((b) => b.name === v) ? `${v} (${BC.opts.behemoths.find((b) => b.name === v).element})` : `${v} behemoths`) },
+  { key: 'omnicell', title: 'Omnicell', ask: () => 'Which Omnicell?', hint: 'Lantern can pick the one whose abilities suit your goals.',
+    opts: () => [{ v: 'auto', t: 'Pick for me', wide: true }, ...BC.opts.omnicells.map((o) => ({ v: o.name, t: o.name, s: o.passive.split('. ')[0] + '.' }))],
+    say: (v) => v === 'auto' ? 'Picked for you' : v },
+  { key: 'style', title: 'Play style', ask: () => 'How do you play?', hint: 'Two quick choices.',
+    groups: [
+      { key: 'risk', label: 'Perks that trade safety for damage (less max health, self-damage, slower attacks)', opts: [{ v: 'any', t: 'Fine by me' }, { v: 'safe', t: 'Keep it safe' }] },
+      { key: 'content', label: 'Where you will use it', opts: [{ v: 'hunts', t: 'Hunts and Trials' }, { v: 'escalation', t: 'Escalations' }] },
+    ],
+    say: () => `${BC.a.risk === 'safe' ? 'Safe' : 'Risky perks OK'} · ${BC.a.content === 'escalation' ? 'Escalations' : 'Hunts and Trials'}` },
+  { key: 'ownedOnly', title: 'Gear', ask: () => 'Which gear can it use?', hint: () => (charId() && charId() !== '*') ? 'Owned gear means this character\'s weapons, armour and cells.' : 'Pick a character at the top to build from what they own.',
+    opts: () => [{ v: false, t: 'Any 1.14.7 gear', s: 'The best build; give yourself the missing pieces after' }, ...((charId() && charId() !== '*') ? [{ v: true, t: 'Only gear I own', s: 'Built from this character\'s gear' }] : [])],
     say: (v) => v ? 'Only gear I own' : 'Any 1.14.7 gear' },
 ];
-function bcSay(html, me, back) {
-  const d = document.createElement('div');
-  d.className = 'bcmsg' + (me ? ' me' : '');
-  d.innerHTML = me ? `<div class="bub" ${back != null ? `data-back="${back}" title="Change this answer"` : ''}>${html}</div>` : `<div class="av">${bcIcon}</div><div class="bub">${html}</div>`;
-  $('#bcChat').append(d);
-  return d;
-}
-function bcTyping(ms) {
-  const d = document.createElement('div'); d.className = 'bcmsg bctyping'; d.innerHTML = `<div class="av">${bcIcon}</div><div class="bub"><i></i><i></i><i></i></div>`;
-  $('#bcChat').append(d);
-  return new Promise((r) => setTimeout(() => { d.remove(); r(); }, reduced ? 0 : ms));
-}
+const bcDone = (i) => { const s = BC_STEPS[i]; return s.groups ? s.groups.every((g) => BC.a[g.key] != null) : BC.a[s.key] != null && !(Array.isArray(BC.a[s.key]) && !BC.a[s.key].length); };
 function bcBegin() {
-  BC.step = 0; BC.a = {};
-  $('#bcChat').innerHTML = '';
+  BC.step = 0; BC.a = {}; BC.jump = false;
   bcStage('bcAsk');
-  bcSay('Hi! I\'ll put a build together with you. A few quick questions first.<small>Click any of your answers to change it.</small>');
   bcAsk();
 }
-async function bcAsk() {
+function bcChips() {
+  setHTML('#bcChips', BC_STEPS.map((s, i) => i !== BC.step && (i < BC.step || BC.jump) && bcDone(i) ? `<button class="bcchip" data-go="${i}" title="Change"><span>${esc(s.title)}</span>${esc(s.say(BC.a[s.key]))}</button>` : '').join(''));
+  const n = Math.min(BC.step, BC_STEPS.length);
+  $('#bcBar').style.transform = `scaleX(${(n + (BC.step >= BC_STEPS.length ? 0 : 0.5)) / BC_STEPS.length})`;
+  $('#bcStepN').textContent = BC.step >= BC_STEPS.length ? 'Ready' : `${BC.step + 1} of ${BC_STEPS.length}`;
+  $('#bcBack').disabled = BC.step === 0;
+}
+function bcAsk() {
+  bcChips();
+  const q = $('#bcQ');
+  q.classList.remove('in'); void q.offsetWidth; q.classList.add('in');
+  if (BC.step >= BC_STEPS.length) return bcSummary();
   const st = BC_STEPS[BC.step];
-  if (!st) return bcSummary();
-  await bcTyping(380);
-  bcSay(esc(st.ask()));
-  const box = document.createElement('div'); box.className = 'bcopts'; box.dataset.step = BC.step;
-  const chosen = st.multi ? [...(BC.a[st.key] || [])] : null;
-  box.innerHTML = st.opts().map((o) => `<button class="bcopt" data-v="${esc(JSON.stringify(o.v))}">${o.el ? `<span><i class="el" style="background:${BC_EL[o.el]}"></i>${esc(o.t)}</span>` : `<span>${esc(o.t)}</span>`}${o.s ? `<small>${esc(o.s)}</small>` : ''}</button>`).join('')
-    + (st.select ? `<div class="bcrow"><select class="bcsel"><option value="">${esc(st.selectLabel || 'or choose one')}...</option>${st.select().map((o) => `<option value="${esc(o.v)}">${esc(o.t)}</option>`).join('')}</select></div>` : '')
-    + (st.multi ? '<div class="bcrow"><button class="btn primary bcnext" disabled>Next</button></div>' : '');
-  $('#bcChat').append(box);
-  const paint = () => {
-    if (!st.multi) return;
-    box.querySelectorAll('.bcopt').forEach((b) => {
-      const i = chosen.indexOf(JSON.parse(b.dataset.v));
-      b.classList.toggle('on', i >= 0);
-      b.querySelector('.n')?.remove();
-      if (i >= 0) b.insertAdjacentHTML('beforeend', `<span class="n">${i + 1}</span>`);
-    });
-    box.querySelector('.bcnext').disabled = !chosen.length;
-  };
-  paint();
-  const answer = (v) => {
-    BC.a[st.key] = v;
-    box.remove();
-    bcSay(esc(st.say(v)), true, BC.step);
-    BC.step++;
-    bcAsk();
-  };
-  box.addEventListener('click', (e) => {
-    const b = e.target.closest('.bcopt');
-    if (b) {
-      const v = JSON.parse(b.dataset.v);
-      if (st.multi) {
-        const i = chosen.indexOf(v);
-        if (i >= 0) { chosen.splice(i, 1); SFX.tick(); }
-        else if (chosen.length < st.multi) { chosen.push(v); SFX.step(chosen.length - 1); }
-        else { SFX.error(); toast('Four goals at most', 'Untick one to pick another.', 'error'); }
-        paint();
-      } else { SFX.select(); answer(v); }
-      return;
-    }
-    if (e.target.closest('.bcnext')) { SFX.select(); answer(chosen); }
-  });
-  box.querySelector('.bcsel')?.addEventListener('change', (e) => { if (e.target.value) { SFX.select(); answer(e.target.value); } });
-  box.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'nearest' });
+  const opt = (o, on) => `<button class="bcopt${o.wide ? ' wide' : ''}${on ? ' on' : ''}" data-v="${esc(JSON.stringify(o.v))}"><span>${o.el ? `<i class="el" style="background:${BC_EL[o.el]}"></i>` : ''}${esc(o.t)}</span>${o.s ? `<small>${esc(o.s)}</small>` : ''}</button>`;
+  let body = '';
+  if (st.groups) {
+    body = st.groups.map((g) => `<div class="bcgroup" data-g="${g.key}"><div class="gl">${esc(g.label)}</div><div class="bcopts">${g.opts.map((o) => opt(o, BC.a[g.key] === o.v)).join('')}</div></div>`).join('')
+      + `<div class="bcfoot"><button class="btn primary bcnext"${st.groups.every((g) => BC.a[g.key] != null) ? '' : ' disabled'}>Next</button></div>`;
+  } else {
+    const cur = BC.a[st.key];
+    body = `<div class="bcopts">${st.opts().map((o) => opt(o, st.multi ? (cur || []).includes(o.v) : cur === o.v)).join('')}</div>`;
+    if (st.sub && BC.a.weaponType) body += `<div class="bcfoot"><select class="bcsel" data-sub="weapon"><option value="">Best ${esc(BC.a.weaponType === 'Repeater' ? 'Repeaters' : BC.a.weaponType)} for my goals</option>${BC.opts.weapons[BC.a.weaponType].map((w) => `<option value="${esc(w.name)}"${BC.a.weapon === w.name ? ' selected' : ''}>${esc(w.name)}${w.element ? ' · ' + esc(w.element) : ''}${w.legendary ? ' · legendary' : ''}${w.exotic ? ' · Exotic' : ''}</option>`).join('')}</select><button class="btn primary bcnext">Next</button></div>`;
+    if (st.select) body += `<div class="bcfoot"><select class="bcsel"><option value="">${esc(st.selectLabel)}...</option>${st.select().map((o) => `<option value="${esc(o.v)}"${cur === o.v ? ' selected' : ''}>${esc(o.t)}</option>`).join('')}</select></div>`;
+    if (st.multi) body += `<div class="bcfoot"><span class="bcpicked">${(cur || []).length}/${st.multi} picked</span><button class="btn primary bcnext"${(cur || []).length ? '' : ' disabled'}>Next</button></div>`;
+  }
+  const hint = typeof st.hint === 'function' ? st.hint() : st.hint;
+  q.innerHTML = `<div class="bcask"><div class="av">${bcIcon}</div><div><b>${esc(st.ask())}</b>${hint ? `<small>${esc(hint)}</small>` : ''}</div></div>${body}`;
+  if (st.multi) bcPaintMulti();
 }
-// change an earlier answer: the chat goes back to that question
-$('#bcChat').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-back]'); if (!b) return;
-  const step = Number(b.dataset.back);
-  SFX.tick();
-  const msgs = [...$('#bcChat').children];
-  const at = msgs.indexOf(b.closest('.bcmsg'));
-  msgs.slice(at - 1).forEach((m) => m.remove());   // the question and everything after it
-  BC.step = step;
-  for (const s of BC_STEPS.slice(step)) if (s.key !== 'goals' || step === 0) { if (BC_STEPS.indexOf(s) > step) delete BC.a[s.key]; }
-  bcAsk();
+function bcPaintMulti() {
+  const st = BC_STEPS[BC.step], cur = BC.a[st.key] || [];
+  $$('#bcQ .bcopt').forEach((b) => {
+    const i = cur.indexOf(JSON.parse(b.dataset.v));
+    b.classList.toggle('on', i >= 0);
+    b.querySelector('.n')?.remove();
+    if (i >= 0) b.insertAdjacentHTML('beforeend', `<span class="n">${i + 1}</span>`);
+  });
+  const p = $('#bcQ .bcpicked'); if (p) p.textContent = `${cur.length}/${st.multi} picked`;
+  $('#bcQ .bcnext').disabled = !cur.length;
+}
+// after changing one answer from its chip, go straight back to "Ready" when everything is answered
+const bcNext = () => { BC.step = BC.jump && BC_STEPS.every((s, i) => bcDone(i)) ? BC_STEPS.length : BC.step + 1; if (BC.step >= BC_STEPS.length) BC.jump = false; bcAsk(); };
+$('#bcQ').addEventListener('click', (e) => {
+  const st = BC_STEPS[BC.step]; if (!st) return;
+  const b = e.target.closest('.bcopt');
+  if (b) {
+    const v = JSON.parse(b.dataset.v);
+    if (st.groups) {
+      const g = b.closest('.bcgroup').dataset.g;
+      BC.a[g] = v; SFX.tick();
+      b.parentElement.querySelectorAll('.bcopt').forEach((x) => x.classList.toggle('on', x === b));
+      $('#bcQ .bcnext').disabled = !st.groups.every((gr) => BC.a[gr.key] != null);
+      if (st.groups.every((gr) => BC.a[gr.key] != null) && st.groups.findIndex((gr) => gr.key === g) === st.groups.length - 1) { SFX.select(); setTimeout(bcNext, reduced ? 0 : 220); }
+    } else if (st.multi) {
+      const cur = BC.a[st.key] = BC.a[st.key] || [];
+      const i = cur.indexOf(v);
+      if (i >= 0) { cur.splice(i, 1); SFX.tick(); }
+      else if (cur.length < st.multi) { cur.push(v); SFX.step(cur.length - 1); }
+      else { SFX.error(); toast('Four goals at most', 'Untick one to pick another.', 'error'); }
+      bcPaintMulti();
+    } else if (st.sub) {
+      if (BC.a.weaponType !== v) BC.a.weapon = null;
+      BC.a.weaponType = v; SFX.select(); bcAsk();   // shows the specific-weapon row for this type
+      $('#bcQ .bcsel')?.focus();
+    } else { BC.a[st.key] = v; SFX.select(); b.classList.add('on'); setTimeout(bcNext, reduced ? 0 : 180); }
+    return;
+  }
+  if (e.target.closest('.bcnext')) { SFX.select(); bcNext(); }
 });
-async function bcSummary() {
-  await bcTyping(420);
-  const a = BC.a, o = BC.opts;
-  const rows = [
-    ['Goals', BC_STEPS[0].say(a.goals)], ['Weapon', BC_STEPS[2].say(a.weapon) === 'Pick the best one for me' ? `${BC_STEPS[1].say(a.weaponType)} (best for you)` : a.weapon],
-    ['Target', BC_STEPS[3].say(a.target)], ['Omnicell', BC_STEPS[4].say(a.omnicell)], ['Style', `${BC_STEPS[5].say(a.risk)}, ${BC_STEPS[6].say(a.content)}`], ['Gear', BC_STEPS[7].say(a.ownedOnly)],
-  ];
-  bcSay(`Here's what I'll build:<dl class="bcsum">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>`);
-  const box = document.createElement('div'); box.className = 'bcopts';
-  box.innerHTML = '<button class="btn primary" id="bcGo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 3 6 6 1-4.5 4 1 6.5L12 17l-5.5 2.5 1-6.5L3 9l6-1z"/></svg>Create my build</button>';
-  $('#bcChat').append(box);
-  box.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'nearest' });
+$('#bcQ').addEventListener('change', (e) => {
+  const s = e.target.closest('.bcsel'); if (!s) return;
+  const st = BC_STEPS[BC.step];
+  if (s.dataset.sub === 'weapon') { BC.a.weapon = s.value || null; SFX.tick(); return; }
+  if (s.value) { BC.a[st.key] = s.value; SFX.select(); setTimeout(bcNext, reduced ? 0 : 150); }
+});
+$('#bcChips').addEventListener('click', (e) => { const b = e.target.closest('[data-go]'); if (!b) return; SFX.tick(); BC.jump = true; BC.step = Number(b.dataset.go); bcAsk(); });
+$('#bcBack').addEventListener('click', () => { if (BC.step > 0) { SFX.tick(); BC.step--; bcAsk(); } });
+function bcSummary() {
+  const a = BC.a;
+  $('#bcQ').innerHTML = `<div class="bcask"><div class="av">${bcIcon}</div><div><b>Ready to build.</b><small>Click any answer above to change it.</small></div></div>
+    <div class="bcfoot"><button class="btn primary" id="bcGo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 3 6 6 1-4.5 4 1 6.5L12 17l-5.5 2.5 1-6.5L3 9l6-1z"/></svg>Create my build</button></div>`;
   $('#bcGo').addEventListener('click', () => { SFX.select(); bcMake(bcRequest()); });
 }
 function bcRequest(extra = {}) {
   const a = BC.a;
   return { goals: a.goals, weaponType: a.weaponType, weapon: a.weapon || null, target: a.target || null, omnicell: a.omnicell || 'auto',
     risk: a.risk || 'any', content: a.content || 'hunts', ownedOnly: !!a.ownedOnly, character: charId(), ...extra };
+  // (target "Universal" is sent as is: one build for every behemoth)
 }
 
 // ---- creating: the real steps, ticked off while the panel works
@@ -2052,10 +2062,9 @@ $('#bcResult').addEventListener('click', async (e) => {
   else if (act === 'edit') {
     SFX.tick();
     if (!BC.opts) await bcInit();
-    $('#bcChat').innerHTML = ''; BC.step = BC_STEPS.length;
+    BC.step = BC_STEPS.length;
     bcStage('bcAsk');
-    BC_STEPS.forEach((s, i) => bcSay(esc(s.say(BC.a[s.key])), true, i));
-    bcSummary();
+    bcAsk();
   } else if (act === 'new') { SFX.tick(); bcBegin(); }
   else if (act === 'copy' && v) {
     try { await navigator.clipboard.writeText(bcText(v)); SFX.tick(); toast('Copied', 'The build is on your clipboard.'); }

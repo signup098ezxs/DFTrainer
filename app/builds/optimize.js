@@ -111,6 +111,13 @@ function makeScorer(ctx) {
     s += itemStatic(K.weaponByName[b.weapon], 'weapon') + itemStatic(b.bond && K.weaponByName[b.bond], 'bond');
     for (const [k] of ARMOUR_SLOTS) s += itemStatic(K.armourByName[b[k]], 'armour');
     s += lanternScore(K.lanternByName[b.lantern]);
+    // Universal: armour pieces that share a weakness all take more from that one element; spread them out
+    if (ctx.universal) {
+      const n = {};
+      for (const [k] of ARMOUR_SLOTS) { const a = K.armourByName[b[k]]; if (a && a.weakness) n[a.weakness] = (n[a.weakness] || 0) + 1; }
+      const most = Math.max(0, ...Object.values(n));
+      if (most >= 2) s -= (ctx.goals.includes('elemental') || ctx.goals.includes('survival') ? 0.12 : 0.06) * (most - 1);
+    }
     return s;
   }
   return { score, W };
