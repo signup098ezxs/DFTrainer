@@ -616,7 +616,7 @@ input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border: 0; bord
   <div class="pages">
     <!-- CHEATS -->
     <section id="tab-cheats">
-      <div class="banner" id="banner"><div class="t"><b id="bannerTitle"></b><span id="bannerText"></span></div><input id="pkgInput" hidden placeholder="...\DauntlessForever\versions\1.6.2"><button class="btn primary" id="bannerBtn"></button></div>
+      <div class="banner" id="banner"><div class="t"><b id="bannerTitle"></b><span id="bannerText"></span></div><input id="pkgInput" hidden placeholder="...\DauntlessForever\versions\1.14.7"><button class="btn primary" id="bannerBtn"></button></div>
       <div class="head"><div><h2>Cheats</h2><p class="lede">Owner only. Switch any time, in Ramsgate or mid-hunt.</p></div></div>
       <div class="wrap">
         <div class="tiles">
@@ -658,7 +658,7 @@ input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border: 0; bord
 
     <!-- ITEMS -->
     <section id="tab-items" class="on">
-      <div class="head"><div><h2>Give items</h2><p class="lede">Send anything from the 1.6.2 catalog to your character.</p></div></div>
+      <div class="head"><div><h2>Give items</h2><p class="lede">Send anything from the 1.14.7 catalog to your character: gear, gliders, pets, skins and every other cosmetic.</p></div></div>
       <div class="wrap">
         <div class="relay" id="relay">
           <span class="orb"></span>
@@ -672,12 +672,11 @@ input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border: 0; bord
         <div class="seg" id="itemsView" role="tablist" aria-label="What to give"><span class="ind"></span><button data-v="items" class="on">Gear and cosmetics</button><button data-v="cells">Cells</button></div>
         <div id="viewItems">
         <div class="actions">
-          <button class="btn" id="btnSurge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 11-5-5-5 5M17 18l-5-5-5 5"/></svg>Max all my gear</button>
+          <button class="btn" id="btnSurge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 11-5-5-5 5M17 18l-5-5-5 5"/></svg>Max weapon levels</button>
           <button class="btn" id="btnCos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg>Unlock all cosmetics</button>
         </div>
         <div class="toolbar">
-          <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="q" placeholder="Search 3,000+ weapons, armour, lanterns, dyes..." autocomplete="off"></div>
-          <label class="opt"><span class="sw sm"><input type="checkbox" id="optMax" checked><span class="track"></span><span class="knob"></span></span>Max level</label>
+          <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="q" placeholder="Search 3,500+ weapons, armour, gliders, pets, skins..." autocomplete="off"></div>
           <label class="opt"><span class="sw sm"><input type="checkbox" id="optOwned"><span class="track"></span><span class="knob"></span></span>Hide owned</label>
           <label class="opt"><span class="sw sm"><input type="checkbox" id="optTemp"><span class="track"></span><span class="knob"></span></span>Unnamed and test items</label>
         </div>
@@ -1047,8 +1046,8 @@ function showBanner(kind) {
   b.classList.toggle('show', !!kind);
   if (!kind) return;
   if (kind === 'pkg') {
-    $('#bannerTitle').textContent = 'Dauntless Forever 1.6.2 was not found';
-    $('#bannerText').textContent = 'Paste the folder that holds its data and tools folders.';
+    $('#bannerTitle').textContent = 'Dauntless Forever 1.14.7 was not found';
+    $('#bannerText').textContent = 'Download 1.14.7 in the Dauntless Forever launcher, or paste the folder that holds its data and tools folders.';
     inp.hidden = false; if (!inp.value && S && S.guess) inp.value = S.guess;
     btn.textContent = 'Use this folder';
     btn.onclick = async () => { SFX.tick(); const r = await api('/api/package', { package: inp.value }); if (r.ok) { toast('Found it', 'Loading your save...'); } else { SFX.error(); toast('That folder did not work', r.error, 'error'); } };
@@ -1258,14 +1257,14 @@ let introDone = false, tourOn = false, tourI = 0, TOUR = [];
 function tourSteps() {
   const owner = LIC && LIC.owner, setup = $('#banner').classList.contains('show');
   return [
-    { title: `Welcome${LIC && LIC.name && !owner ? ', ' + esc(LIC.name) : ''}`, body: `<p>Lantern Client sits next to Dauntless Forever (1.6.2): an item giver that works while you play, currencies and game rules${owner ? ', plus the owner cheats' : ''}.</p><p>This quick tour shows how to set it up and what each page does. It takes about a minute.</p>` },
+    { title: `Welcome${LIC && LIC.name && !owner ? ', ' + esc(LIC.name) : ''}`, body: `<p>Lantern Client sits next to Dauntless Forever (1.14.7): an item giver that works while you play, currencies and game rules${owner ? ', plus the owner cheats' : ''}.</p><p>This quick tour shows how to set it up and what each page does. It takes about a minute.</p>` },
     { target: '.pills', title: 'Status at a glance', body: '<ul><li><b>Live</b>: the panel is connected and updating in real time.</li><li><b>Game</b>: whether Dauntless Forever is running.</li><li><b>Mod</b>: whether the in-game mod is set up and answering.</li></ul>' },
-    ...(!owner ? [] : [{ tab: 'cheats', target: setup ? '#banner' : '#pMod', title: 'One-time set-up for cheats', body: `<p>Lantern Client finds your Dauntless Forever 1.6.2 install by itself (or asks you for its folder).</p><p>With the game <b>closed</b>, press <b>Set up</b>${setup ? ' here' : ' on the Player page'}. It installs the Lantern mod (and UE4SS if needed) and turns on modded mode and server mods. Then press <b>Play</b> in the Dauntless Forever launcher.</p>${setup ? '' : '<p>Your set-up is already done: the Mod light shows it.</p>'}` },
+    ...(!owner ? [] : [{ tab: 'cheats', target: setup ? '#banner' : '#pMod', title: 'One-time set-up for cheats', body: `<p>Lantern Client finds your Dauntless Forever 1.14.7 install by itself (or asks you for its folder).</p><p>With the game <b>closed</b>, press <b>Set up</b>${setup ? ' here' : ' on the Player page'}. It installs the Lantern mod (and UE4SS if needed) and turns on modded mode and server mods. Then press <b>Play</b> in the Dauntless Forever launcher.</p>${setup ? '' : '<p>Your set-up is already done: the Mod light shows it.</p>'}` },
     { tab: 'cheats', target: '#tab-cheats .tiles', title: 'Cheats (owner only)', body: '<ul><li><b>God mode</b>: your health refills constantly.</li><li><b>Infinite stamina</b>: the stamina bar stays full.</li><li><b>Damage</b>: multiplies your damage to behemoths, up to one hit.</li><li><b>Move speed</b>: faster or slower walking and sprinting.</li></ul><p>They work at once, in Ramsgate or mid-hunt. In game, <kbd>F8</kbd> toggles god mode and <kbd>F9</kbd> infinite stamina.</p>' }]),
-    { tab: 'items', target: '#tab-items .search', title: 'Give items', body: '<p>Search the whole 1.6.2 catalog (weapons, armour, lanterns, parts and cosmetics), tick what you want and press <b>Give</b>.</p><ul><li><b>Max level</b> gives them fully upgraded.</li><li><b>Max all my gear</b> and <b>Unlock all cosmetics</b> do it in one click.</li><li><b>Cells</b> (switch at the top) gives every cell at once, at +3 or every level.</li></ul><p>With the game closed, gifts go into your save. While you play, they arrive live and are announced in game chat.</p>' },
+    { tab: 'items', target: '#tab-items .search', title: 'Give items', body: '<p>Search the whole 1.14.7 catalog (weapons, armour, lanterns, parts, omnicells, gliders, pets, skins and every cosmetic), tick what you want and press <b>Give</b>.</p><ul><li><b>Max weapon levels</b> takes every weapon type to level 20.</li><li><b>Unlock all cosmetics</b> unlocks every cosmetic in one click.</li><li><b>Cells</b> (switch at the top) gives every cell at once, at +3 or every level.</li></ul><p>With the game closed, gifts go into your save. While you play, they arrive live and are announced in game chat.</p>' },
     { target: '#charSel', title: 'Who gets it', body: '<p>Pick which character receives gifts, or all of them. While you play, it follows the character you are on.</p>' },
     { tab: 'currency', target: '#tab-currency .head', title: 'Currencies and materials', body: '<p>Type any amount of Rams, Merits, tokens, materials and cell cores, then press <b>Apply changes</b>. <b>Max everything</b> fills them all. Works while you play.</p>' },
-    { tab: 'rules', target: '#rules > :first-child', title: 'Game rules', body: '<p>Weapon XP, Hunt Pass XP, loot amount, free crafting and unlimited resupply. Pick a setting and it is saved; it applies the next time you press <b>Play</b>.</p>' },
+    { tab: 'rules', target: '#rules > :first-child', title: 'Game rules', body: '<p>XP speeds (weapons, Hunt Pass, mastery), reward amounts (materials, Rams, Merits, Rare Cores), free crafting, free platinum and extra loadout slots. Pick a setting and it is saved; it applies the next time you press <b>Play</b>.</p>' },
     { tab: 'feed', target: 'nav > button[data-tab="feed"]', title: 'Live feed', body: '<p>Everything that reaches your game, as it happens: gifts delivered, switches flipped, updates. Turn on <b>desktop alerts</b> there to see them while you are in game.</p>' },
     ...(owner ? [{ tab: 'keys', target: '#tab-keys .setcard', title: 'Keys (owner only)', body: '<p>Make a key for someone: enter who it is for, pick how long it lasts, press <b>Generate key</b> and send it. <b>Revoke</b> stops a key; add its id to licenses/revoked.txt on GitHub when asked.</p>' }] : []),
     { tab: 'settings', target: 'nav > button[data-tab="settings"]', title: 'Settings', body: '<p>Colour presets, fonts, window size, interface scale, frame rate, sounds and the intro. <b>About</b> shows your key and checks for updates. Lantern Client updates itself.</p><p><b>Show the tour</b> there plays this again.</p>' },
@@ -1352,7 +1351,7 @@ $('#itemsView').addEventListener('click', (e) => {
   if (itemsView === 'cells') { renderCells(); requestAnimationFrame(() => placeInd($('#cellQty'))); }
   updateDock();
 });
-const perkName = (c) => (c[3] || c[1]).replace(/^\+\d\s+/, '').replace(/\s+cell$/, '');
+const perkName = (c) => (c[3] || c[1]).replace(/^\+\d\s+/, '').replace(/\s+cell$/i, '');
 function cellGroups() {
   const by = new Map();
   for (const c of (CAT && CAT.cells) || []) { if (!by.has(c[1])) by.set(c[1], []); by.get(c[1]).push(c); }
@@ -1520,7 +1519,7 @@ function liveInfo(procs) {
 }
 
 /* ================================================= give items */
-const ORDER = ['Weapons', 'Armour', 'Lanterns', 'Weapon parts', 'Accessories', 'Dyes', 'Emotes', 'Banners', 'Flares', 'Titles', 'Emojis', 'Character appearance', 'Curiosities (charges)'];
+const ORDER = ['Weapons', 'Armour', 'Lanterns', 'Weapon parts', 'Omnicells', 'Crowns and accessories', 'Hair and face', 'Armour skins', 'Weapon skins', 'Lantern skins', 'Dyes', 'Emotes', 'Emojis', 'Titles', 'Banners', 'Flares', 'Gliders', 'Pets'];
 const sel = new Set(); let cat = 'Weapons', shown = 120, charPicked = false;
 const charId = () => $('#charSel').value;
 // what the selected character owns: worked out once per save or character change, not per keystroke
@@ -1555,7 +1554,7 @@ function renderList() {
   $('#count').textContent = `${list.length.toLocaleString()} item${list.length === 1 ? '' : 's'}${q ? ' found' : ' in ' + cat}`;
   const rows = list.slice(0, shown).map((g) => {
     const o = own.get(g[0]);
-    const tag = (g[4] ? '<span class="tag dim" title="Lantern Client has no verified in-game name for this item yet, so it shows the item id">Name unknown</span>' : '') + (o === undefined ? '' : `<span class="tag">${o >= 0 && !g[3] ? 'Owned, level ' + o : 'Owned'}</span>`);
+    const tag = (g[4] ? '<span class="tag dim" title="Lantern Client has no verified in-game name for this item yet, so it shows the item id">Name unknown</span>' : '') + (o === undefined ? '' : '<span class="tag">Owned</span>');
     return `<div class="item${sel.has(g[0]) ? ' sel' : ''}" data-id="${esc(g[0])}" role="checkbox" aria-checked="${sel.has(g[0])}" tabindex="0"><span class="cb">${CHECK}</span><div style="min-width:0"><div class="nm">${esc(g[1])}</div><div class="id">${esc(g[0])}${q ? ', ' + esc(g[2]) : ''}</div></div>${tag}</div>`;
   }).join('');
   $('#list').innerHTML = (rows || '<div class="empty">Nothing matches. Try part of a name, like "hammer" or "shrike".</div>')
@@ -1572,14 +1571,13 @@ $('#list').addEventListener('click', (e) => { const r = e.target.closest('.item'
 $('#list').addEventListener('keydown', (e) => { const r = e.target.closest('.item'); if (r && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); toggleRow(r); } });
 let qt; $('#q').addEventListener('input', () => { clearTimeout(qt); qt = setTimeout(() => { shown = 120; renderCats(); renderList(); }, 110); });
 ['#optTemp', '#optOwned'].forEach((i) => $(i).addEventListener('change', (e) => { e.target.checked ? SFX.switchOn() : SFX.switchOff(); shown = 120; renderList(); }));
-$('#optMax').addEventListener('change', (e) => { e.target.checked ? SFX.switchOn() : SFX.switchOff(); updateDock(); });
 $('#selAll').onclick = () => { SFX.select(true); filtered().slice(0, shown).forEach((g) => sel.add(g[0])); renderList(); updateDock(); };
 $('#selNone').onclick = $('#dockClear').onclick = () => { SFX.select(false); sel.clear(); renderList(); updateDock(); };
 function updateDock() {
   const show = activeTab() === 'items' && itemsView === 'items' && sel.size > 0;
   $('#dock').classList.toggle('show', show);
   const who = $('#charSel').selectedOptions[0]?.textContent || '';
-  $('#dockWhat').innerHTML = `<b>${sel.size}</b> selected for ${esc(who)}${$('#optMax').checked ? ', at max level where the item has levels' : ''}`;
+  $('#dockWhat').innerHTML = `<b>${sel.size}</b> selected for ${esc(who)}`;
 }
 
 async function runItems(job, btn) {
@@ -1590,24 +1588,23 @@ async function runItems(job, btn) {
   if (!r.ok) { SFX.error(); toast('Not added', r.error || 'That did not work.', 'error', 7000); return false; }
   SFX.give();
   // "already own" only when the save itself listed those items as yours
-  if (r.nothingNew) toast(r.message || (r.owned ? `You already own ${r.owned}.` : 'Nothing new to add.'), r.unknownNames ? `Not in the 1.6.2 catalog: ${r.unknownNames}.` : '', 'ok', 5000);
+  if (r.nothingNew) toast(r.message || (r.owned ? `You already own ${r.owned}.` : 'Nothing new to add.'), r.unknownNames ? `Not in the 1.14.7 catalog: ${r.unknownNames}.` : '', 'ok', 5000);
   else {
     if (r.queued && !r.live) toast('Waiting for the game to close', r.raiseLater ? `You already own ${r.raiseLater}: it is raised to max level when you close the game.` : (r.note || 'It is added the moment you close the game.'), 'queued', 6000);
     if (r.owned) toast(`You already own ${r.owned}.`, 'Those were left as they are; the rest was added.', 'ok', 5000);
-    if (r.raisedNames) toast(`You already own ${r.raisedNames}.`, 'It is raised to max level instead.', 'applied', 5000);
+    if (r.raisedNames) toast(job.action === 'maxweapons' ? 'Weapon levels raised' : `You already own ${r.raisedNames}.`, job.action === 'maxweapons' ? `${r.raisedNames}: level 20.` : 'It is raised to max level instead.', 'applied', 5000);
   }
   return true;
 }
 $('#give').addEventListener('click', async () => {
   const ids = [...sel], cos = new Set(CAT.gear.filter((g) => g[3]).map((g) => g[0]));
   const gear = ids.filter((i) => !cos.has(i)), cosm = ids.filter((i) => cos.has(i));
-  const max = $('#optMax').checked;
   let ok = true;
-  if (gear.length) ok = await runItems({ action: max ? 'addgearmax' : 'addgear', character: charId(), list: gear, label: `Give ${gear.length} gear${max ? ' at max level' : ''}` }, $('#give'));
+  if (gear.length) ok = await runItems({ action: 'addgear', character: charId(), list: gear, label: `Give ${gear.length} gear` }, $('#give'));
   if (ok && cosm.length) ok = await runItems({ action: 'addcosmetic', character: charId(), list: cosm, label: `Unlock ${cosm.length} cosmetic${cosm.length > 1 ? 's' : ''}` }, $('#give'));
   if (ok) { sel.clear(); renderList(); updateDock(); }
 });
-$('#btnSurge').onclick = (e) => runItems({ action: 'surgeall', character: charId(), label: 'Max all gear' }, e.currentTarget);
+$('#btnSurge').onclick = (e) => runItems({ action: 'maxweapons', character: charId(), label: 'Max weapon levels' }, e.currentTarget);
 $('#btnCos').onclick = (e) => runItems({ action: 'addcosmetic', character: charId(), list: 'all', label: 'Unlock all cosmetics' }, e.currentTarget);
 $('#tRefresh').addEventListener('change', (e) => { e.target.checked ? SFX.switchOn() : SFX.switchOff(); setToggle({ refresh: e.target.checked }); });
 
@@ -1666,7 +1663,7 @@ $('#applyCur').onclick = async (e) => {
 /* ================================================= rules */
 function renderRules() {
   const { defs, picks } = CAT.rules;
-  $('#rules').innerHTML = defs.map((r) => `<div class="rule"><b>${esc(r.title)}</b><p>${esc(r.blurb || '')}</p><div class="seg" data-k="${esc(r.key)}"><span class="ind"></span>${r.choices.map(([v, l]) => `<button data-v="${esc(v)}" class="${String(picks[r.key]) === v ? 'on' : ''}">${esc(l)}</button>`).join('')}</div></div>`).join('') || '<div class="empty">This package has no game rules.</div>';
+  $('#rules').innerHTML = defs.map((r) => `<div class="rule"><b>${esc(r.title)}${r.tested === false ? ' <span class="tag dim" title="Dauntless Forever marks this 1.14.7 rule as not yet checked in game">Untested</span>' : ''}</b><p>${esc(r.blurb || '')}</p><div class="seg" data-k="${esc(r.key)}"><span class="ind"></span>${r.choices.map(([v, l]) => `<button data-v="${esc(v)}" class="${String(picks[r.key]) === v ? 'on' : ''}">${esc(l)}</button>`).join('')}</div></div>`).join('') || '<div class="empty">This package has no game rules.</div>';
   requestAnimationFrame(() => $$('#rules .seg').forEach(placeInd));
 }
 $('#rules').addEventListener('click', async (e) => {

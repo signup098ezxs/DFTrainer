@@ -1,18 +1,18 @@
-// Lantern Client panel - a separate companion for Dauntless Forever (Dauntless 1.6.2), single player.
+// Lantern Client panel - a separate companion for Dauntless Forever (Dauntless 1.14.7), single player.
 // Licence: AGPL-3.0-only (it drives Dauntless Forever's AGPL tools and ships an AGPL mod). Keep this notice.
 //
 // A small local web server (127.0.0.1 only, no dependencies) behind the panel window:
-//   - items: with the game closed, the package's own tools\items.js edits the save. While the game runs, live.js
-//     sends the gift to the game's own backend as an inventory transaction (logged in with your player key, like the
-//     game), so it is saved at once without ever touching the save from outside. Only raising gear you already own
-//     waits for the game to close (the game saves weapon XP by item version).
+//   - items: with the game closed, the package's own tools\items.js (and offline.js, for cell top-ups and weapon
+//     levels) edits the save, data\state.json. While the game runs, live.js sends the gift to the package's local
+//     backend as an inventory transaction (the game's own kind), so it is saved at once without touching the save
+//     file, which the backend holds in memory then. Weapon levels wait for the game to close.
 //   - real time: the panel gets a live event stream (Server-Sent Events). Gifts are announced in game chat through
-//     data\announce.txt (the backend says that file's text in chat every 2 s), and logs\metagame.log is followed so
+//     data\announce.txt (the backend says that file's text in chat every 2 s), and logs\requests.jsonl is followed so
 //     the panel knows the moment the game loads your inventory again: "delivered".
 //   - in-game switches: trainer-toggles.json in the DFTrainer UE4SS mod's folder (game + hidden servers read it).
 //   - game rules: data\rules.txt, like the launcher's Game Rules page.
 //
-//   node server.js [--package "<...>\versions\1.6.2"] [--no-open] [--port 61777]
+//   node server.js [--package "<...>\versions\1.14.7"] [--no-open] [--port 61777]
 'use strict';
 const fs = require('fs'), path = require('path'), http = require('http'), net = require('net'), crypto = require('crypto'), os = require('os');
 const { execFile, spawn } = require('child_process');
@@ -30,7 +30,9 @@ if (ROOT && !fs.existsSync(SETTINGS) && fs.existsSync(path.join(HERE, 'trainer-s
   try { fs.copyFileSync(path.join(HERE, 'trainer-settings.json'), SETTINGS); } catch {}
 }
 const MOD_NAME = 'DFTrainer';
-const BACKEND_PORT = 61000;
+const GAME_BUILD = '1.14.7';
+// the 1.14.7 package's local backend (backend\recorder-1147.js): one port per game service; inventory is "dauntless"
+const BACKEND_PORT = 63005;
 const IS_WIN = process.platform === 'win32';
 const TOKEN = crypto.randomBytes(16).toString('hex');
 
@@ -64,11 +66,11 @@ const LIC = require('./keys.js')({
 const OPEN_ROUTES = new Set(['GET /api/state', 'GET /api/prefs', 'POST /api/prefs', 'POST /api/update/check', 'POST /api/update/restart',
   'GET /api/license', 'POST /api/license', 'POST /api/license/remove', 'POST /api/owner/import']);
 
-function isPackage(dir) { return !!dir && fs.existsSync(path.join(dir, 'tools', 'items.js')) && fs.existsSync(path.join(dir, 'tools', 'gear-162.json')); }
+function isPackage(dir) { return !!dir && fs.existsSync(path.join(dir, 'tools', 'items.js')) && fs.existsSync(path.join(dir, 'tools', 'gear-1147.json')); }
 function findPackage() {
   const tries = [arg('--package'), process.env.DF_PACKAGE, settings.package];
   const la = process.env.LOCALAPPDATA;
-  if (la) for (const root of ['DauntlessForever', 'DauntlessOffline']) tries.push(path.join(la, root, 'versions', '1.6.2'));
+  if (la) tries.push(path.join(la, 'DauntlessForever', 'versions', GAME_BUILD));
   return tries.find(isPackage) || null;
 }
 let placesCache = null, placesAt = 0;
@@ -86,99 +88,67 @@ function placesUncached() {
   return {
     pkg, gameDir, node: (cfg.Node && fs.existsSync(cfg.Node)) ? cfg.Node : process.execPath,
     ue4ssDll: ue && path.join(ue, 'UE4SS.dll'), modsDir: ue && path.join(ue, 'Mods'), modDir: ue && path.join(ue, 'Mods', MOD_NAME),
-    dataDir: path.join(pkg, 'data'), metaLog: path.join(pkg, 'logs', 'metagame.log'),
+    dataDir: path.join(pkg, 'data'), requestLog: path.join(pkg, 'logs', 'requests.jsonl'),
   };
 }
 
-// ---------------------------------------------------------------- item names
-// tools/gear-162.json names some items only after their id ("Ac Hp11B Engineer 00"). Better names come from, in order:
-//   1. the player's own game files: names.js reads the game's catalog assets (once per game version, in the
-//      background; it checks itself against the names already known and only fills in gaps when it agrees)
-//   2. item-names-162.json, shipped with Lantern Client (names verified from the 1.14.7 catalog)
-// An item that has no name anywhere is shown by its id and marked as unnamed.
-const placeholderOf = (id) => id.split('_').slice(1).join(' ').toLowerCase();
-const SHIPPED_NAMES = readJson(path.join(HERE, 'item-names-162.json'), {}).names || {};
-const NAMES_CACHE = path.join(ROOT || HERE, 'item-names-game.json');
-let gameNames = readJson(NAMES_CACHE, {}).names || {};
+// ---------------------------------------------------------------- the 1.14.7 catalog
+// tools\gear-1147.json is the package's Inventory picker: [id, name, type, storage] for everything that can be given
+// (weapons, armour, lanterns, parts, omnicells and every kind of cosmetic). tools\catalog-1147.json is the game's whole
+// catalog (id, name, group, storage) from the 1.14.7 game files: names for everything else (currencies, cells...).
+const GEAR_KINDS = new Set(['Weapons', 'Armour', 'Lanterns', 'Weapon parts', 'Omnicells']);
 let CATALOG = null, CATALOG_KEY = '';
 function catalog(p) {
-  const key = p.pkg + '|' + Object.keys(gameNames).length;
+  const files = ['gear-1147.json', 'catalog-1147.json'].map((f) => path.join(p.pkg, 'tools', f));
+  const key = files.map((f) => { try { const st = fs.statSync(f); return f + st.size + st.mtimeMs; } catch { return f; } }).join('|');
   if (CATALOG && CATALOG_KEY === key) return CATALOG;
-  const cos = readJson(path.join(p.pkg, 'tools', 'cosmetics-162.json'), {});
-  const cosmetic = new Set([...(cos.stacked || []), ...(cos.instanced || [])]);
-  const names = new Map();
-  const gear = readJson(path.join(p.pkg, 'tools', 'gear-162.json'), []).map((g) => {
-    const placeholder = g[1].toLowerCase() === placeholderOf(g[0]);
-    const name = placeholder ? (gameNames[g[0]] || SHIPPED_NAMES[g[0]] || null) : g[1];
-    names.set(g[0], name || g[0]);
-    return [g[0], name || g[0], g[2], cosmetic.has(g[0]) ? 1 : 0, name ? 0 : 1];   // id, name, group, cosmetic, unnamed
+  const names = new Map(), storage = new Map(), groupOf = new Map();
+  const full = readJson(files[1], {}).items || [];
+  for (const i of full) {
+    if (i.name && i.name !== i.id) names.set(i.id, i.name);
+    storage.set(i.id, i.storage === 'instance' ? 'i' : 's');
+    groupOf.set(i.id, i.group);
+  }
+  const picker = readJson(files[0], {});
+  const gear = (picker.items || []).map((g) => {
+    const named = g[1] && g[1] !== g[0];
+    if (named) names.set(g[0], g[1]);
+    storage.set(g[0], g[3] === 'i' ? 'i' : 's');
+    return [g[0], named ? g[1] : g[0], g[2], GEAR_KINDS.has(g[2]) ? 0 : 1, named ? 0 : 1];   // id, name, type, cosmetic, unnamed
   });
   for (const grp of readJson(path.join(p.pkg, 'items.json'), {}).groups || []) for (const i of grp.items || []) names.set(i.id, i.name);
-  CATALOG = { gear, names }; CATALOG_KEY = key;
+  CATALOG = { gear, names, storage, groupOf, types: picker.types || [] }; CATALOG_KEY = key;
   return CATALOG;
 }
 function nameOf(p, id) { return catalog(p).names.get(id) || cellName(id) || id; }
 
 // ---------------------------------------------------------------- cells
-// Cells are stacked items (a count), CELL_<perk>_<UC|R|E> for +1, +2 and +3 (a few perks exist at one level only).
-// The list comes from the package's tools\catalog162-ids.txt. CELL_DP_* are Repeater mods, not slottable cells.
+// Cells are stacked items (a count), CELL_<perk>_<UC|R|E> for +1, +2 and +3 (a few perks exist at one level only),
+// named in the game catalog ("+3 Acidic Cell"). CELL_DP_* are Repeater mods and CELLv2_* test cells: left out.
 const CELL_LEVEL = { UC: 1, R: 2, E: 3 };
-function cellName(id) {
+function cellName(id) {   // for the few cells the catalog has no name for
   const m = /^CELL_([A-Z0-9_]+)_(UC|R|E)$/.exec(id || '');
   if (!m) return null;
   const words = m[1].toLowerCase().split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-  return `+${CELL_LEVEL[m[2]]} ${words} cell`;
+  return `+${CELL_LEVEL[m[2]]} ${words} Cell`;
 }
-let CELLS = null, CELLS_KEY = '';
 function cells(p) {
-  const f = path.join(p.pkg, 'tools', 'catalog162-ids.txt');
-  let st; try { st = fs.statSync(f); } catch { return []; }
-  const key = f + st.size + st.mtimeMs;
-  if (CELLS && CELLS_KEY === key) return CELLS;
+  const c = catalog(p);
+  if (c.cells) return c.cells;
   const out = [];
-  for (const line of fs.readFileSync(f, 'utf8').split(/\r?\n/)) {
-    const id = line.trim(), m = /^CELL_([A-Z0-9_]+)_(UC|R|E)$/.exec(id);
-    if (m && !id.startsWith('CELL_DP_')) out.push([id, m[1], CELL_LEVEL[m[2]]]);
+  for (const [id, group] of c.groupOf) {
+    const m = /^CELL_([A-Z0-9_]+)_(UC|R|E)$/.exec(id);
+    if (group === 'Cells' && m && !id.startsWith('CELL_DP_') && c.storage.get(id) === 's') out.push([id, m[1], CELL_LEVEL[m[2]], c.names.get(id) || cellName(id)]);
   }
-  CELLS = out; CELLS_KEY = key;
+  c.cells = out;
   return out;
 }
 
-// read names from the game files when the game's paks changed (or never were read)
-let namesRunning = false;
-function paksKey(gameDir) {
-  try {
-    const d = path.join(gameDir, 'Archon', 'Content', 'Paks');
-    return fs.readdirSync(d).filter((f) => /^Archon_\d+-WindowsClient\.pak$/i.test(f)).sort()
-      .map((f) => { const st = fs.statSync(path.join(d, f)); return `${f}:${st.size}:${Math.round(st.mtimeMs)}`; }).join('|');
-  } catch { return ''; }
-}
-function readGameNames() {
-  const p = places();
-  if (namesRunning || !p.pkg || !p.gameDir) return;
-  const key = paksKey(p.gameDir);
-  if (!key || readJson(NAMES_CACHE, {}).key === key) return;
-  namesRunning = true;
-  const known = {};
-  for (const g of readJson(path.join(p.pkg, 'tools', 'gear-162.json'), [])) known[g[0]] = g[1].toLowerCase() === placeholderOf(g[0]) ? (SHIPPED_NAMES[g[0]] || null) : g[1];
-  const tmp = path.join(require('os').tmpdir(), `dft-ids-${process.pid}.json`), out = NAMES_CACHE + '.new';
-  fs.writeFileSync(tmp, JSON.stringify(known));
-  execFile(process.execPath, [path.join(HERE, 'names.js'), p.gameDir, tmp, out], { timeout: 5 * 60 * 1000, windowsHide: true, maxBuffer: 1 << 20 }, (e, stdout) => {
-    namesRunning = false;
-    try { fs.unlinkSync(tmp); } catch {}
-    let r = null; try { r = JSON.parse(String(stdout || '')); } catch {}
-    const res = readJson(out, null);
-    try { fs.unlinkSync(out); } catch {}
-    if (!r || !r.ok || !res) return;   // nothing readable: keep what we have, try again next start
-    gameNames = res.names || {};
-    try { fs.writeFileSync(NAMES_CACHE, JSON.stringify({ key, at: Date.now(), checked: res.checked, agreed: res.agreed, assets: res.assets, names: gameNames })); } catch {}
-    CATALOG = null;
-    push('catalog', { names: Object.keys(gameNames).length });
-    if (Object.keys(gameNames).length) note('mod', 'Item names updated', `${Object.keys(gameNames).length} names read from your game files.`);
-  });
-}
-setTimeout(readGameNames, 4000);
-setInterval(readGameNames, 10 * 60 * 1000);
+// ---------------------------------------------------------------- weapon levels
+// 1.14.7 levels weapons per type (1 to 20), not per item: players.<you>.progress.tracks.ExperienceTrack_Weapon_<type>
+// holds the XP. 27,775 XP is level 20 (the package's slayer-copy.js curve).
+const WEAPON_TYPES = ['Axe', 'ChainBlades', 'Hammer', 'Repeaters', 'Spear', 'Strikers', 'Sword'];
+const WEAPON_NAMES = { Axe: 'Axe', ChainBlades: 'Chain Blades', Hammer: 'Hammer', Repeaters: 'Repeaters', Spear: 'War Pike', Strikers: 'Aether Strikers', Sword: 'Sword' };
 
 const listNames = (p, ids, max = 2) => {
   const n = ids.map((i) => nameOf(p, i));
@@ -316,7 +286,7 @@ function requestRefresh(p) {
 // ---------------------------------------------------------------- setup: UE4SS, the mod, modded mode + server mods
 async function setup() {
   const p = places(), steps = [];
-  if (!p.pkg) return { ok: false, error: 'Dauntless Forever 1.6.2 was not found. Set its folder first.' };
+  if (!p.pkg) return { ok: false, error: 'Dauntless Forever 1.14.7 was not found. Set its folder first.' };
   if (!p.gameDir) return { ok: false, error: 'The game folder is not known yet. Run Set up in the launcher first.' };
   if (await backendUp()) return { ok: false, error: 'Close the game first (Stop in the launcher), then set up the trainer.' };
   if (!fs.existsSync(p.ue4ssDll)) {
@@ -338,20 +308,25 @@ async function setup() {
 }
 
 // ---------------------------------------------------------------- items
-const ITEM_ACTIONS = new Set(['addgear', 'addgearmax', 'set', 'atleast', 'surgeall', 'addcosmetic']);   // atleast: top stacks up to a count, never lower
+// atleast: top stacks up to a count, never lower. maxweapons: every weapon type to level 20 (1.14.7 levels weapons
+// per type, not per item, so there is no "give at max level")
+const ITEM_ACTIONS = new Set(['addgear', 'set', 'atleast', 'maxweapons', 'addcosmetic']);
+// moving from 1.6.2: gifts that were waiting were for 1.6.2 characters, and its package folder no longer applies
+if (settings.build !== GAME_BUILD) { settings.queue = []; if (settings.package && !isPackage(settings.package)) delete settings.package; settings.build = GAME_BUILD; saveSettings(); }
 let queue = settings.queue || [];
 const history = [];
 const deliveries = [];   // gifts saved while the game ran, waiting for the game to load the inventory again
 function itemArgs(job) {
   const who = String(job.character);
-  if (job.action === 'surgeall') return ['surgeall', who];
   if (job.action === 'addcosmetic' && job.list === 'all') return ['addcosmetic', who, 'all'];
   return [job.action, who, JSON.stringify(job.action === 'set' ? job.counts : job.list)];
 }
 function validJob(b) {
+  if (b.action === 'addgearmax') b.action = 'addgear';      // 1.6.2's "at max level": no item levels in 1.14.7
+  if (b.action === 'surgeall') b.action = 'maxweapons';    // 1.6.2's "Max all my gear": weapon levels in 1.14.7
   if (!ITEM_ACTIONS.has(b.action)) return 'Unknown action.';
   if (!/^[\w-]{1,64}$|^\*$/.test(String(b.character))) return 'Unknown character.';
-  if (b.action === 'surgeall' || (b.action === 'addcosmetic' && b.list === 'all')) return null;
+  if (b.action === 'maxweapons' || (b.action === 'addcosmetic' && b.list === 'all')) return null;
   if (b.action === 'set' || b.action === 'atleast') {
     const c = {};
     for (const [k, n] of Object.entries(b.counts || {})) if (/^[A-Z0-9_]{3,80}$/.test(k) && Number.isFinite(Number(n))) c[k] = Math.max(b.action === 'atleast' ? 1 : 0, Math.min(99999999, Math.floor(Number(n))));
@@ -367,12 +342,12 @@ function validJob(b) {
 const describe = (j) => {
   if (j.label) return j.label;
   const n = j.action === 'set' || j.action === 'atleast' ? Object.keys(j.counts).length : Array.isArray(j.list) ? j.list.length : 0, s = n === 1 ? '' : 's';
-  return { surgeall: 'Max all gear', set: `Set ${n} amount${s}`, atleast: `Top up ${n} item${s}`, addgear: `Give ${n} item${s}`, addgearmax: `Give ${n} item${s} at max level`,
+  return { maxweapons: 'Max weapon levels', set: `Set ${n} amount${s}`, atleast: `Top up ${n} item${s}`, addgear: `Give ${n} item${s}`,
     addcosmetic: j.list === 'all' ? 'Unlock all cosmetics' : `Unlock ${n} cosmetic${s}` }[j.action] || j.action;
 };
 function jobIds(job) { return job.action === 'set' || job.action === 'atleast' ? Object.keys(job.counts) : Array.isArray(job.list) ? job.list : []; }
 function jobSummary(p, job) {
-  if (job.action === 'surgeall') return 'All your gear raised to max level';
+  if (job.action === 'maxweapons') return 'Every weapon type at level 20';
   if (job.action === 'addcosmetic' && job.list === 'all') return 'Every cosmetic unlocked';
   if (job.action === 'set') { const e = Object.entries(job.counts); const t = e.slice(0, 2).map(([k, v]) => `${nameOf(p, k)} ${Number(v).toLocaleString('en-US')}`).join(', '); return e.length > 2 ? `${t} and ${e.length - 2} more` : t; }
   return listNames(p, jobIds(job));
@@ -385,8 +360,8 @@ async function applyJob(p, job, live = false) {
       const res = await LIVE.give(p.pkg, job, ((mine && mine.characters) || []).map((c) => c.id));
       r = { ok: true, ...res };
     } catch (e) { r = { ok: false, error: e.message }; }
-  } else if (job.action === 'addgearmax' || job.action === 'surgeall' || job.action === 'atleast') {
-    // the package's items.js only adds gear at level 0 (it has no addgearmax or surgeall): offline.js does these
+  } else if (job.action === 'maxweapons' || job.action === 'atleast') {
+    // the package's items.js only sets counts and adds items: offline.js tops counts up and raises weapon levels
     const mine = await runTool(p, 'items.js', ['list']);
     r = mine && mine.ok ? await runOwn(p, 'offline.js', [p.pkg, JSON.stringify(job), JSON.stringify((mine.characters || []).map((c) => c.id))])
       : (mine || { ok: false, error: 'Could not read your characters.' });
@@ -400,27 +375,23 @@ function giftOutcome(p, job, r) {
   const added = ids('added'), raised = ids('raised'), already = ids('already'), unknown = ids('unknown');
   const o = { added: added.length, raised: raised.length };
   if (already.length) o.owned = listNames(p, already, 3);
-  if (raised.length) o.raisedNames = listNames(p, raised, 3);   // gear you already owned, now at max level
+  if (raised.length) o.raisedNames = job.action === 'maxweapons' ? raised.map((w) => WEAPON_NAMES[w] || w).join(', ') : listNames(p, raised, 3);
   if (unknown.length) o.unknownNames = listNames(p, unknown, 3);
   o.nothingNew = !added.length && !raised.length && !r.queued;
-  if (o.nothingNew && already.length) o.message = job.action === 'surgeall' ? 'All your gear is already at max level.'
+  if (o.nothingNew && already.length) o.message = job.action === 'maxweapons' ? 'Every weapon type is already at level 20.'
     : job.action === 'atleast' ? `You already have ${Math.max(...Object.values(job.counts))} or more of ${already.length > 3 ? `all ${already.length} of those` : o.owned}.`
     : `You already own ${o.owned}.`;
-  if (job.action === 'atleast') { o.topped = added.length; delete o.owned; }   // cells topped up: counts, not "already own"
+  if (job.action === 'atleast' || job.action === 'maxweapons') { o.topped = added.length; delete o.owned; }   // counts and levels, not "already own"
   return o;
 }
 function enqueue(job) { queue.push(job); settings.queue = queue; saveSettings(); }
 
 async function giveLive(p, job) {
-  // raising gear you already own waits for the game to close; new gear goes in now
-  if (job.action === 'surgeall') { enqueue(job); return { ok: true, queued: true, note: 'Raising owned gear waits until you close the game.' }; }
+  // weapon levels live in the backend's memory with the rest of the save while the game runs: they wait for it to close
+  if (job.action === 'maxweapons') { enqueue(job); return { ok: true, queued: true, note: 'Weapon levels are raised the moment you close the game.' }; }
   const r = await applyJob(p, job, true);
   if (!r.ok) return r;
-  let later = null;
-  if (r.ownedForMax && r.ownedForMax.length) {
-    const n = r.ownedForMax.length;
-    later = { ...job, action: 'addgearmax', list: r.ownedForMax, label: `Raise ${n} owned item${n > 1 ? 's' : ''} to max level` };
-  }
+  const later = null;
   const liveJob = r.added && r.added.length ? (job.action === 'set' || job.action === 'atleast' ? { ...job, counts: Object.fromEntries(r.added.map((i) => [i, job.counts[i]])) } : { ...job, list: r.added }) : null;
   if (liveJob) {
     const what = job.list === 'all' ? `${r.added.length} cosmetics unlocked` : jobSummary(p, liveJob);
@@ -431,7 +402,6 @@ async function giveLive(p, job) {
   }
   if (later) { enqueue(later); note('queued', 'Waiting for the game to close', later.label); }
   const o = giftOutcome(p, job, { added: r.added, already: r.already, unknown: r.unknown, queued: !!later });
-  if (later) o.raiseLater = listNames(p, r.ownedForMax, 3);
   if (!liveJob && !later) return { ok: true, live: true, ...o };
   return { ok: true, live: !!liveJob, queued: !!later, ...o };
 }
@@ -449,21 +419,23 @@ async function drainQueue() {
       if (!r.ok && /still running|close the game/i.test(r.error || '')) break;   // started again meanwhile
       queue.shift(); settings.queue = queue; saveSettings();
       if (!r.ok) note('error', 'Could not apply', r.error || describe(job));
-      else if (r.raised && r.raised.length) note('applied', 'Raised to max level', listNames(p, r.raised));
+      else if (r.raised && r.raised.length) note('applied', 'Weapon levels raised', `${r.raised.map((w) => WEAPON_NAMES[w] || w).join(', ')}: level 20.`);
       else if (r.added && r.added.length) note('applied', 'Added to your save', listNames(p, r.added));
       else if (job.action === 'set' || job.list === 'all') note('applied', 'Added to your save', jobSummary(p, job));
+      else if (job.action === 'maxweapons') note('ok', 'Weapons already maxed', 'Every weapon type is already at level 20.');
       else if (r.already && r.already.length) note('ok', 'Already yours', `You already own ${listNames(p, r.already, 3)}.`);
     }
   } finally { draining = false; }
 }
 setInterval(() => { drainQueue().catch(() => {}); }, 2500);
 
-// ---------------------------------------------------------------- following the backend log (logs\metagame.log)
-// "UserId <u> requested inventory for CharacterId <c>" = the game (or its server) just loaded that inventory.
+// ---------------------------------------------------------------- following the backend log (logs\requests.jsonl)
+// The 1.14.7 backend writes one JSON line per request. A GET /inventory/<account>/<character> with a sign-in token
+// ("auth") is the game loading that inventory; the panel's own reads carry no token.
 let logPos = -1, logFile = null, playingAs = null;
 function followLog() {
   const p = places(); if (!p.pkg) return;
-  if (logFile !== p.metaLog) { logFile = p.metaLog; logPos = -1; }
+  if (logFile !== p.requestLog) { logFile = p.requestLog; logPos = -1; }
   let st; try { st = fs.statSync(logFile); } catch { return; }
   if (logPos < 0 || st.size < logPos) logPos = logPos < 0 ? st.size : 0;   // start at the end; a new run starts at 0
   if (st.size === logPos) return;
@@ -475,10 +447,10 @@ function followLog() {
   if (lastNl < 0) return;
   logPos += Buffer.byteLength(text.slice(0, lastNl + 1));
   for (const line of text.slice(0, lastNl).split('\n')) {
-    let msg = line;
-    try { msg = JSON.parse(line).msg || line; } catch { msg = line.replace(/\x1b\[[0-9;]*m/g, ''); }
-    const m = /requested inventory for CharacterId (\S+)/.exec(msg);
-    if (m && !LIVE.takeOwnRead(m[1])) inventoryLoaded(p, m[1]);
+    let e; try { e = JSON.parse(line); } catch { continue; }
+    if (!e || e.svc !== 'dauntless' || e.m !== 'GET' || !e.auth || e.status !== 200) continue;
+    const m = /^\/inventory\/[^/]+\/([A-Z2-7]{26})\/?$/.exec(String(e.path || ''));
+    if (m) inventoryLoaded(p, m[1]);
   }
 }
 function inventoryLoaded(p, characterId) {
@@ -564,7 +536,7 @@ async function buildState() {
   const p = places();
   const license = LIC.status();
   const user = (() => { try { return process.env.USERNAME || os.userInfo().username; } catch { return ''; } })();
-  if (!p.pkg) return { found: false, license, user, app: { version: VERSION, managed: !!LAUNCHER, update: updateReady, checking: updateChecking }, guess: process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, 'DauntlessForever', 'versions', '1.6.2') : '' };
+  if (!p.pkg) return { found: false, license, user, app: { version: VERSION, managed: !!LAUNCHER, update: updateReady, checking: updateChecking }, guess: process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, 'DauntlessForever', 'versions', GAME_BUILD) : '' };
   const running = await backendUp();
   const procs = modProcesses(p);
   return {
@@ -675,14 +647,15 @@ const routes = {
   'GET /api/state': async () => buildState(),
   'POST /api/package': async (b) => {
     const dir = String(b.package || '').trim();
-    if (!isPackage(dir)) return { ok: false, error: 'That folder does not have tools\\items.js. Pick the ...\\versions\\1.6.2 folder.' };
+    if (!isPackage(dir)) return { ok: false, error: 'That folder is not the 1.14.7 package (no tools\\gear-1147.json). Pick the ...\\versions\\1.14.7 folder.' };
     settings.package = dir; saveSettings(); placesCache = null;
     return { ok: true };
   },
   'GET /api/catalog': async () => {
     const p = places(); if (!p.pkg) return { ok: false };
     const groups = (readJson(path.join(p.pkg, 'items.json'), {}).groups || []);
-    return { ok: true, gear: catalog(p).gear, groups, rules: rulesInfo(p), cells: cells(p).map(([id, perk, level]) => [id, perk, level, cellName(id)]) };
+    const c = catalog(p);
+    return { ok: true, build: GAME_BUILD, gear: c.gear, types: c.types, groups, rules: rulesInfo(p), cells: cells(p) };
   },
   'GET /api/save': async () => {
     const p = places(); if (!p.pkg) return { ok: false, error: 'Package not found.' };
@@ -710,8 +683,8 @@ const routes = {
     if (job.action === 'set' || (job.action === 'addcosmetic' && job.list === 'all')) { note('applied', 'Added to your save', jobSummary(p, job)); return { ok: true }; }
     const o = giftOutcome(p, job, r);
     if (r.added && r.added.length) note('applied', 'Added to your save', listNames(p, r.added));
-    if (r.raised && r.raised.length) note('applied', 'Raised to max level', listNames(p, r.raised));
-    if (job.action === 'surgeall' && !o.raised) return { ok: true, nothingNew: true, message: 'All your gear is already at max level.' };
+    if (r.raised && r.raised.length) note('applied', 'Weapon levels raised', `${o.raisedNames}: level 20.`);
+    if (job.action === 'maxweapons' && !o.raised) return { ok: true, nothingNew: true, message: 'Every weapon type is already at level 20.' };
     return { ok: true, ...o };
   },
   'POST /api/queue/clear': async () => { queue = []; settings.queue = queue; saveSettings(); return { ok: true }; },

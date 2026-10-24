@@ -1,5 +1,5 @@
 {
-  "version": "2.5.0",
+  "version": "3.0.0",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "New: Give items > Cells gives you every cell at once, at max level (+3) or every level, with as many copies of each as you like. It only tops cells up, never takes any away."
+  "notes": "Lantern Client now supports Dauntless Forever 1.14.7 only. Give items uses the 1.14.7 catalog: 3,500+ items including the new weapons, armour, omnicells, gliders, pets and skins. Cells use their real names, Max weapon levels takes every weapon type to level 20, and Game rules shows the 1.14.7 rules."
 }

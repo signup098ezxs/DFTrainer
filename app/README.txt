@@ -1,4 +1,4 @@
-LANTERN CLIENT  -  a companion panel for Dauntless Forever (Dauntless 1.6.2), single player
+LANTERN CLIENT  -  a companion panel for Dauntless Forever (Dauntless 1.14.7 only), single player
 ===========================================================================================
 Created by Alex, powered by Claude.
 
@@ -12,15 +12,16 @@ WHAT IT DOES
     Damage ............. x2 to x50, or One hit, against behemoths
     Move speed ......... x0.5 to x3
   Give items (also while the game runs)
-    Any of the 3,000+ weapons, armour, lanterns, parts, accessories and cosmetics, at max level where the item has
-    levels. Max all my gear, Unlock all cosmetics, and any amount of Rams, Merits, tokens, keys, materials, cell cores.
+    Any of the 3,500+ weapons, armour, lanterns, parts, omnicells, gliders, pets, skins and other cosmetics in the
+    1.14.7 catalog. Every cell (Cells view), Max weapon levels (every weapon type to level 20), Unlock all cosmetics,
+    and any amount of Rams, Merits, tokens, keys and cell cores.
   Game rules
-    Weapon XP, Hunt Pass XP, loot amount, free crafting, unlimited resupply (the launcher's Game Rules page).
+    1.14.7's rules: XP speeds, reward amounts, free crafting, free platinum, extra loadout slots (launcher's page).
   Live feed
     Everything that reaches your game, as it happens, with sounds and optional desktop alerts.
 
 FIRST TIME
-  1. In the Dauntless Forever launcher, 1.6.2 must be downloaded and Set up, and you must have pressed Play once
+  1. In the Dauntless Forever launcher, 1.14.7 must be downloaded and Set up, and you must have pressed Play once
      and made a character.
   2. Close the game. Run Lantern-Client-Setup.exe. It installs Lantern Client for you (no admin rights needed), adds it to
      the Start Menu and the Desktop, and opens it. From then on, open "Lantern Client" like any other app.
@@ -29,7 +30,7 @@ FIRST TIME
   4. The first time, a short tour shows how to set up and what each page does (Settings > Show the tour replays it).
      (Windows may say it protects your PC the first time: the exe is not code-signed. "More info", "Run anyway".)
   3. Press "Set up" in the amber bar. It installs the trainer mod (and UE4SS, the mod loader, if you don't have it)
-     and turns on Modded mode and "Also run mods on my servers" for 1.6.2.
+     and turns on Modded mode and "Also run mods on my servers" for 1.14.7.
   4. Press Play in the launcher. The "Mod" pill at the top lights up when the mod answers.
 
 GIFTS WHILE YOU PLAY (live delivery)
@@ -43,8 +44,8 @@ GIFTS WHILE YOU PLAY (live delivery)
   - Instant refresh (Give items page, experimental, off by default): asks the game to reload your inventory right
     away. The mod tries functions on the game's inventory that look like a refresh and take no input, one per gift,
     and keeps the one that the backend log proves worked. If none works, gifts still arrive at the next loading screen.
-  - Raising gear you already own to max level waits until you close the game: the game re-saves weapon XP with a
-    version number, and changing that number mid-session could make its next save of that weapon fail.
+  - Max weapon levels waits until you close the game: 1.14.7 keeps weapon XP per weapon type in your save, and the
+    backend holds that in memory while you play.
 
 UPDATES (automatic)
   Lantern Client updates itself. Each time it opens it checks for a new version (a second or two; offline it just
@@ -64,7 +65,7 @@ HOW CHEATS WORK (and why they need server mods)
 
 GOOD TO KNOW
   - The in-game parts could not be tested in the real game when they were written (no Windows or game there). The
-    panel, the item giving and the live delivery were tested against a copy of the 1.6.2 server files with a test
+    panel, the item giving and the live delivery were tested against a copy of the 1.14.7 package and its real backend with a test
     save and a stand-in for the game's backend. Each cheat card says whether the mod found what it needs; if one shows
     an amber line, look for [DFTrainer] lines (the mod kept its folder name) in <game>\Archon\Binaries\Win64\ue4ss\UE4SS.log.
   - Sounds and the intro: the speaker button at the top right (sound on or off, volume, intro on or off).
@@ -99,6 +100,6 @@ FILES (in %LOCALAPPDATA%\DFTrainer once installed; the folder kept its name from
   license.json ........... your key
   logs\ .................. launcher.log and panel.log, if something needs looking into
 
-To turn the game mod off: Dauntless Forever launcher > 1.6.2 > Mods, Lantern Client off.
+To turn the game mod off: Dauntless Forever launcher > 1.14.7 > Mods, Lantern Client off.
 
 Licence: AGPL-3.0-only, like Dauntless Forever, whose tools it uses. See LICENSE.
