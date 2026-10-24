@@ -43,6 +43,11 @@ type ovBeh struct {
 	Max   float64  `json:"max"`
 	Dead  bool     `json:"dead"`
 	Parts []ovPart `json:"parts"`
+	// its element and what it is weak to ("" when not known), and its stagger meter (max 0: not known)
+	Element    string  `json:"element"`
+	Weak       string  `json:"weak"`
+	Stagger    float64 `json:"stagger"`
+	StaggerMax float64 `json:"staggerMax"`
 }
 type ovStyle struct {
 	Accent  string  `json:"accent"`
@@ -79,6 +84,11 @@ type ovModel struct {
 	pending                        *ovBeh
 	hasPending                     bool
 	now                            float64
+	element, weak                  string
+	// stagger: shown as how close the behemoth is to being staggered. Whether the game's meter fills up or drains
+	// with hits is taken from the meter itself (full at the start: it drains).
+	hasStag, stagDrains                   bool
+	sTarget, sDisp, sGhost, sHold, sFlash float64
 }
 
 func frac(cur, max float64) float64 {
@@ -94,7 +104,36 @@ func (m *ovModel) adopt(b *ovBeh, now float64) {
 	m.target, m.disp, m.ghost, m.ghostHold, m.flash = frac(b.Cur, b.Max), 0, 0, 0, 0
 	m.parts = nil
 	m.setParts(b.Parts, now, true)
+	m.element, m.weak = b.Element, b.Weak
+	m.hasStag, m.stagDrains = b.StaggerMax > 0, b.StaggerMax > 0 && b.Stagger >= b.StaggerMax*0.999
+	m.sTarget, m.sDisp, m.sGhost, m.sHold, m.sFlash = m.stagProgress(b), 0, 0, 0, 0
 	m.alphaTarget = 1
+}
+
+func (m *ovModel) stagProgress(b *ovBeh) float64 {
+	f := frac(b.Stagger, b.StaggerMax)
+	if m.stagDrains {
+		return 1 - f
+	}
+	return f
+}
+
+func (m *ovModel) setStagger(b *ovBeh, now float64) {
+	if b.StaggerMax <= 0 {
+		m.hasStag = false
+		return
+	}
+	if !m.hasStag {
+		m.hasStag, m.stagDrains = true, b.Stagger >= b.StaggerMax*0.999
+	}
+	f := m.stagProgress(b)
+	if f > m.sTarget+1e-6 {
+		m.sHold, m.sFlash = now+0.4, 1
+	}
+	if f < m.sGhost {
+		m.sGhost = f // stagger spent or reset: no trail
+	}
+	m.sTarget = f
 }
 
 func (m *ovModel) setParts(ps []ovPart, now float64, fresh bool) {
@@ -152,7 +191,9 @@ func (m *ovModel) update(b *ovBeh, now float64) {
 			m.ghost = f
 		}
 		m.name, m.cur, m.max, m.dead, m.target = b.Name, b.Cur, b.Max, b.Dead, f
+		m.element, m.weak = b.Element, b.Weak
 		m.setParts(b.Parts, now, false)
+		m.setStagger(b, now)
 		m.alphaTarget, m.hasPending = 1, false
 	}
 }
@@ -197,6 +238,21 @@ func (m *ovModel) step(now, dt float64) bool {
 		}
 	}
 	bar(&m.disp, &m.ghost, &m.target, &m.ghostHold, &m.flash)
+	if m.hasStag { // it fills: the trail sits behind the new value instead of ahead of it
+		m.sDisp = approach(m.sDisp, m.sTarget, dt, 0.1)
+		if now >= m.sHold {
+			m.sGhost = approach(m.sGhost, m.sDisp, dt, 0.25)
+		}
+		if m.sGhost > m.sDisp {
+			m.sGhost = m.sDisp
+		}
+		m.sFlash *= math.Exp(-dt / 0.14)
+		if math.Abs(m.sDisp-m.sTarget) > 0.0005 || m.sDisp-m.sGhost > 0.0005 || m.sFlash > 0.01 {
+			moving = true
+		} else {
+			m.sDisp, m.sGhost, m.sFlash = m.sTarget, m.sTarget, 0
+		}
+	}
 	for _, p := range m.parts {
 		bar(&p.disp, &p.ghost, &p.target, &p.ghostHold, &p.flash)
 		if now-p.born < 0.3 {
@@ -461,14 +517,41 @@ var (
 	ovGlass = rgbf{0.027, 0.043, 0.063}
 	ovCoral = rgbf{1, 0.55, 0.61}
 	ovPartC = rgbf{0.91, 0.93, 0.95}
+	ovStag  = rgbf{1, 0.76, 0.4}
 )
+
+// the element colours (Dauntless's own: blaze orange, frost ice blue, shock yellow, terra green, radiant pale gold,
+// umbral violet, neutral grey)
+func elementColor(e string) rgbf {
+	switch e {
+	case "Blaze":
+		return rgbf{1, 0.48, 0.24}
+	case "Frost":
+		return rgbf{0.5, 0.85, 1}
+	case "Shock":
+		return rgbf{1, 0.89, 0.35}
+	case "Terra":
+		return rgbf{0.61, 0.89, 0.42}
+	case "Radiant":
+		return rgbf{1, 0.95, 0.66}
+	case "Umbral":
+		return rgbf{0.71, 0.55, 1}
+	}
+	return rgbf{0.73, 0.78, 0.8}
+}
 
 // ovLayout: the card's size at a scale (so the window can be sized before drawing)
 func ovLayout(m *ovModel, st ovStyle, u float64) (cardW, cardH, margin float64) {
 	cardW, margin = math.Round(340*u), math.Round(16*u)
 	y := 12*u + 18*u + 7*u + 10*u
+	if m.element != "" {
+		y += 15 * u
+	}
 	if st.Numbers {
 		y += 18 * u
+	}
+	if m.hasStag {
+		y += 21 * u
 	}
 	if n := len(m.parts); st.Parts && n > 0 {
 		rows := (n + 1) / 2
@@ -553,6 +636,23 @@ func (r *ovRenderer) draw(m *ovModel, st ovStyle, u float64) *image.RGBA {
 	c.text(fPct, pct, ix+iw-pw, y+13*u, pctCol, pctA)
 	y += 18*u + 7*u
 
+	// element and weakness: a dot and the word in the element's colour ("Terra  ·  weak to Shock")
+	if m.element != "" {
+		fe := ovFace(false, 11*u)
+		ec := elementColor(m.element)
+		c.rrect(ix, y+1*u, 7*u, 7*u, 3.5*u, flat(ec), 0.95, nil)
+		x := ix + 11*u
+		c.text(fe, m.element, x, y+8*u, ec, 0.95)
+		x += textWidth(fe, m.element)
+		if m.weak != "" {
+			mid := "  ·  weak to "
+			c.text(fe, mid, x, y+8*u, ovAsh, 0.8)
+			x += textWidth(fe, mid)
+			c.text(fe, m.weak, x, y+8*u, elementColor(m.weak), 0.95)
+		}
+		y += 15 * u
+	}
+
 	// overall health: thick bar in the preset's colours, a pale trail where the last hits landed
 	bh := 10 * u
 	c.rrect(ix, y, iw, bh, bh/2, flat(mix(deep, rgbf{0, 0, 0}, 0.45)), 0.9, nil)
@@ -575,6 +675,27 @@ func (r *ovRenderer) draw(m *ovModel, st ovStyle, u float64) *image.RGBA {
 		c.text(f, thousands(m.cur)+" / "+thousands(m.max), ix, y+10*u, ovAsh, 1)
 		c.text(f, "HEALTH", ix+iw-textWidth(f, "HEALTH"), y+10*u, ovAsh, 0.55)
 		y += 13 * u
+	}
+
+	// stagger: how close it is to being staggered, a thin amber bar of its own under the health
+	if m.hasStag {
+		f, fv := ovFace(false, 10.5*u), ovFace(true, 10.5*u)
+		y += 6 * u
+		c.text(f, "STAGGER", ix, y+8*u, ovAsh, 0.7)
+		v := percent(m.sDisp)
+		c.text(fv, v, ix+iw-textWidth(fv, v), y+8*u, ovStag, 0.95)
+		by, hb := y+11*u, 4*u
+		c.rrect(ix, by, iw, hb, hb/2, flat(rgbf{1, 1, 1}), 0.10, nil)
+		if fw := iw * m.sDisp; fw > 0.5 {
+			c.rrect(ix, by, fw, hb, hb/2, flat(ovStag), 0.9, nil)
+			if m.sDisp > m.sGhost {
+				c.rrect(ix+iw*m.sGhost, by, iw*(m.sDisp-m.sGhost), hb, hb/2, flat(rgbf{1, 0.95, 0.85}), 0.7, nil)
+			}
+			if m.sFlash > 0.01 {
+				c.rrect(ix, by, fw, hb, hb/2, flat(rgbf{1, 1, 1}), 0.4*m.sFlash, nil)
+			}
+		}
+		y += 15 * u
 	}
 
 	// parts: two columns of thin neutral bars

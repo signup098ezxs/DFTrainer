@@ -477,6 +477,67 @@ local function trackScan(now)
     for key in pairs(Tk.list) do if not found[key] then Tk.list[key] = nil end end
 end
 
+
+-- Stagger: a behemoth's stagger meter is an attribute next to its health. Which names hold it is found once per class
+-- of health set from the class's own property list (names and types only: nothing of the object is read for that),
+-- and then only those float properties are read. Everything that looks like stagger, element or weakness is logged
+-- once, so what the game really has can be checked in the logs.
+local STAG_WORDS = { "stagger", "poise" }
+local STAG_SKIP = { "damage", "reduce", "rate", "enrage", "time", "delay", "mult", "scale", "bonus", "resist", "regen", "decay", "threshold", "count" }
+local stagWay, stagLogged = {}, {}
+local function floatProps(o)
+    local list = {}
+    local ok, c = pcall(function() return o:GetClass() end)
+    for _ = 1, 10 do
+        if not (ok and c and valid(c)) then break end
+        pcall(function() c:ForEachProperty(function(p)
+            local okN, n = pcall(function() return p:GetFName():ToString() end)
+            local okT, t = pcall(function() return p:GetClass():GetFName():ToString() end)
+            if okN and n then list[#list + 1] = { name = n, kind = okT and t or "?" } end
+        end) end)
+        local okS, sup = pcall(function() return c:GetSuperStruct() end)
+        ok, c = okS, sup
+    end
+    return list
+end
+local function has(l, words) for _, w in ipairs(words) do if l:find(w, 1, true) then return true end end return false end
+local function logLooks(what, o)
+    local cls = (nameOf(o) or "?"):match("^(%S+)") or "?"
+    if stagLogged[cls] then return end
+    stagLogged[cls] = true
+    local seen = {}
+    for _, p in ipairs(floatProps(o)) do
+        local l = p.name:lower()
+        if has(l, { "stagger", "poise", "element", "weak", "resist", "terra", "blaze", "frost", "shock", "radiant", "umbral" }) then
+            seen[#seen + 1] = p.name .. ":" .. p.kind
+        end
+    end
+    log("overlay: " .. what .. " " .. cls .. " has " .. (#seen > 0 and table.concat(seen, ", ") or "nothing stagger- or element-like"))
+end
+-- the reader for this set's stagger (current, max), or false
+local function stagReader(set)
+    local cls = (nameOf(set) or "?"):match("^(%S+)") or "?"
+    local way = stagWay[cls]
+    if way == nil then
+        local cur, max
+        for _, p in ipairs(floatProps(set)) do
+            local l = p.name:lower()
+            if (p.kind == "FloatProperty" or p.kind == "DoubleProperty") and has(l, STAG_WORDS) and not has(l, STAG_SKIP) then
+                if l:find("max", 1, true) then max = max or p.name
+                elseif l:find("current", 1, true) or l:find("cur", 1, true) or l == "stagger" or l == "poise" then cur = cur or p.name end
+            end
+        end
+        way = (cur and max) and { cur, max } or false
+        stagWay[cls] = way
+        log("overlay: stagger on " .. cls .. ": " .. (way and (way[1] .. " / " .. way[2]) or "not found"))
+    end
+    if not way then return false end
+    return function()
+        if not valid(set) then return nil end
+        return readNum(set, way[1]), readNum(set, way[2])
+    end
+end
+
 local function trackJson(e)
     local hp, mx = readNum(e.set, "CurrentHealth") or 0, readNum(e.set, "MaxHealth") or 0
     local ps = {}
@@ -488,8 +549,19 @@ local function trackJson(e)
             ps[#ps + 1] = string.format('["%s",%.0f,%.0f,%d]', clean(p.name), math.max(c, 0), m, e.breaks[p.name] or 0)
         end
     end
-    return string.format('{"key":"%s","cls":"%s","cur":%.0f,"max":%.0f,"at":%d,"n":%d,"dead":%s,"parts":[%s]}',
-        clean(e.key), clean(e.cls), math.max(hp, 0), mx, e.atTime or 0, e.n or 0, tostring(hp <= 0), table.concat(ps, ","))
+    local stg = ""
+    if e.stag == nil then
+        pcall(logLooks, "behemoth", e.b)
+        pcall(logLooks, "health set", e.set)
+        local ok, r = pcall(stagReader, e.set)
+        e.stag = ok and r or false
+    end
+    if e.stag then
+        local sc, sm = e.stag()
+        if sc and sm and sm > 0 then stg = string.format(',"stg":[%.0f,%.0f]', math.max(sc, 0), sm) end
+    end
+    return string.format('{"key":"%s","cls":"%s","cur":%.0f,"max":%.0f,"at":%d,"n":%d,"dead":%s,"parts":[%s]%s}',
+        clean(e.key), clean(e.cls), math.max(hp, 0), mx, e.atTime or 0, e.n or 0, tostring(hp <= 0), table.concat(ps, ","), stg)
 end
 
 local function trackTick(now)
@@ -586,4 +658,4 @@ local hooked, hookErr = pcall(function()
 end)
 log(hooked and "hit hook ready" or ("hit hook not available (" .. tostring(hookErr) .. "); the timer still runs"))
 
-log("loaded (v4.2: damage multiplier, overlay tracking, instant refresh)")
+log("loaded (v4.3: damage multiplier, overlay tracking with stagger, instant refresh)")

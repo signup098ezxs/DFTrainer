@@ -344,6 +344,14 @@ nav > button.settab.on svg { transform: rotate(60deg); }
 .ovparts .p .r em { font-style: normal; font-weight: 700; color: #9eb5bf; }
 .ovparts .p.broken { color: rgba(240,247,250,.5); }
 .ovparts .p .k { margin-left: 4px; font-weight: 700; color: #ff8c9c; }
+.ovel { display: flex; align-items: center; margin-top: calc(3px * var(--u)); font-size: calc(8.5px * var(--u)); font-weight: 600; color: #9eb5bf; }
+.ovel i { width: calc(5px * var(--u)); height: calc(5px * var(--u)); margin-right: calc(4px * var(--u)); border-radius: 50%; background: #ff7a3d; }
+.ovel .e { color: #ff7a3d; } .ovel .w b { color: #80d9ff; font-weight: 600; }
+.ovstag { margin-top: calc(5px * var(--u)); font-size: calc(8px * var(--u)); font-weight: 600; color: rgba(158,181,191,.75); }
+.ovstag .r { display: flex; justify-content: space-between; }
+.ovstag .r em { font-style: normal; font-weight: 700; color: #ffc266; }
+.ovstag .b { position: relative; height: calc(3px * var(--u)); margin-top: calc(2px * var(--u)); border-radius: 99px; background: rgba(255,255,255,.1); }
+.ovstag .b i { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: 99px; background: #ffc266; transition: width .2s ease-out; }
 .ovparts .p.broken .r em { color: #ff8c9c; }
 .ovparts .p .b { position: relative; height: calc(3px * var(--u)); margin-top: calc(2px * var(--u)); border-radius: 99px; background: rgba(255,255,255,.1); }
 .ovparts .p .b i { position: absolute; inset: 0 auto 0 0; border-radius: 99px; background: #e8edf2; transition: width .2s ease-out; }
@@ -772,8 +780,10 @@ input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border: 0; bord
             <div class="ovstage" id="ovStage" aria-label="Preview">
               <div class="ovcard" id="ovPrev" data-pos="top">
                 <div class="ovhead"><b id="ovpName">Rogue Embermane</b><span id="ovpPct">100%</span></div>
+                <div class="ovel"><i></i><span class="e">Blaze</span><span class="w">&nbsp;·&nbsp; weak to <b>Frost</b></span></div>
                 <div class="ovbar"><i class="ghost" id="ovpGhost"></i><i class="fill" id="ovpFill"></i></div>
                 <div class="ovnums"><span id="ovpNums">15,654 / 15,654</span><span>HEALTH</span></div>
+                <div class="ovstag"><div class="r"><span>STAGGER</span><em id="ovpStag">0%</em></div><div class="b"><i id="ovpStagFill"></i></div></div>
                 <div class="ovparts" id="ovpParts"></div>
               </div>
               <span class="ovtag">Preview</span>
@@ -1536,17 +1546,19 @@ function ovPreviewPaint(hit) {
   $('#ovpFill').style.width = f + '%'; $('#ovpGhost').style.width = f + '%';
   if (hit) { const el = $('#ovpFill'); el.classList.remove('hit'); void el.offsetWidth; el.classList.add('hit'); }
   $('#ovpNums').textContent = `${fmtN(OVP.cur)} / ${fmtN(OVP.max)}`;
+  $('#ovpStag').textContent = Math.floor(OVP.stag || 0) + '%'; $('#ovpStagFill').style.width = (OVP.stag || 0) + '%';
   setHTML('#ovpParts', OVP.parts.map((p) => `<div class="p${p.c <= 0 ? ' broken' : ''}"><div class="r"><span>${esc(p.n)}${p.k && p.c > 0 ? `<b class="k">×${p.k}</b>` : ''}</span><em>${p.c <= 0 ? 'Broken' : pctOf(p.c, p.m)}</em></div><div class="b"><i style="width:${p.c / p.m * 100}%"></i></div></div>`).join(''));
 }
 function ovPreviewTick() {
   const c = $('#ovPrev');
   if (OVP.cur <= 0) {   // defeated: fade out, a fresh one sweeps in
     c.classList.add('gone');
-    setTimeout(() => { OVP.cur = OVP.max; OVP.parts.forEach((p) => { p.c = p.m; p.k = 0; }); ovPreviewPaint(); c.classList.remove('gone'); }, 900);
+    setTimeout(() => { OVP.cur = OVP.max; OVP.parts.forEach((p) => { p.c = p.m; p.k = 0; }); OVP.stag = 0; ovPreviewPaint(); c.classList.remove('gone'); }, 900);
     return;
   }
   const dmg = 500 + Math.random() * 1400;
   OVP.cur = Math.max(0, OVP.cur - dmg);
+  OVP.stag = (OVP.stag || 0) + 9 + Math.random() * 14; if (OVP.stag >= 100) OVP.stag = 0;   // fills up, then the behemoth staggers
   const part = OVP.parts[Math.floor(Math.random() * OVP.parts.length)];
   if (part.c > 0) {
     part.c = Math.max(0, part.c - dmg * 0.6);

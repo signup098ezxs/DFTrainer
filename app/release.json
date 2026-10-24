@@ -1,5 +1,5 @@
 {
-  "version": "3.3.6",
+  "version": "3.4.0",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Behemoth overlay: part health now always comes from the hunt server (your game was mistaken for a server and its copy sometimes shown), the Body pseudo-part (millions of health) is hidden, and breaks are shown properly: the game refills a broken part at once, so \"Broken\" now stays readable for a moment and a break count appears by the part's name."
+  "notes": "Behemoth overlay: shows the behemoth's element and what it is weak to (Skarn: Terra, weak to Shock), and its stagger meter when the game provides one. Boreus and the hunt-mode Skarn and Gnasher now show their real names."
 }

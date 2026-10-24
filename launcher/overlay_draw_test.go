@@ -12,7 +12,7 @@ import (
 func TestOverlayFrames(t *testing.T) {
 	dir := os.Getenv("OVERLAY_PNG_DIR")
 	st := ovStyle{Accent: "#3cebff", Light: "#4ff3ff", Deep: "#0b5f6d", Scale: 1, Opacity: 0.85, Parts: true, Numbers: true}
-	b := &ovBeh{Key: "k1", Name: "Rogue Embermane", Cur: 15654, Max: 15654, Parts: []ovPart{
+	b := &ovBeh{Key: "k1", Name: "Rogue Embermane", Cur: 15654, Max: 15654, Element: "Blaze", Weak: "Frost", Stagger: 3000, StaggerMax: 3000, Parts: []ovPart{
 		{Name: "Head", Cur: 2400, Max: 2400}, {Name: "Left foreleg", Cur: 1800, Max: 1800}, {Name: "Right foreleg", Cur: 1800, Max: 1800}, {Name: "Tail", Cur: 1500, Max: 1500}, {Name: "Back", Cur: 2000, Max: 2000}}}
 	m := &ovModel{}
 	now := 0.0
@@ -39,7 +39,7 @@ func TestOverlayFrames(t *testing.T) {
 	save("1-sweep", 1)
 	run(1)
 	save("2-full", 1)
-	b.Cur, b.Parts[0].Cur, b.Parts[3].Cur = 11200, 900, 0
+	b.Cur, b.Parts[0].Cur, b.Parts[3].Cur, b.Stagger = 11200, 900, 0, 1700
 	b.Parts[3].Breaks = 1
 	m.update(b, now)
 	run(0.12)
@@ -63,7 +63,7 @@ func TestOverlayFrames(t *testing.T) {
 	save("5-compact", 1)
 	st.Parts, st.Numbers, st.Accent, st.Light, st.Deep = true, true, "#ff5c78", "#ff8399", "#7a1526"
 	save("6-crimson-large", 1.4)
-	b2 := &ovBeh{Key: "k2", Name: "Shrike", Cur: 30000, Max: 30000}
+	b2 := &ovBeh{Key: "k2", Name: "Skarn", Cur: 30000, Max: 30000, Element: "Terra", Weak: "Shock"}
 	m.update(b2, now)
 	run(0.15)
 	save("7-switching", 1)

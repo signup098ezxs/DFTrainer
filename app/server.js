@@ -627,13 +627,35 @@ const OVERLAY_SIZE = { s: 0.85, m: 1, l: 1.2 };
 const THEME_COLORS = { aether: ['#3cebff', '#4ff3ff', '#0b5f6d'], ember: ['#ff8a3d', '#ffa866', '#7a3410'], verdant: ['#4ff096', '#7cf5b0', '#0d5e35'],
   amethyst: ['#b284ff', '#c7a6ff', '#47297d'], crimson: ['#ff5c78', '#ff8399', '#7a1526'], gold: ['#ffc84a', '#ffd978', '#7a560a'] };
 function overlaySettings() { return { ...OVERLAY_DEFAULTS, ...(settings.overlay || {}) }; }
+// The behemoth's species code from its class: "sq_rock_normal_bp_C" -> ROCK, variant NORMAL ("sq_" is a hunt-mode
+// prefix: the same Skarn)
+function speciesOf(cls) {
+  const id = String(cls || '').replace(/_C$/i, '').replace(/_bp$/i, '').replace(/^BP_/i, '').replace(/^sq_/i, '').toUpperCase();
+  const m = /^(.*?)_(ALPHA|BETA|NORMAL)$/.exec(id);
+  return m ? { species: m[1], variant: m[2], id } : { species: id, variant: 'NORMAL', id: id + '_NORMAL' };
+}
+// Names: the game's kill tokens. Two fixes: "Host" there is a placeholder for Boreus (its gear is "...of Boreus" and
+// "Boreal ..."), and mcbeaver has no token of its own: a Gnasher (its parts and build are a Gnasher's).
+const SPECIES_ALIAS = { MCBEAVER: 'BEAVER' };
 function behemothName(p, cls) {
   const BEH_NAMES = catalog(p).behemoths;
-  // "lerawr_beta_bp_C" -> LERAWR_BETA; no variant -> LERAWR_NORMAL
-  const id = String(cls || '').replace(/_C$/i, '').replace(/_bp$/i, '').replace(/^BP_/i, '').toUpperCase();
-  const variant = /_(ALPHA|BETA|NORMAL)$/.test(id) ? id : id + '_NORMAL';
-  return BEH_NAMES.get(variant) || BEH_NAMES.get(id)
-    || id.toLowerCase().split('_').filter(Boolean).map((w) => w[0].toUpperCase() + w.slice(1)).join(' ') || 'Behemoth';
+  const sp = speciesOf(cls), species = SPECIES_ALIAS[sp.species] || sp.species;
+  const n = BEH_NAMES.get(species + '_' + sp.variant) || BEH_NAMES.get(species + '_NORMAL');
+  if (n) return species === 'HOST' ? n.replace(/\bHost\b/, 'Boreus') : n;
+  return sp.species.toLowerCase().split('_').filter(Boolean).map((w) => w[0].toUpperCase() + w.slice(1)).join(' ') || 'Behemoth';
+}
+// Element by species (variants share it), and the element it is weak to (Dauntless: Blaze <-> Frost, Shock <-> Terra,
+// Radiant <-> Umbral; Neutral has none)
+const SPECIES_ELEMENT = {
+  BEAVER: 'Neutral', BULLSEYE: 'Neutral', MOONFACE: 'Neutral', PAPER: 'Terra', ROCK: 'Terra', SCISSORS: 'Terra',
+  LERAWR: 'Blaze', LAVAROLLER: 'Blaze', SALLY: 'Blaze', HOST: 'Frost', MCROLLIN: 'Frost', SNOWFLAKE: 'Frost',
+  FULGAR: 'Shock', ELECTROQUILL: 'Shock', SHOCKMANE: 'Shock', CROWBEAR: 'Umbral', SHADOWCAT: 'Umbral',
+  BUGBEAR: 'Radiant', SALT: 'Radiant',
+};
+const WEAK_TO = { Blaze: 'Frost', Frost: 'Blaze', Shock: 'Terra', Terra: 'Shock', Radiant: 'Umbral', Umbral: 'Radiant' };
+function behemothElement(cls) {
+  const sp = speciesOf(cls), el = SPECIES_ELEMENT[SPECIES_ALIAS[sp.species] || sp.species] || '';
+  return { element: el, weak: WEAK_TO[el] || '' };
 }
 let ovCache = null, ovCacheAt = 0;
 const later = (a, b) => { for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] > b[i]; return false; };
@@ -656,7 +678,9 @@ function overlayTrack(p) {
   ovCacheAt = Date.now();
   if (!best) return (ovCache = null);
   const b = best.t.b;
+  const el = behemothElement(b.cls), stg = Array.isArray(b.stg) && b.stg[1] > 0 ? b.stg : null;
   return (ovCache = { key: b.key, name: behemothName(p, b.cls), cur: b.cur, max: b.max, dead: !!b.dead,
+    element: el.element, weak: el.weak, stagger: stg ? stg[0] : 0, staggerMax: stg ? stg[1] : 0,
     parts: (b.parts || []).map(([n, c, m, k]) => ({ name: String(n), cur: c, max: m, breaks: k || 0 })) });
 }
 function overlayStyle() {
