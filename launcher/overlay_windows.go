@@ -83,11 +83,12 @@ type ovBitmapInfoHeader struct {
 // ------------------------------------------------------------------ what the panel says
 
 type ovReply struct {
-	OK      bool    `json:"ok"`
-	On      bool    `json:"on"`
-	Running bool    `json:"running"`
-	Style   ovStyle `json:"style"`
-	B       *ovBeh  `json:"b"`
+	OK      bool      `json:"ok"`
+	On      bool      `json:"on"`
+	Running bool      `json:"running"`
+	Style   ovStyle   `json:"style"`
+	B       *ovBeh    `json:"b"`
+	Q       []ovQuest `json:"q"` // the quest tracker's quests (nil: tracker off or nothing to show)
 }
 
 type ovFeed struct {
@@ -275,12 +276,14 @@ func runOverlay(base, token string) {
 		return
 	}
 	model := &ovModel{}
+	qmodel := &qModel{}
+	qwin := ovCreate() // the quest tracker: a second small window of its own
 	start := time.Now()
 	last, lastSeq, lastFind := start, -1, time.Time{}
 	var game uintptr
 	gameSeen, gameGoneAt := false, time.Time{}
 	var lastKey string
-	var lastPos [4]int32
+	var lastPos, qLastPos [4]int32
 	for {
 		var m ovMsg
 		for {
@@ -335,17 +338,22 @@ func runOverlay(base, token string) {
 				b = nil
 			}
 			model.update(b, t)
+			qmodel.update(rep.Q, t)
 		}
 		moving := model.step(t, dt)
+		qmoving := qmodel.step(t, dt)
 
 		fg, _, _ := ovGetForegroundWindow.Call()
 		iconic := uintptr(1)
 		if game != 0 {
 			iconic, _, _ = procIsIconic.Call(game)
 		}
-		if game == 0 || fg != game || iconic != 0 || model.alpha <= 0 {
+		if game == 0 || fg != game || iconic != 0 || (model.alpha <= 0 && qmodel.alpha <= 0) {
 			win.hide()
-			lastKey = ""
+			if qwin != nil {
+				qwin.hide()
+			}
+			lastKey, qLastPos = "", [4]int32{}
 			time.Sleep(60 * time.Millisecond)
 			continue
 		}
@@ -356,6 +364,9 @@ func runOverlay(base, token string) {
 		gw, gh := float64(rc.right-rc.left), float64(rc.bottom-rc.top)
 		if gw < 300 || gh < 200 {
 			win.hide()
+			if qwin != nil {
+				qwin.hide()
+			}
 			time.Sleep(60 * time.Millisecond)
 			continue
 		}
@@ -371,15 +382,42 @@ func runOverlay(base, token string) {
 		}
 		key := model.key
 		pos := [4]int32{tl.x, tl.y, int32(gw), int32(gh)}
-		if moving || fresh || !win.shown || key != lastKey || pos != lastPos {
-			img := ovDraw(model, st, u)
-			_, _, mg := ovLayout(model, st, u)
-			w, h := img.Bounds().Dx(), img.Bounds().Dy()
-			x, y := ovPlace(st.Pos, gw, gh, float64(w), float64(h), mg)
-			win.put(img.Pix, w, h, tl.x+int32(x), tl.y+int32(y))
-			lastKey, lastPos = key, pos
+		// where the health card is (for keeping the quest card clear of it)
+		var hx, hy, hw, hh float64
+		if model.alpha > 0 {
+			cw, chh, mg := ovLayout(model, st, u)
+			hw, hh = cw+2*mg, chh+2*mg+8*u
+			hx, hy = ovPlace(st.Pos, gw, gh, hw, hh, mg)
+			if moving || fresh || !win.shown || key != lastKey || pos != lastPos {
+				img := ovDraw(model, st, u)
+				win.put(img.Pix, img.Bounds().Dx(), img.Bounds().Dy(), tl.x+int32(hx), tl.y+int32(hy))
+				lastKey, lastPos = key, pos
+			}
+		} else {
+			win.hide()
+			lastKey = ""
 		}
-		if moving {
+		if qwin != nil {
+			if qmodel.alpha > 0 {
+				cw, chh, mg := qLayout(qmodel, u)
+				w, h := cw+2*mg, chh+2*mg+8*u
+				x, y := ovPlace(st.QPos, gw, gh, w, h, mg)
+				// on the same spot as the health card: it goes just under it
+				if model.alpha > 0 && x < hx+hw && hx < x+w && y < hy+hh && hy < y+h {
+					y = hy + hh - mg
+				}
+				qp := [4]int32{tl.x + int32(x), tl.y + int32(y), int32(w), int32(h)}
+				if qmoving || fresh || !qwin.shown || qp != qLastPos {
+					img := qDraw(qmodel, st, u)
+					qwin.put(img.Pix, img.Bounds().Dx(), img.Bounds().Dy(), qp[0], qp[1])
+					qLastPos = qp
+				}
+			} else {
+				qwin.hide()
+				qLastPos = [4]int32{}
+			}
+		}
+		if moving || qmoving {
 			time.Sleep(16 * time.Millisecond)
 		} else {
 			time.Sleep(50 * time.Millisecond)

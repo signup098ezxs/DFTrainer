@@ -107,7 +107,7 @@ if Base then LogFile = Base .. "/logs/" .. os.date("%Y%m%d-%H%M%S") .. "-" .. Pr
 if Base then log("mod folder: " .. Base .. " (process " .. ProcId .. ")") else log("could not find the mod folder; the panel cannot reach this process") end
 
 ---------------------------------------------------------------- toggles (flat JSON written by the panel)
-local T = { damage = 1, refresh = false, refreshFn = "", locked = false, track = false }
+local T = { damage = 1, refresh = false, refreshFn = "", locked = false, track = false, quests = false }
 local togglesText = ""
 
 local function parseToggles(s)
@@ -118,6 +118,7 @@ local function parseToggles(s)
     T.locked = flag("locked")   -- not the owner's panel: no multiplier, no refresh
     if T.locked then T.damage, T.refresh = 1, false end
     T.track = flag("track")     -- the behemoth overlay is on (anyone's panel)
+    T.quests = flag("quests")   -- the quest tracker is on (anyone's panel)
 end
 
 local function readToggles()
@@ -129,7 +130,7 @@ local function readToggles()
     if s ~= togglesText and s:find("}", 1, true) then
         togglesText = s
         parseToggles(s)
-        log(string.format("toggles: damage=x%g refresh=%s track=%s", T.damage, tostring(T.refresh), tostring(T.track)))
+        log(string.format("toggles: damage=x%g refresh=%s track=%s quests=%s", T.damage, tostring(T.refresh), tostring(T.track), tostring(T.quests)))
     end
 end
 
@@ -409,7 +410,7 @@ local function findParts(e, sets, comps)
                 local id = nameOf(actor) or raw
                 if read and not seen[id] then
                     seen[id] = true
-                    parts[#parts + 1] = { raw = raw, name = prettyPart(raw), read = read, set = st, actor = actor }
+                    parts[#parts + 1] = { raw = raw, name = prettyPart(raw), read = read, set = st, actor = actor, comp = comp }
                 end
             end
         end
@@ -451,7 +452,7 @@ local function trackScan(now)
                 local st = path and healthSetUnder(sets, path)
                 if st then
                     e = { key = key, b = b, path = path, set = st, cls = (key:match("^(%S+)") or ""), last = nil, at = nil,
-                          parts = {}, partsAt = -100, partLast = {}, breaks = {} }
+                          parts = {}, partsAt = -100, partLast = {}, breaks = {}, broke = {} }
                     Tk.list[key] = e
                 end
             end
@@ -549,7 +550,7 @@ local function trackJson(e)
         if c == nil then e.partsLost = true end
         -- "Body" has millions of health (far more than the behemoth): not a part you can break, so it is not shown
         if c and m and m > 0 and not (mx > 0 and m > mx) then
-            ps[#ps + 1] = string.format('["%s",%.0f,%.0f,%d]', clean(p.name), math.max(c, 0), m, e.breaks[p.name] or 0)
+            ps[#ps + 1] = string.format('["%s",%.0f,%.0f,%d,%d]', clean(p.name), math.max(c, 0), m, e.breaks[p.name] or 0, e.broke[p.name] and 1 or 0)
         end
     end
     local stg = ""
@@ -589,7 +590,11 @@ local function trackTick(now)
                 local was = e.partLast[p.name]
                 if c and was and c < was - 0.01 then hit = true end
                 -- a break: the game often refills that part right away (it can break again), so breaks are counted
-                if c and was and was > 0 and c <= 0 then e.breaks[p.name] = (e.breaks[p.name] or 0) + 1 end
+                if c and was and was > 0 and c <= 0 then
+                    e.breaks[p.name] = (e.breaks[p.name] or 0) + 1
+                    -- broken for the rest of this fight: the game refills a broken part's health, that is not a repair
+                    if not e.broke[p.name] then e.broke[p.name] = "health" end
+                end
                 if c and was and ((was > 0 and c <= 0) or (was <= 0 and c > 0)) then
                     log(string.format("overlay: %s %s %s (%.0f/%s)", e.cls, p.name, c <= 0 and "broke" or "back", c, tostring(m)))
                 end
@@ -638,6 +643,305 @@ local function stagFromFunctions()
     end
 end
 
+-- The game's own answer to "is this part broken" (MonsterPartComponent IsBroken), asked on the game thread (hit hook)
+-- for the behemoth being fought. Once broken, a part stays broken for that fight (e.broke is never cleared; a new
+-- fight is a new behemoth entry).
+local brokeFnOk = nil
+local function partsBrokenFromGame()
+    if brokeFnOk == false then return end
+    local best = nil
+    for _, e in pairs(Tk.list) do if e.at and (not best or e.at > best.at) then best = e end end
+    if not best then return end
+    for _, p in ipairs(best.parts) do
+        if not best.broke[p.name] and p.comp and valid(p.comp) then
+            local ok, v = pcall(callM, p.comp, "IsBroken")
+            if ok and type(v) == "boolean" then
+                if brokeFnOk == nil then brokeFnOk = true log("overlay: part break state from the game (IsBroken)") end
+                if v then
+                    best.broke[p.name] = "game"
+                    log(string.format("overlay: %s %s broken (the game says so)", best.cls, p.name))
+                end
+            elseif brokeFnOk == nil then
+                brokeFnOk = false
+                log("overlay: no IsBroken on parts (" .. tostring(v) .. "); a part counts as broken when its health reaches 0")
+                return
+            end
+        end
+    end
+end
+
+---------------------------------------------------------------- quest tracking (your game only, while it is on)
+-- The game's quests are UQuest objects (status: EQuestStatus; data: a quest data asset with QuestType, Main / Side /
+-- Special / Rumour, and its texts) with UObjective objects (current amount, amount required, status, description).
+-- They are read from the game itself: nothing is guessed. Function calls (GetCurrentAmount, GetAmountRequired...) are
+-- made only on the game's thread: from the game's own quest events (the in-game tracker's OnQuestObjectiveUpdated /
+-- OnQuestStatusUpdated, which fire when progress or status changes) and hits. Between those, only properties are
+-- read. A value the game does not give is left out, never filled in. What was found where is logged once.
+local QuestFile = Base and (Base .. "/quests/" .. ProcId .. ".json")
+local Qs = { list = nil, scanAt = -100, lastBody = nil, lastWrite = -100, dirty = true, gtAt = -100, cls = {}, enums = {}, static = {} }
+
+local function jstr(v)   -- a JSON string (quotes, backslashes and control characters escaped; other text as is)
+    return '"' .. tostring(v or ""):gsub('[%c"\\]', function(c)
+        if c == '"' then return '\\"' elseif c == "\\" then return "\\\\" elseif c == "\n" then return " " end
+        return ""
+    end) .. '"'
+end
+local function textOf(v)
+    if v == nil then return nil end
+    if type(v) == "string" then return v end
+    local ok, s = pcall(function() return v:ToString() end)
+    if ok and type(s) == "string" then return s end
+    return nil
+end
+local function numOf(v) if type(v) == "number" then return v end return nil end
+local function okObj(v) return v ~= nil and type(v) ~= "number" and type(v) ~= "string" and type(v) ~= "boolean" and valid(v) end
+
+-- an enum's value -> name ("EQuestStatus::Accepted" -> "Accepted"), from the game's own enum object
+local function enumNames(path)
+    if Qs.enums[path] ~= nil then return Qs.enums[path] end
+    local map = false
+    local okE, en = pcall(StaticFindObject, path)
+    if okE and en and okObj(en) then
+        local m, n = {}, 0
+        pcall(function() en:ForEachName(function(name, value) local t = textOf(name) if t then m[value] = t:match("::(.+)$") or t n = n + 1 end end) end)
+        if n == 0 then
+            for v = 0, 12 do
+                local okN, nm = pcall(function() return en:GetNameByValue(v) end)
+                local t = okN and textOf(nm)
+                if t and t ~= "" and t ~= "None" then m[v] = t:match("::(.+)$") or t n = n + 1 end
+            end
+        end
+        if n > 0 then map = m end
+    end
+    Qs.enums[path] = map
+    local parts = {}
+    if map then for v, nm in pairs(map) do parts[#parts + 1] = v .. "=" .. nm end table.sort(parts) end
+    log("quests: " .. path .. (map and (" " .. table.concat(parts, ",")) or " not found"))
+    return map
+end
+local function enumName(path, v)
+    if type(v) ~= "number" then return nil end
+    local m = enumNames(path)
+    return m and m[v] or nil
+end
+
+-- which properties a class has (names and kinds, read once per class: metadata only, no values), logged once
+local function classInfo(o, what)
+    local cls = (nameOf(o) or "?"):match("^(%S+)") or "?"
+    local info = Qs.cls[cls]
+    if info then return info end
+    info = { props = {}, list = {} }
+    for _, pr in ipairs(floatProps(o)) do
+        if not info.props[pr.name] then info.props[pr.name] = pr.kind info.list[#info.list + 1] = pr.name .. ":" .. pr.kind end
+    end
+    Qs.cls[cls] = info
+    log("quests: " .. what .. " " .. cls .. " has " .. table.concat(info.list, ", ", 1, math.min(#info.list, 90)))
+    return info
+end
+local function firstProp(o, info, names, kinds)
+    for _, n in ipairs(names) do
+        local k = info.props[n]
+        if k and (not kinds or kinds[k]) then
+            local ok, v = pcall(getField, o, n)
+            if ok and v ~= nil then return v, n end
+        end
+    end
+    return nil
+end
+local NUM = { IntProperty = true, FloatProperty = true, Int64Property = true, UInt32Property = true, DoubleProperty = true, Int16Property = true }
+local ENUM = { EnumProperty = true, ByteProperty = true }
+local OBJ = { ObjectProperty = true, WeakObjectProperty = true }
+-- a text property whose name says what it is (title first, then a short description)
+local function textProp(o, info, wants)
+    for _, w in ipairs(wants) do
+        for _, entry in ipairs(info.list) do
+            local n, k = entry:match("^(.-):(.+)$")
+            if (k == "TextProperty" or k == "StrProperty") and n:lower():find(w, 1, true) and not n:lower():find("originator") and not n:lower():find("redeemer") and not n:lower():find("format") then
+                local ok, v = pcall(getField, o, n)
+                local t = ok and textOf(v)
+                if t and t ~= "" then return t, n end
+            end
+        end
+    end
+    return nil
+end
+local function call(o, fn, gt) if not gt then return nil end local ok, v = pcall(callM, o, fn) if ok then return v end return nil end
+local function arrayObjs(arr)
+    local out = {}
+    if arr == nil then return out end
+    pcall(function() arr:ForEach(function(_, el) local o = el:get() if okObj(o) then out[#out + 1] = o end end) end)
+    return out
+end
+
+-- one objective, read from the game. Fixed facts (description, amount required) are kept once found.
+local function readObjective(o, gt)
+    local key = nameOf(o) or tostring(o)
+    local st = Qs.static[key] or {}
+    Qs.static[key] = st
+    local info = classInfo(o, "objective")
+    local data = st.data
+    if data == nil then
+        data = firstProp(o, info, { "TheData", "ObjectiveData", "Data" }, OBJ)
+        if not okObj(data) then data = call(o, "GetObjectiveData", gt) end
+        if okObj(data) then st.data = data elseif gt then st.data = false end
+    end
+    local dinfo = okObj(st.data) and classInfo(st.data, "objective data") or nil
+    -- the amount: the game's functions on its thread, else the replicated property
+    local cur = numOf(call(o, "GetCurrentAmount", gt))
+    if cur == nil then cur = numOf((firstProp(o, info, { "CurrentAmount" }, NUM))) end
+    if st.req == nil then
+        local r = numOf(call(o, "GetAmountRequired", gt))
+        if r == nil then r = numOf((firstProp(o, info, { "AmountRequired", "RequiredAmount", "TargetAmount" }, NUM))) end
+        if r == nil and dinfo then r = numOf((firstProp(st.data, dinfo, { "AmountRequired", "RequiredAmount", "TargetAmount", "ObjectiveAmount", "Amount" }, NUM))) end
+        if r ~= nil then st.req = r end
+    end
+    local sv = numOf(call(o, "GetStatus", gt))
+    if sv == nil then sv = numOf((firstProp(o, info, { "Status", "ObjectiveStatus" }, ENUM))) end
+    local status = enumName("/Script/Archon.EObjectiveStatus", sv)
+    -- between the game's events only properties can be read: what the game last said is kept until it says more
+    if cur ~= nil then st.cur = cur else cur = st.cur end
+    if status ~= nil then st.status = status else status = st.status end
+    if st.hidden == nil then
+        local h = call(o, "IsObjectiveHidden", gt)
+        if type(h) == "boolean" then st.hidden = h end
+    end
+    if st.desc == nil then
+        local d = dinfo and textProp(st.data, dinfo, { "description", "text", "name", "title" })
+        if d then st.desc = d end
+    end
+    local done = status == "Completed" or (cur ~= nil and st.req ~= nil and st.req > 0 and cur >= st.req)
+    return { desc = st.desc, cur = cur, req = st.req, done = done, status = status, hidden = st.hidden }
+end
+
+local function readQuest(q, gt)
+    local info = classInfo(q, "quest")
+    local key = nameOf(q) or tostring(q)
+    local st = Qs.static[key] or {}
+    Qs.static[key] = st
+    local sv = numOf((firstProp(q, info, { "Status", "QuestStatus", "CurrentStatus" }, ENUM)))
+    if sv == nil then sv = numOf(call(q, "GetStatus", gt)) end
+    local status = enumName("/Script/Archon.EQuestStatus", sv)
+    if status ~= nil then st.status = status elseif not gt then status = st.status end
+    if status and status ~= "Accepted" and status ~= "Redeemable" then return nil end   -- only quests you are on
+    if st.data == nil then
+        local d = firstProp(q, info, { "QuestData" }, OBJ)
+        if not okObj(d) then d = call(q, "GetQuestData", gt) end
+        if okObj(d) then st.data = d elseif gt then st.data = false end
+    end
+    local dinfo = okObj(st.data) and classInfo(st.data, "quest data") or nil
+    if st.type == nil and dinfo then
+        local tv = numOf((firstProp(st.data, dinfo, { "QuestType" }, ENUM)))
+        if tv ~= nil then st.type = enumName("/Script/Archon.EQuestType", tv) or false end
+    end
+    if st.title == nil then
+        local t = dinfo and textProp(st.data, dinfo, { "title", "displayname", "questname" })
+        if not t then t = textOf(call(q, "GetSerieTitle", gt)) end
+        if not t and dinfo then t = textProp(st.data, dinfo, { "shortdescription" }) end
+        if t and t ~= "" then st.title = t end
+    end
+    if st.id == nil then
+        local id = textOf(call(q, "GetID", gt))
+        if id and id ~= "" and id ~= "None" then st.id = id end
+    end
+    -- its objectives: the quest's own list, else the objective objects inside it
+    local objs = arrayObjs(firstProp(q, info, { "Objectives", "CurrentObjectives" }, { ArrayProperty = true }))
+    if #objs == 0 and st.objPaths then
+        for _, o in ipairs(st.objPaths) do if valid(o) then objs[#objs + 1] = o end end
+    end
+    if #objs == 0 and (st.objScanAt or -100) < Qs.scanAt then
+        st.objScanAt = Qs.scanAt
+        local qp = pathOf(q)
+        local found = {}
+        for _, o in ipairs(Qs.allObjectives or {}) do if under(pathOf(o), qp) then found[#found + 1] = o end end
+        st.objPaths = found
+        objs = found
+    end
+    local list, allDone, any = {}, true, false
+    for _, o in ipairs(objs) do
+        local r = readObjective(o, gt)
+        if not r.hidden then
+            if r.status == "InProgress" or r.status == "Completed" then any = true end
+            if not r.done then allDone = false end
+            list[#list + 1] = r
+        end
+    end
+    -- quest status not readable: a quest counts as one you are on only if the game reports one of its objectives as
+    -- in progress or completed (a quest not yet accepted has objectives "NotStarted")
+    if not status then
+        if not any then return nil end
+        status = allDone and "Redeemable" or "Accepted"
+    end
+    return { key = key, id = st.id, title = st.title, type = st.type or nil, status = status, objs = list }
+end
+
+local function questScan(now)
+    Qs.scanAt = now
+    local all = findAll({ "Quest" })
+    -- your own quests: those under your player controller (or player state) when the game keeps them there
+    local pc
+    for _, c in ipairs(findAll(PC_CLASSES)) do if isLocal(c) then pc = c break end end
+    local mine = {}
+    if pc then
+        local roots = { pathOf(pc) }
+        local okS, ps = pcall(getField, pc, "PlayerState")
+        if okS and okObj(ps) then roots[#roots + 1] = pathOf(ps) end
+        for _, q in ipairs(all) do
+            local qp = pathOf(q)
+            for _, r in ipairs(roots) do if under(qp, r) then mine[#mine + 1] = q break end end
+        end
+    end
+    Qs.list = #mine > 0 and mine or all
+    Qs.allObjectives = nil
+    for _, q in ipairs(Qs.list) do
+        local info = classInfo(q, "quest")
+        if not info.props.Objectives then Qs.allObjectives = findAll({ "Objective" }) break end
+    end
+    logOnce("qscan", string.format("quests: %d quest objects (%d under your player)", #all, #mine))
+end
+
+local function questTick(now, gt)
+    if not T.quests or S.role ~= "game" or not QuestFile then
+        if Qs.lastBody and QuestFile then os.remove(QuestFile) Qs.lastBody = nil end
+        return
+    end
+    if not Qs.list or now - Qs.scanAt >= 5 or (Qs.dirty and now - Qs.scanAt >= 1) then questScan(now) end
+    Qs.dirty = false
+    local out = {}
+    for _, q in ipairs(Qs.list or {}) do
+        if valid(q) then
+            local ok, r = pcall(readQuest, q, gt)
+            if ok and r then
+                local os_ = {}
+                for _, o in ipairs(r.objs) do
+                    os_[#os_ + 1] = string.format('{"d":%s,"c":%s,"r":%s,"done":%s}', jstr(o.desc),
+                        o.cur and string.format("%.0f", o.cur) or "null", o.req and string.format("%.0f", o.req) or "null", tostring(o.done))
+                end
+                out[#out + 1] = string.format('{"key":%s,"id":%s,"title":%s,"type":%s,"status":%s,"obj":[%s]}', jstr(r.key), jstr(r.id),
+                    jstr(r.title), jstr(r.type), jstr(r.status), table.concat(os_, ","))
+            elseif not ok then logOnce("qerr:" .. tostring(r), "quests: " .. tostring(r)) end
+        end
+    end
+    table.sort(out)
+    local body = "[" .. table.concat(out, ",") .. "]"
+    if body == Qs.lastBody and now - Qs.lastWrite < 2 then return end
+    local f = io.open(QuestFile, "w")
+    if not f then logOnce("noquests", "cannot write " .. QuestFile .. " (the panel creates the quests folder)") return end
+    f:write(string.format('{"role":"%s","time":%d,"gt":%s,"q":%s}', S.role, os.time(), tostring(gt), body))
+    f:close()
+    if body ~= Qs.lastBody then logOnce("qfirst", "quests: tracking " .. #out .. " active quest(s)") end
+    Qs.lastBody, Qs.lastWrite = body, now
+end
+-- on the game's thread (quest events, hits): functions allowed; at most 4 times a second
+local function questGameThread()
+    if not T.quests or S.role ~= "game" then return end
+    local now = os.clock()
+    if now - Qs.gtAt < 0.25 then Qs.dirty = true return end
+    Qs.gtAt = now
+    Qs.dirty = true
+    local ok, err = pcall(questTick, now, true)
+    if not ok then logOnce("qgt:" .. tostring(err), "quests error: " .. tostring(err)) end
+end
+
 ---------------------------------------------------------------- status heartbeat for the panel
 local lastStatus, lastRead = -100, -100
 local function writeStatus(now)
@@ -662,6 +966,11 @@ local function step()
     end
     local ok, err = pcall(tick)
     if not ok then logOnce("tick:" .. tostring(err), "tick error: " .. tostring(err)) end
+    if T.quests and now - (Qs.timerAt or -100) >= 1 then
+        Qs.timerAt = now
+        local okQ, errQ = pcall(questTick, now, false)
+        if not okQ then logOnce("quest:" .. tostring(errQ), "quests error: " .. tostring(errQ)) end
+    elseif not T.quests and Qs.lastBody then pcall(questTick, now, false) end
     local okT, errT = pcall(trackTick, now)
     if not okT then logOnce("track:" .. tostring(errT), "overlay error: " .. tostring(errT)) end
     if now - lastStatus >= STATUS_EVERY then
@@ -682,16 +991,28 @@ end)
 local lastHitTick, lastHitTrack = -1, -1
 local hooked, hookErr = pcall(function()
     RegisterHook("/Script/Archon.ArchonCombatTextComponent:MulticastSendMultitypeCombatText", function()
-        if T.damage <= 1 and not T.track then return end
+        if T.damage <= 1 and not T.track and not T.quests then return end
         local now = os.clock()
         if T.damage > 1 and now - lastHitTick >= 0.03 then lastHitTick = now pcall(tick) end
         if T.track and now - lastHitTrack >= 0.125 then
             lastHitTrack = now
             pcall(trackTick, now)   -- the overlay moves with the hit, not on the next timer tick
             pcall(stagFromFunctions)
+            pcall(partsBrokenFromGame)
         end
     end)
 end)
 log(hooked and "hit hook ready" or ("hit hook not available (" .. tostring(hookErr) .. "); the timer still runs"))
 
-log("loaded (v6.0: damage multiplier, overlay tracking with stagger, instant refresh)")
+-- the game's own quest events (they fire when a quest's progress or status changes, and when quests arrive): the
+-- quest tracker reads then, on the game's thread. Each returns at once while the tracker is off.
+local qHooks = {}
+for _, fn in ipairs({ "/Script/Archon.HUDObjectiveTracker:OnQuestObjectiveUpdated", "/Script/Archon.HUDObjectiveTracker:OnQuestStatusUpdated",
+                      "/Script/Archon.MarkerSystemComponent:OnQuestObjectiveUpdated", "/Script/Archon.MarkerSystemComponent:OnQuestStatusUpdated",
+                      "/Script/Archon.QuestSystemComponent:OnRep_Series", "/Script/Archon.QuestSystemComponent:OnRep_NumExpectedQuests" }) do
+    local ok = pcall(RegisterHook, fn, function() if T.quests then questGameThread() end end)
+    if ok then qHooks[#qHooks + 1] = fn:match(":(.+)$") end
+end
+log("quest events hooked: " .. (#qHooks > 0 and table.concat(qHooks, ", ") or "none (the tracker reads every second instead)"))
+
+log("loaded (v6.1: damage multiplier, overlay tracking with stagger and broken parts, quest tracker, instant refresh)")

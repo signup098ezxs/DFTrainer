@@ -1,5 +1,5 @@
 {
-  "version": "3.8.4",
+  "version": "3.9.0",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Assist (part lock-on) removed. The tab, its switches and saved settings, the mod's lock-on code and keys (middle mouse, F7, F8), the overlay's LOCKED marker and the old mod logs from lock-on are all gone. The mod runs only the hit hook and one timer, as before lock-on existed."
+  "notes": "New quest tracker (Settings > Quest tracker): the quests you are on, over the game, with each objective's progress (1/3) read from the game itself. Pick which kinds to track (Main, Side, Special, Rumours), how many at once and where it sits; it updates when the game reports progress and closes quests that are handed in or dropped. Behemoth overlay: a broken part now shows BROKEN for the rest of the fight instead of refilling to 100% (from the game's own break state, or its health reaching 0)."
 }

@@ -294,6 +294,8 @@ setInterval(() => {
 const TOGGLE_DEFAULTS = { damage: 1, refresh: false, refreshFn: '' };
 // the behemoth overlay (anyone's panel, not just the owner's): the mod tracks behemoths only while it is on
 const overlayOn = () => !!(settings.overlay && settings.overlay.on);
+// the quest tracker overlay (anyone's panel): the mod reads quests only while it is on
+const questsOn = () => !!(settings.quests && settings.quests.on);
 // the damage multiplier is the owner's: anyone else's client keeps the mod locked (x1)
 const isOwner = () => !!LIC.status().owner;
 function readToggles(p) {
@@ -312,8 +314,10 @@ function writeToggles(p, t) {
   if (p.modDir && fs.existsSync(p.modDir)) {
     const f = path.join(p.modDir, 'trainer-toggles.json');
     // not the owner: the mod gets x1 and "locked"
-    const out = { ...(isOwner() ? { ...clean, locked: false } : { ...TOGGLE_DEFAULTS, locked: true }), track: overlayOn() };
+    const out = { ...(isOwner() ? { ...clean, locked: false } : { ...TOGGLE_DEFAULTS, locked: true }), track: overlayOn(), quests: questsOn() };
     fs.mkdirSync(path.join(p.modDir, 'track'), { recursive: true });
+    fs.mkdirSync(path.join(p.modDir, 'quests'), { recursive: true });
+    try { const qd = path.join(p.modDir, 'quests'); for (const f of fs.readdirSync(qd)) { const full = path.join(qd, f); if (Date.now() - fs.statSync(full).mtimeMs > 3600000) fs.unlinkSync(full); } } catch {}
     // each copy of the game that ever ran left a track file: those over an hour old are done with
     try { const td = path.join(p.modDir, 'track'); for (const f of fs.readdirSync(td)) { const full = path.join(td, f); if (Date.now() - fs.statSync(full).mtimeMs > 3600000) fs.unlinkSync(full); } } catch {}
     // the mod's own logs (logs\<date>-<process>.log, one per copy of the game): a week is kept
@@ -361,7 +365,7 @@ async function setup() {
     if (!r.ok) return { ok: false, error: r.error || 'Could not install UE4SS.' };
     steps.push('Installed UE4SS (the mod loader).');
   }
-  copyDir(MOD_SRC, p.modDir, new Set(['trainer-toggles.json', 'status', 'track', 'logs', 'refresh-request.json']));
+  copyDir(MOD_SRC, p.modDir, new Set(['trainer-toggles.json', 'status', 'track', 'quests', 'logs', 'refresh-request.json']));
   fs.mkdirSync(path.join(p.modDir, 'status'), { recursive: true });
   writeToggles(p, readToggles(p));
   steps.push('Copied the Lantern Client mod.');
@@ -633,6 +637,53 @@ const OVERLAY_SIZE = { s: 0.85, m: 1, l: 1.2 };
 const THEME_COLORS = { aether: ['#3cebff', '#4ff3ff', '#0b5f6d'], ember: ['#ff8a3d', '#ffa866', '#7a3410'], verdant: ['#4ff096', '#7cf5b0', '#0d5e35'],
   amethyst: ['#b284ff', '#c7a6ff', '#47297d'], crimson: ['#ff5c78', '#ff8399', '#7a1526'], gold: ['#ffc84a', '#ffd978', '#7a560a'] };
 function overlaySettings() { return { ...OVERLAY_DEFAULTS, ...(settings.overlay || {}) }; }
+// ---------------------------------------------------------------- quest tracker
+// The mod writes quests\<process>.json from your game: the quests you are on (EQuestStatus Accepted, or Redeemable:
+// done, to hand in), each with its type (EQuestType Main / Side / Special / Rumour) and objectives (description,
+// current amount, amount required: what the game reports; a value it did not give is null and is not shown). Here
+// they are filtered by the categories chosen in Settings, ordered (unfinished first, then main, side, special,
+// rumour) and cut to the number chosen, so the card stays small.
+const QUEST_CATS = ['main', 'side', 'special', 'rumour', 'other'];
+const QUEST_TYPE_CAT = { Main: 'main', Side: 'side', Special: 'special', Rumour: 'rumour' };
+const QUEST_DEFAULTS = { on: false, pos: 'right', max: 2, cats: { main: true, side: true, special: true, rumour: true, other: false } };
+const QUEST_POS = ['right', 'left', 'top-left', 'top-right'];
+function questSettings() {
+  const q = settings.quests || {};
+  return { ...QUEST_DEFAULTS, ...q, cats: { ...QUEST_DEFAULTS.cats, ...(q.cats || {}) } };
+}
+let qCache = null, qCacheAt = 0;
+function questFeed(p) {
+  if (qCache && Date.now() - qCacheAt < 150) return qCache;
+  qCacheAt = Date.now();
+  const dir = p.modDir && path.join(p.modDir, 'quests');
+  let best = null;
+  try {
+    const now = Date.now() / 1000;
+    for (const f of fs.readdirSync(dir)) {
+      if (!f.endsWith('.json')) continue;
+      const t = readJson(path.join(dir, f), null);
+      if (t && t.role === 'game' && Array.isArray(t.q) && now - (t.time || 0) <= 6 && (!best || t.time > best.time)) best = t;
+    }
+  } catch {}
+  if (!best) return (qCache = null);
+  const qs = questSettings(), order = { main: 0, side: 1, special: 2, rumour: 3, other: 4 };
+  const list = [];
+  for (const x of best.q) {
+    if (!x || (x.status !== 'Accepted' && x.status !== 'Redeemable')) continue;
+    const cat = QUEST_TYPE_CAT[x.type] || 'other';
+    if (!qs.cats[cat]) continue;
+    const objs = (Array.isArray(x.obj) ? x.obj : []).map((o) => ({
+      d: String(o.d || '').slice(0, 120), c: Number.isFinite(o.c) ? o.c : null, r: Number.isFinite(o.r) && o.r > 0 ? o.r : null, done: !!o.done,
+    })).filter((o) => o.d || o.c !== null);
+    const complete = x.status === 'Redeemable' || (objs.length > 0 && objs.every((o) => o.done));
+    // unfinished objectives first, at most three; a finished quest shows no list, just "Complete"
+    const open = objs.filter((o) => !o.done), done = objs.filter((o) => o.done);
+    list.push({ key: String(x.key || x.id || x.title), title: String(x.title || ''), cat, complete,
+      obj: complete ? [] : [...open, ...done].slice(0, 3), more: complete ? 0 : Math.max(0, objs.length - 3) });
+  }
+  list.sort((a, b) => (a.complete - b.complete) || (order[a.cat] - order[b.cat]) || a.title.localeCompare(b.title));
+  return (qCache = list.slice(0, qs.max));
+}
 // The behemoth's species code from its class: "sq_rock_normal_bp_C" -> ROCK, variant NORMAL ("sq_" is a hunt-mode
 // prefix: the same Skarn)
 function speciesOf(cls) {
@@ -687,11 +738,11 @@ function overlayTrack(p) {
   const el = behemothElement(b.cls), stg = Array.isArray(b.stg) && b.stg[1] > 0 ? b.stg : null;
   return (ovCache = { key: b.key, name: behemothName(p, b.cls), cur: b.cur, max: b.max, dead: !!b.dead,
     element: el.element, weak: el.weak, stagger: stg ? stg[0] : 0, staggerMax: stg ? stg[1] : 0,
-    parts: (b.parts || []).map(([n, c, m, k]) => ({ name: String(n), cur: c, max: m, breaks: k || 0 })) });
+    parts: (b.parts || []).map(([n, c, m, k, x]) => ({ name: String(n), cur: c, max: m, breaks: k || 0, broken: x === 1 })) });
 }
 function overlayStyle() {
   const o = overlaySettings(), c = THEME_COLORS[(settings.prefs || {}).theme] || THEME_COLORS.aether;
-  return { accent: c[0], light: c[1], deep: c[2], pos: o.pos, scale: OVERLAY_SIZE[o.size] || 1, opacity: o.opacity, parts: o.parts, numbers: o.numbers };
+  return { accent: c[0], light: c[1], deep: c[2], pos: o.pos, scale: OVERLAY_SIZE[o.size] || 1, opacity: o.opacity, parts: o.parts, numbers: o.numbers, qpos: questSettings().pos };
 }
 function bossbarOn(p) {
   try { return !/^\s*bossbar\s*=\s*off\s*$/mi.test(fs.readFileSync(path.join(p.dataDir, 'mods.txt'), 'utf8')); } catch { return true; }
@@ -707,7 +758,7 @@ let overlayPid = 0, overlayTriedAt = 0;
 const launcherHasOverlay = () => { const v = String(process.env.DFT_LAUNCHER_VERSION || '0').split('.').map(Number); return v[0] > 1 || (v[0] === 1 && v[1] >= 6); };
 function overlayAlive() { if (!overlayPid) return false; try { process.kill(overlayPid, 0); return true; } catch { overlayPid = 0; return false; } }
 function ensureOverlay(running) {
-  if (!LAUNCHER || !launcherHasOverlay() || !overlayOn() || !running || overlayAlive() || !LIC.ok() || Date.now() - overlayTriedAt < 10000) return;
+  if (!LAUNCHER || !launcherHasOverlay() || !(overlayOn() || questsOn()) || !running || overlayAlive() || !LIC.ok() || Date.now() - overlayTriedAt < 10000) return;
   overlayTriedAt = Date.now();
   try {
     // not windowsHide: Windows would apply a hidden start to the overlay's window too
@@ -733,6 +784,7 @@ async function buildState() {
     modOn: !!(p.modsDir && modListed(p)), mode: modsMode(p),
     toggles: readToggles(p), processes: procs.map(({ time, ...s }) => s),
     overlay: { ...overlaySettings(), restoreBossbar: undefined, running: overlayAlive() },
+    quests: questSettings(),
     queue: queue.map((j) => ({ what: describe(j) })), history,
     deliveries: deliveries.filter((d) => d.status === 'saved').map((d) => ({ what: d.what, at: d.at })),
   };
@@ -870,7 +922,7 @@ const routes = {
   },
   'GET /api/feed': async () => feed,
   // the owner (Damage) or anyone who turned the behemoth overlay on
-  'POST /api/setup': async () => (isOwner() || overlayOn()) ? setup() : { ok: false, error: 'Turn on the behemoth overlay in Settings first.' },
+  'POST /api/setup': async () => (isOwner() || overlayOn() || questsOn()) ? setup() : { ok: false, error: 'Turn on the behemoth overlay or the quest tracker in Settings first.' },
   'POST /api/toggles': async (b) => {
     if (!isOwner()) return { ok: false, error: 'The game mod is the owner\'s.' };
     const p = places(); if (!p.pkg) return { ok: false, error: 'Package not found.' };
@@ -894,9 +946,9 @@ const routes = {
     return { ok: true, ...o };
   },
   'GET /api/overlay/state': async () => {
-    const p = places(), o = overlaySettings();
-    if (!o.on || !p.pkg) return { ok: true, on: false };
-    return { ok: true, on: true, running: await backendUp(), style: overlayStyle(), b: overlayTrack(p) };
+    const p = places(), o = overlaySettings(), q = questsOn();
+    if (!(o.on || q) || !p.pkg) return { ok: true, on: false };
+    return { ok: true, on: true, running: await backendUp(), style: overlayStyle(), b: o.on ? overlayTrack(p) : null, q: q ? questFeed(p) : null };
   },
   'POST /api/overlay': async (b) => {
     const p = places(), o = overlaySettings(), was = o.on;
@@ -913,6 +965,16 @@ const routes = {
       ensureOverlay(await backendUp());
     }
     return { ok: true, overlay: { ...overlaySettings(), restoreBossbar: undefined, running: overlayAlive() } };
+  },
+  'POST /api/quests': async (b) => {
+    const p = places(), q = questSettings();
+    if (typeof b.on === 'boolean') q.on = b.on;
+    if (QUEST_POS.includes(b.pos)) q.pos = b.pos;
+    if (Number.isInteger(b.max) && b.max >= 1 && b.max <= 4) q.max = b.max;
+    if (b.cats && typeof b.cats === 'object') for (const k of QUEST_CATS) if (typeof b.cats[k] === 'boolean') q.cats[k] = b.cats[k];
+    settings.quests = q; saveSettings(); qCache = null;
+    if (p.pkg) { writeToggles(p, readToggles(p)); ensureOverlay(await backendUp()); }
+    return { ok: true, quests: questSettings() };
   },
   'POST /api/queue/clear': async () => { queue = []; settings.queue = queue; saveSettings(); return { ok: true }; },
   'GET /api/prefs': async () => settings.prefs || {},

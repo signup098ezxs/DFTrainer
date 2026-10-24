@@ -33,8 +33,10 @@ type ovPart struct {
 	Name string  `json:"name"`
 	Cur  float64 `json:"cur"`
 	Max  float64 `json:"max"`
-	// times this part has broken this fight: the game often refills a broken part at once (it can break again)
+	// times this part's health reached 0 this fight (the game refills a broken part's health at once)
 	Breaks int `json:"breaks"`
+	// broken this fight: the game said so (the part's IsBroken) or its health reached 0
+	Broken bool `json:"broken"`
 }
 type ovBeh struct {
 	Key   string   `json:"key"`
@@ -58,6 +60,7 @@ type ovStyle struct {
 	Opacity float64 `json:"opacity"`
 	Parts   bool    `json:"parts"`
 	Numbers bool    `json:"numbers"`
+	QPos    string  `json:"qpos"` // the quest tracker's position
 }
 
 const ovMaxParts = 12
@@ -70,7 +73,8 @@ type ovPartAnim struct {
 	target, disp, ghost    float64
 	ghostHold, flash, born float64
 	breaks                 int
-	brokeAt                float64 // when it last broke: "Broken" stays readable for a moment even if it refills
+	brokeAt                float64 // when it broke (0: not broken)
+	broken                 bool    // broken for the rest of this fight: refilled health is not shown
 }
 
 type ovModel struct {
@@ -161,12 +165,32 @@ func (m *ovModel) setParts(ps []ovPart, now float64, fresh bool) {
 		if f > a.ghost {
 			a.ghost = f
 		}
-		if p.Breaks > a.breaks {
-			a.brokeAt = now
+		// broken once, broken for the rest of the fight (a new behemoth starts with fresh parts: adopt)
+		if !a.broken && (p.Broken || p.Breaks > a.breaks || (p.Breaks > 0 && fresh)) {
+			a.broken = true
+			if fresh {
+				a.brokeAt = now - 1
+			} else {
+				a.brokeAt, a.flash, a.ghostHold = now, 1, now+0.45
+			}
 		}
 		a.breaks = p.Breaks
-		a.cur, a.max, a.target = p.Cur, p.Max, f
+		a.cur, a.max = p.Cur, p.Max
+		if a.broken {
+			f = 0
+		}
+		a.target = f
 		out = append(out, a)
+	}
+	// a broken part the game stops reporting stays on the card as broken (same place)
+	have := map[string]bool{}
+	for _, a := range out {
+		have[a.name] = true
+	}
+	for _, a := range m.parts {
+		if a.broken && !have[a.name] && len(out) < ovMaxParts {
+			out = append(out, a)
+		}
 	}
 	m.parts = out
 }
@@ -712,29 +736,26 @@ func (r *ovRenderer) draw(m *ovModel, st ovStyle, u float64) *image.RGBA {
 			px := ix + float64(i%2)*(colW+gap)
 			py := y + float64(i/2)*21*u
 			pa := math.Min(1, math.Max(0, (m.now-p.born)/0.3)) // a part found mid-fight fades in
-			broken := (p.target <= 0 && p.max > 0) || (p.brokeAt > 0 && m.now-p.brokeAt < 2.5)
 			val, valCol, valA, nameA := percent(p.disp), ovAsh, 0.9, 0.86*pa
-			if broken {
-				val, valCol, valA, nameA = "Broken", ovCoral, 0.95, 0.5*pa
+			if p.broken {
+				// BROKEN for the rest of the fight; it lights up for a moment when it breaks
+				glow := 0.0
+				if d := m.now - p.brokeAt; d >= 0 && d < 0.8 {
+					glow = 1 - d/0.8
+				}
+				val, valCol, valA, nameA = "BROKEN", mix(ovCoral, rgbf{1, 1, 1}, glow*0.5), 0.95, 0.5*pa
 			}
 			vw := textWidth(fv, val)
-			// broken before and grown back: a small coral count after the name ("x1")
-			tag := ""
-			if p.breaks > 0 && !broken {
-				tag = fmt.Sprintf("×%d", p.breaks)
-			}
-			tw := 0.0
-			if tag != "" {
-				tw = textWidth(fv, tag) + 5*u
-			}
-			name := fit(f, p.name, colW-vw-6*u-tw)
+			name := fit(f, p.name, colW-vw-6*u)
 			c.text(f, name, px, py+9*u, ovInk, nameA)
-			if tag != "" {
-				c.text(fv, tag, px+textWidth(f, name)+5*u, py+9*u, ovCoral, 0.85*pa)
-			}
 			c.text(fv, val, px+colW-vw, py+9*u, valCol, valA)
 			by, hb := py+12*u, 4*u
-			c.rrect(px, by, colW, hb, hb/2, flat(rgbf{1, 1, 1}), 0.10, nil)
+			if p.broken {
+				c.rrect(px, by, colW, hb, hb/2, flat(ovCoral), 0.13*pa, nil)
+				c.ring(px, by, colW, hb, hb/2, ovCoral, 0.22*pa)
+			} else {
+				c.rrect(px, by, colW, hb, hb/2, flat(rgbf{1, 1, 1}), 0.10, nil)
+			}
 			if p.ghost > p.disp {
 				c.rrect(px, by, colW*p.ghost, hb, hb/2, flat(ovPartC), 0.32, nil)
 			}
@@ -782,6 +803,8 @@ func ovPlace(pos string, gw, gh, ww, wh, mg float64) (x, y float64) {
 		return gw - ww - gw*0.015 + mg, gh*0.03 - mg
 	case "right":
 		return gw - ww - gw*0.015 + mg, gh*0.36 - mg
+	case "left":
+		return gw*0.015 - mg, gh*0.36 - mg
 	default: // top centre, just under where the compass sits
 		return (gw - ww) / 2, gh*0.075 - mg
 	}
