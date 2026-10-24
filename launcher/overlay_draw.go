@@ -48,8 +48,6 @@ type ovBeh struct {
 	Weak       string  `json:"weak"`
 	Stagger    float64 `json:"stagger"`
 	StaggerMax float64 `json:"staggerMax"`
-	// Lock: the part the Repeaters lock-on is holding your aim on ("" when it is not locked)
-	Lock string `json:"lock"`
 }
 type ovStyle struct {
 	Accent  string  `json:"accent"`
@@ -91,7 +89,6 @@ type ovModel struct {
 	// with hits is taken from the meter itself (full at the start: it drains).
 	hasStag, stagDrains                   bool
 	sTarget, sDisp, sGhost, sHold, sFlash float64
-	lock                                  string
 }
 
 func frac(cur, max float64) float64 {
@@ -107,7 +104,7 @@ func (m *ovModel) adopt(b *ovBeh, now float64) {
 	m.target, m.disp, m.ghost, m.ghostHold, m.flash = frac(b.Cur, b.Max), 0, 0, 0, 0
 	m.parts = nil
 	m.setParts(b.Parts, now, true)
-	m.element, m.weak, m.lock = b.Element, b.Weak, b.Lock
+	m.element, m.weak = b.Element, b.Weak
 	m.hasStag, m.stagDrains = b.StaggerMax > 0, b.StaggerMax > 0 && b.Stagger >= b.StaggerMax*0.999
 	m.sTarget, m.sDisp, m.sGhost, m.sHold, m.sFlash = m.stagProgress(b), 0, 0, 0, 0
 	m.alphaTarget = 1
@@ -194,7 +191,7 @@ func (m *ovModel) update(b *ovBeh, now float64) {
 			m.ghost = f
 		}
 		m.name, m.cur, m.max, m.dead, m.target = b.Name, b.Cur, b.Max, b.Dead, f
-		m.element, m.weak, m.lock = b.Element, b.Weak, b.Lock
+		m.element, m.weak = b.Element, b.Weak
 		m.setParts(b.Parts, now, false)
 		m.setStagger(b, now)
 		m.alphaTarget, m.hasPending = 1, false
@@ -547,7 +544,7 @@ func elementColor(e string) rgbf {
 func ovLayout(m *ovModel, st ovStyle, u float64) (cardW, cardH, margin float64) {
 	cardW, margin = math.Round(340*u), math.Round(16*u)
 	y := 12*u + 18*u + 7*u + 10*u
-	if m.element != "" || m.lock != "" {
+	if m.element != "" {
 		y += 15 * u
 	}
 	if st.Numbers {
@@ -640,17 +637,6 @@ func (r *ovRenderer) draw(m *ovModel, st ovStyle, u float64) *image.RGBA {
 	y += 18*u + 7*u
 
 	// element and weakness: a dot and the word in the element's colour ("Terra  ·  weak to Shock")
-	if m.lock != "" {
-		// lock-on: a small target and the part, right-aligned on the element line ("LOCKED  Head")
-		fe, fb := ovFace(false, 11*u), ovFace(true, 11*u)
-		part := fit(fb, m.lock, iw*0.4)
-		w := 12*u + textWidth(fe, "LOCKED  ") + textWidth(fb, part)
-		x := ix + iw - w
-		c.ring(x, y, 8*u, 8*u, 4*u, acc, 0.95)
-		c.rrect(x+2.75*u, y+2.75*u, 2.5*u, 2.5*u, 1.25*u, flat(acc), 1, nil)
-		c.text(fe, "LOCKED  ", x+12*u, y+8*u, ovAsh, 0.85)
-		c.text(fb, part, x+12*u+textWidth(fe, "LOCKED  "), y+8*u, light, 1)
-	}
 	if m.element != "" {
 		fe := ovFace(false, 11*u)
 		ec := elementColor(m.element)
@@ -665,7 +651,7 @@ func (r *ovRenderer) draw(m *ovModel, st ovStyle, u float64) *image.RGBA {
 			c.text(fe, m.weak, x, y+8*u, elementColor(m.weak), 0.95)
 		}
 	}
-	if m.element != "" || m.lock != "" {
+	if m.element != "" {
 		y += 15 * u
 	}
 
@@ -742,9 +728,6 @@ func (r *ovRenderer) draw(m *ovModel, st ovStyle, u float64) *image.RGBA {
 				tw = textWidth(fv, tag) + 5*u
 			}
 			name := fit(f, p.name, colW-vw-6*u-tw)
-			if m.lock != "" && strings.EqualFold(p.name, m.lock) { // the part the lock-on holds
-				c.ring(px-4*u, py-2*u, colW+8*u, 19*u, 5*u, acc, 0.6)
-			}
 			c.text(f, name, px, py+9*u, ovInk, nameA)
 			if tag != "" {
 				c.text(fv, tag, px+textWidth(f, name)+5*u, py+9*u, ovCoral, 0.85*pa)

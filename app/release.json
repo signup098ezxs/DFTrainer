@@ -1,5 +1,5 @@
 {
-  "version": "3.8.3",
+  "version": "3.8.4",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Lock-on fix: it now aims at the part itself. The game's part markers all sit at the behemoth's centre, so lock-on was turning your aim to the middle of the behemoth. It now follows the matching bone of the behemoth's skeleton (head, a middle tail bone, the left forearm...), read every frame, so the aim follows the part as it moves."
+  "notes": "Assist (part lock-on) removed. The tab, its switches and saved settings, the mod's lock-on code and keys (middle mouse, F7, F8), the overlay's LOCKED marker and the old mod logs from lock-on are all gone. The mod runs only the hit hook and one timer, as before lock-on existed."
 }

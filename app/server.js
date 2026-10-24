@@ -23,7 +23,6 @@ const UI_FILE = path.join(HERE, 'ui', 'index.html');
 const MOD_SRC = path.join(HERE, 'mod', 'DFTrainer');
 const LIVE = require('./live.js');
 const { protectedIds, isStarter } = require('./protect.js');
-const PLAYMODE = require('./playmode.js');
 const BUILDS = require('./builds/index.js');
 // Installed by the launcher, each version lives in its own folder (app\<version>): settings live one level up, in the
 // install folder (DFT_ROOT), so updates keep them. Started by hand (node server.js), they stay next to this file.
@@ -48,6 +47,8 @@ let PORT = Number(arg('--port')) || 61777;
 // ---------------------------------------------------------------- settings and paths
 const readJson = (f, d) => { try { return JSON.parse(fs.readFileSync(f, 'utf8').replace(/^﻿/, '')); } catch { return d; } };
 let settings = readJson(SETTINGS, {});
+// 3.8.4 removed Assist (part lock-on): its saved switches are dropped (written out with the next save)
+delete settings.assist;
 const VERSION = process.env.DFT_VERSION || readJson(path.join(HERE, 'release.json'), {}).version || 'dev';
 const saveSettings = () => { try { fs.writeFileSync(SETTINGS, JSON.stringify(settings, null, 2)); } catch {} };
 const RELEASE = readJson(path.join(HERE, 'release.json'), {});
@@ -301,59 +302,17 @@ function readToggles(p) {
   const all = { ...TOGGLE_DEFAULTS, ...(settings.toggles || {}), ...(t || {}) };
   return { damage: all.damage, refresh: all.refresh, refreshFn: all.refreshFn };
 }
-// ---------------------------------------------------------------- Assist (Part lock-on): anyone with a key, solo or with friends
-// The switches live in this panel's settings ("assist"); the mod gets them only while the game is played solo or
-// with friends (playmode.js). In a game open to everyone (Play online, Allow randoms, Host Mode Public) the mod gets
-// lock-on off and the reason, whatever the switch says.
-const ASSIST_DEFAULTS = { lock: false, lockPart: 'Head', lockSmooth: 0.15 };
-const MODE_TEXT = { solo: 'Solo', friends: 'With friends', online: 'Online (open to everyone)', unknown: 'Not known yet' };
-function assistSettings() {
-  if (!settings.assist) {
-    // 3.5.0 kept these with the owner's switches
-    const t = settings.toggles || {};
-    settings.assist = { ...ASSIST_DEFAULTS, ...(t.lock !== undefined ? { lock: !!t.lock, lockPart: t.lockPart || 'Head', lockSmooth: t.lockSmooth || 0.15 } : {}) };
-  }
-  return { ...ASSIST_DEFAULTS, ...settings.assist };
-}
-function cleanAssist(a) {
-  return {
-    lock: !!a.lock, lockPart: /^[A-Za-z][A-Za-z ]{0,30}$/.test(String(a.lockPart || '')) ? String(a.lockPart) : 'Head',
-    lockSmooth: Math.min(0.5, Math.max(0.04, Number(a.lockSmooth) || 0.15)),
-  };
-}
-const modeWatch = PLAYMODE.watcher();
-let playMode = { mode: 'unknown' };
-function assistOut() {
-  const a = assistSettings();
-  const ok = LIC.ok() && PLAYMODE.allowed(playMode.mode);
-  const off = !LIC.ok() ? 'needs a Lantern key' : playMode.mode === 'online' ? 'not in games open to everyone' : playMode.mode === 'unknown' ? 'game mode not known' : '';
-  return { lock: a.lock && ok, lockPart: a.lockPart, lockSmooth: a.lockSmooth, lockMode: playMode.mode, lockOff: a.lock ? off : '' };
-}
-// the mode is checked every second (two file checks): while lock-on is switched on, a change rewrites the mod's
-// switches at once
-let lastAssistOut = '';
-setInterval(() => {
-  try {
-    const p = places(); if (!p.pkg) return;
-    playMode = modeWatch(p);
-    if (!assistSettings().lock) return;
-    const o = JSON.stringify(assistOut());
-    if (o !== lastAssistOut) { lastAssistOut = o; writeToggles(p, readToggles(p)); }
-  } catch {}
-}, 1000);
+let lockLogsGone = false;
 function writeToggles(p, t) {
   const clean = {
     damage: Math.min(1000, Math.max(1, Number(t.damage) || 1)),
     refresh: !!t.refresh, refreshFn: /^[A-Za-z_]\w{0,80}$/.test(String(t.refreshFn || '')) ? String(t.refreshFn) : '',
-    // part lock-on (Repeaters): which part, and how gently the aim follows it (seconds)
   };
   settings.toggles = clean; saveSettings();
   if (p.modDir && fs.existsSync(p.modDir)) {
     const f = path.join(p.modDir, 'trainer-toggles.json');
     // not the owner: the mod gets x1 and "locked"
-    const ao = assistOut();
-    const out = { ...(isOwner() ? { ...clean, locked: false } : { ...TOGGLE_DEFAULTS, locked: true }), track: overlayOn(), ...ao };
-    lastAssistOut = JSON.stringify(ao);
+    const out = { ...(isOwner() ? { ...clean, locked: false } : { ...TOGGLE_DEFAULTS, locked: true }), track: overlayOn() };
     fs.mkdirSync(path.join(p.modDir, 'track'), { recursive: true });
     // each copy of the game that ever ran left a track file: those over an hour old are done with
     try { const td = path.join(p.modDir, 'track'); for (const f of fs.readdirSync(td)) { const full = path.join(td, f); if (Date.now() - fs.statSync(full).mtimeMs > 3600000) fs.unlinkSync(full); } } catch {}
@@ -361,6 +320,8 @@ function writeToggles(p, t) {
     const logs = path.join(p.modDir, 'logs');
     fs.mkdirSync(logs, { recursive: true });
     try { for (const f of fs.readdirSync(logs)) { const full = path.join(logs, f); if (Date.now() - fs.statSync(full).mtimeMs > 7 * 86400000) fs.unlinkSync(full); } } catch {}
+    // once per start: the mod logs written while the removed part lock-on existed (3.5.0-3.8.3) go too
+    if (!lockLogsGone) { lockLogsGone = true; try { for (const f of fs.readdirSync(logs)) { const full = path.join(logs, f); if (/lock-on:|part lock-on/.test(fs.readFileSync(full, 'utf8'))) fs.unlinkSync(full); } } catch {} }
     fs.writeFileSync(f + '.tmp', JSON.stringify({ ...out, by: 'panel', time: Math.floor(Date.now() / 1000) }));
     fs.renameSync(f + '.tmp', f);
   }
@@ -379,14 +340,6 @@ function modProcesses(p) {
     else { try { if (now - fs.statSync(full).mtimeMs / 1000 > 3600) fs.unlinkSync(full); } catch {} }
   }
   return live;
-}
-// the part the Repeaters lock-on holds right now (your game's heartbeat), for the overlay; read at most 4 times a second
-let lockCache = '', lockAt = 0;
-function lockedPart(p) {
-  if (Date.now() - lockAt < 250) return lockCache;
-  lockAt = Date.now();
-  const g = LIC.ok() ? modProcesses(p).find((s) => s.role === 'game' && s.lock && s.lock.engaged) : null;
-  return (lockCache = g ? String(g.lock.part || '') : '');
 }
 // ask the mod to try a live inventory refresh (experimental; only when switched on)
 let refreshN = 0, refreshAt = 0;
@@ -779,9 +732,6 @@ async function buildState() {
     modInstalled: !!(p.modDir && fs.existsSync(path.join(p.modDir, 'Scripts', 'main.lua'))),
     modOn: !!(p.modsDir && modListed(p)), mode: modsMode(p),
     toggles: readToggles(p), processes: procs.map(({ time, ...s }) => s),
-    // the parts of the behemoth you are fighting (from the overlay's tracking), for the lock-on's part list
-    lockParts: LIC.ok() && overlayOn() ? ((overlayTrack(p) || {}).parts || []).map((x) => x.name) : [],
-    assist: { ...assistSettings(), mode: playMode.mode, modeText: MODE_TEXT[playMode.mode] || '', allowed: PLAYMODE.allowed(playMode.mode) },
     overlay: { ...overlaySettings(), restoreBossbar: undefined, running: overlayAlive() },
     queue: queue.map((j) => ({ what: describe(j) })), history,
     deliveries: deliveries.filter((d) => d.status === 'saved').map((d) => ({ what: d.what, at: d.at })),
@@ -920,13 +870,7 @@ const routes = {
   },
   'GET /api/feed': async () => feed,
   // the owner (Damage) or anyone who turned the behemoth overlay on
-  'POST /api/setup': async () => (isOwner() || overlayOn() || assistSettings().lock) ? setup() : { ok: false, error: 'Turn on the behemoth overlay in Settings or Part lock-on in Assist first.' },
-  // Assist: anyone with a key (the key check covers every route not in OPEN_ROUTES)
-  'POST /api/assist': async (b) => {
-    settings.assist = cleanAssist({ ...assistSettings(), ...(b || {}) }); saveSettings();
-    const p = places(); if (p.pkg) writeToggles(p, readToggles(p));
-    return { ok: true, assist: { ...settings.assist, mode: playMode.mode, modeText: MODE_TEXT[playMode.mode] || '', allowed: PLAYMODE.allowed(playMode.mode) } };
-  },
+  'POST /api/setup': async () => (isOwner() || overlayOn()) ? setup() : { ok: false, error: 'Turn on the behemoth overlay in Settings first.' },
   'POST /api/toggles': async (b) => {
     if (!isOwner()) return { ok: false, error: 'The game mod is the owner\'s.' };
     const p = places(); if (!p.pkg) return { ok: false, error: 'Package not found.' };
@@ -952,8 +896,7 @@ const routes = {
   'GET /api/overlay/state': async () => {
     const p = places(), o = overlaySettings();
     if (!o.on || !p.pkg) return { ok: true, on: false };
-    const b = overlayTrack(p), lock = lockedPart(p);
-    return { ok: true, on: true, running: await backendUp(), style: overlayStyle(), b: b && lock ? { ...b, lock } : b };
+    return { ok: true, on: true, running: await backendUp(), style: overlayStyle(), b: overlayTrack(p) };
   },
   'POST /api/overlay': async (b) => {
     const p = places(), o = overlaySettings(), was = o.on;

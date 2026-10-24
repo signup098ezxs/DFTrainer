@@ -442,17 +442,6 @@ h2 { margin: 0; font: 600 21px/1.2 var(--display); letter-spacing: .01em; }
 .strip > div + div { border-left: 1px solid var(--seam); }
 .strip .top { display: flex; align-items: center; gap: 14px; }
 #dmgCard { margin: 0 0 12px; }
-#aimCard { margin: 0; max-width: 760px; }
-#aimCard input[type=range] { width: 170px; }
-.modeline { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; margin: 12px 0 2px; color: var(--ash); font-size: 12.5px; }
-.modechip { display: inline-flex; align-items: center; gap: 7px; height: 26px; padding: 0 11px; border-radius: 99px; border: 1px solid var(--seam2); background: #13202a; font-size: 12px; }
-.modechip > span { color: var(--ash); }
-.modechip b { font-weight: 600; color: var(--frost); }
-.modechip i { width: 6px; height: 6px; border-radius: 50%; background: var(--ash2); }
-.modechip.ok { border-color: rgba(var(--a-rgb), .45); } .modechip.ok i { background: var(--aether); box-shadow: 0 0 8px var(--aether); }
-.modechip.no { border-color: rgba(240, 150, 90, .45); } .modechip.no i { background: var(--ember); }
-#lkKeys { margin: 8px 0 0; color: var(--ash); font-size: 12px; }
-#lkKeys kbd { font: 600 11px var(--display); padding: 1px 6px; border-radius: 5px; border: 1px solid var(--seam2); background: #13202a; color: var(--frost); }
 .strip h3 { margin: 0; font: 600 16px/1.2 var(--display); }
 .strip .sub { color: var(--ash); font-size: 12px; }
 .readout { margin-left: auto; font: 700 21px/1 var(--display); color: var(--frost); font-variant-numeric: tabular-nums; transition: color .3s, text-shadow .3s; }
@@ -844,7 +833,6 @@ div.lrow { cursor: default; }
     <button data-tab="currency"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="m12 8 4 4-4 4-4-4z"/></svg>Currencies</button>
     <button data-tab="rules"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>Game rules</button>
     <button data-tab="builds"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="M12 22V12M3 7l9 5 9-5"/></svg>Build Creator</button>
-    <button data-tab="assist"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="7"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/><circle cx="12" cy="12" r="1.5"/></svg>Assist</button>
     <button data-tab="feed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Live feed <span class="count" id="feedCount"></span></button>
     <div class="navlabel" id="ownerLabel" hidden>Owner</div>
     <button data-tab="keys" id="keysTab" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 9.8-9.8M17 6l3 3M14.5 8.5l2.5 2.5"/></svg>Keys</button>
@@ -933,25 +921,6 @@ div.lrow { cursor: default; }
           </div>
         </div>
         <div class="list" id="rules"></div>
-      </div>
-    </section>
-
-    <!-- ASSIST (anyone with a key: solo and with friends, never in games open to everyone) -->
-    <section id="tab-assist">
-      <div class="head"><div><h2>Assist</h2><p class="lede">Aim help for solo play and games with friends. It switches itself off in games open to everyone.</p></div></div>
-      <div class="wrap">
-        <div class="strip" id="aimCard">
-          <div>
-            <div class="top"><div class="glyph" id="gLock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="7"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/><circle cx="12" cy="12" r="1.5"/></svg></div>
-              <div><h3>Part lock-on</h3><div class="sub">Repeaters only. Keeps your aim on one part of the behemoth as it moves (needs the game mod)</div></div>
-              <label class="sw sm"><input type="checkbox" id="lkOn" aria-label="Part lock-on"><span class="track"></span><span class="knob"></span></label></div>
-            <div class="modeline"><span class="modechip" id="lkMode"><i></i><span>Game</span><b id="lkModeTxt">Not known yet</b></span><span id="lkModeNote"></span></div>
-            <div class="setrow"><div class="lbl"><b>Part</b><small>Where your aim goes. The behemoth you are fighting lists its own parts here.</small></div><div class="ctl"><select id="lkPart"></select></div></div>
-            <div class="setrow"><div class="lbl"><b>Tracking speed</b><small id="lkSmoothTxt">How quickly your aim follows.</small></div><div class="ctl"><input type="range" id="lkSmooth" min="0.04" max="0.5" step="0.01" aria-label="Tracking speed (left is faster)"></div></div>
-            <p id="lkKeys"><kbd>Middle mouse</kbd> or <kbd>F7</kbd> locks and lets go &nbsp;·&nbsp; <kbd>F8</kbd> next part</p>
-            <div class="state" id="liveLock"></div>
-          </div>
-        </div>
       </div>
     </section>
 
@@ -1326,9 +1295,8 @@ function onState(s) {
   else pill('#pMod', setupNeeded ? 'bad' : (s.running ? 'warn' : ''), setupNeeded ? 'Mod not set up' : s.running ? 'Mod not answering' : 'Mod ready');
   showBanner(setupNeeded ? 'setup' : null);
   syncToggles(s.toggles);
-  syncAssist(s.assist);
   if (s.overlay && (!OV || JSON.stringify(s.overlay) !== JSON.stringify(OV))) ovSettings(s.overlay); else ovNote();
-  $('#pMod').hidden = !((LIC && LIC.owner) || (s.overlay && s.overlay.on) || (s.assist && s.assist.lock));
+  $('#pMod').hidden = !((LIC && LIC.owner) || (s.overlay && s.overlay.on));
   liveInfo(procs);
   renderRelay();
   renderQueue();
@@ -1357,7 +1325,7 @@ function onNote(n, fresh) {
 
 function showBanner(kind) {
   const b = $('#banner'), inp = $('#pkgInput'), btn = $('#bannerBtn');
-  if (kind === 'setup' && !(LIC && LIC.owner) && !(S && S.overlay && S.overlay.on) && !(S && S.assist && S.assist.lock)) kind = null;   // Damage (owner), the overlay and Part lock-on need the game mod
+  if (kind === 'setup' && !(LIC && LIC.owner) && !(S && S.overlay && S.overlay.on)) kind = null;   // Damage (owner) and the overlay need the game mod
   placeBanner();
   b.classList.toggle('show', !!kind);
   if (!kind) return;
@@ -1581,7 +1549,6 @@ function tourSteps() {
     { tab: 'currency', target: '#tab-currency .head', title: 'Currencies and materials', body: '<p>Type any amount of Rams, Merits, tokens, materials and cell cores, then press <b>Apply changes</b>. <b>Max everything</b> fills them all. Works while you play.</p>' },
     { tab: 'rules', target: '#rules > :first-child', title: 'Game rules', body: '<p>XP speeds (weapons, Hunt Pass, mastery), reward amounts (materials, Rams, Merits, Rare Cores), free crafting, free platinum and extra loadout slots. Pick a setting and it is saved; it applies the next time you press <b>Play</b>.</p>' },
     { tab: 'builds', target: 'nav > button[data-tab="builds"]', title: 'Build Creator', body: '<p>Answer a few questions (goals, weapon, target, play style) and get a full 1.14.7 build: weapon, armour, cells, lantern and Omnicell, checked against the game\'s rules, with why each piece is there and where the data comes from.</p>' },
-    { tab: 'assist', target: 'nav > button[data-tab="assist"]', title: 'Assist', body: '<p><b>Part lock-on</b> for Repeaters: pick a part (head, a leg...) and your aim follows it as the behemoth moves. Middle mouse or F7 locks and lets go.</p><p>It works solo and in games with friends, and switches itself off in games open to everyone (Play online, Allow randoms).</p>' },
     { tab: 'feed', target: 'nav > button[data-tab="feed"]', title: 'Live feed', body: '<p>Everything that reaches your game, as it happens: gifts delivered, the mod connecting, updates. Turn on <b>desktop alerts</b> there to see them while you are in game.</p>' },
     ...(owner ? [{ tab: 'keys', target: '#tab-keys .setcard', title: 'Keys (owner only)', body: '<p>Make a key for someone: enter who it is for, pick how long it lasts, press <b>Generate key</b> and send it. <b>Revoke</b> stops a key; add its id to licenses/revoked.txt on GitHub when asked.</p>' }] : []),
     { tab: 'settings', target: 'nav > button[data-tab="settings"]', title: 'Settings', body: '<p>The <b>behemoth overlay</b> (the behemoth you fight, its health and its part health, over the game), colour presets, fonts, window size, interface scale, frame rate, sounds and the intro. <b>About</b> shows your key and checks for updates. Lantern Client updates itself.</p><p><b>Show the tour</b> there plays this again.</p>' },
@@ -2216,27 +2183,6 @@ function syncToggles(t) {
   $('#gDmg').classList.toggle('lit', t.damage > 1);
   $('#tRefresh').checked = !!t.refresh;
 }
-// Assist: this PC's own switches (anyone with a key), and the way the game is played right now
-let assistHold = 0;
-function syncAssist(a) {
-  if (!a || Date.now() < assistHold) return;
-  $('#lkOn').checked = !!a.lock;
-  $('#gLock').classList.toggle('lit', !!a.lock);
-  lkParts(a.lockPart);
-  if (document.activeElement !== $('#lkSmooth')) $('#lkSmooth').value = a.lockSmooth ?? 0.15;
-  lkSmoothText();
-  const chip = $('#lkMode');
-  chip.classList.toggle('ok', !!a.allowed); chip.classList.toggle('no', !a.allowed && a.mode !== 'unknown');
-  $('#lkModeTxt').textContent = a.modeText || 'Not known yet';
-  $('#lkModeNote').textContent = a.allowed ? 'Lock-on works here.' : a.mode === 'online' ? 'Lock-on is off in games open to everyone.' : 'Lock-on waits until the game mode is known.';
-}
-async function setAssist(o) {
-  assistHold = Date.now() + 1500;
-  const r = await api('/api/assist', o);
-  assistHold = 0;
-  if (r.ok) { S.assist = r.assist; syncAssist(r.assist); if (S.processes) lockInfo(S.processes); }
-  else { SFX.error(); toast('Could not switch that', r.error, 'error'); }
-}
 function setReadout(sel, text, lit) {
   const r = $(sel); if (r.textContent !== text) { r.textContent = text; r.classList.remove('bump'); void r.offsetWidth; r.classList.add('bump'); }
   r.classList.toggle('lit', lit);
@@ -2260,41 +2206,7 @@ $('#dmgSeg').addEventListener('click', (e) => {
 
 function liveState(id, kind, text) { const el = $(id); el.className = 'state ' + kind; el.textContent = text; }
 
-/* part lock-on (Repeaters): the part list is the behemoth's own when known (the overlay's and the mod's), plus the usual ones */
-const LK_PARTS = ['Head', 'Tail', 'Back', 'Left foreleg', 'Right foreleg', 'Left hindleg', 'Right hindleg'];
-let lkKnown = [];
-function lkParts(pick) {
-  const sel = $('#lkPart'), cur = pick || sel.value || 'Head';
-  const names = [...new Set([...lkKnown, ...LK_PARTS, cur])];
-  const html = names.map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
-  if (sel.dataset.h !== html) { sel.innerHTML = html; sel.dataset.h = html; }
-  if (document.activeElement !== sel) sel.value = cur;
-}
-function lkSmoothText() {
-  const r = $('#lkSmooth'), v = Number(r.value);
-  r.style.setProperty('--fill', (v - 0.04) / 0.46 * 100 + '%'); r.style.setProperty('--glow', 1);
-  $('#lkSmoothTxt').textContent = `${v <= 0.08 ? 'Fast' : v <= 0.2 ? 'Balanced' : v <= 0.32 ? 'Smooth' : 'Very smooth'}: about ${Math.round(v * 3 * 1000)} ms to settle on the part.`;
-}
-function lockInfo(procs) {
-  const t = S.assist || {};
-  const g = procs.find((p) => p.role === 'game'), lk = g && g.lock;
-  lkKnown = [...new Set([...(S.lockParts || []), ...((lk && lk.parts) ? lk.parts.split(',').filter(Boolean) : [])])];
-  lkParts();
-  if (!t.lock) return liveState('#liveLock', '', 'Off. Turn it on, take out your Repeaters and press the key.');
-  if (!t.allowed) return liveState('#liveLock', 'warn', t.mode === 'online' ? 'Not in this game: it is open to everyone (Play online, Allow randoms or a public server).' : 'Waiting to see how the game is being played.');
-  if (!S.ue4ss || !S.modInstalled || !S.modOn || !(S.mode && S.mode.on)) return liveState('#liveLock', 'warn', 'Needs the game mod: press Set up (game closed) when the banner asks.');
-  if (!g) return liveState('#liveLock', S.running ? 'warn' : '', S.running ? 'The mod is not answering in your game. Did you restart the game after set-up?' : 'Starts working when you play.');
-  if (lk && lk.engaged) return liveState('#liveLock', 'ok', `Locked on ${lk.part}.`);
-  if (lk && lk.want) return liveState('#liveLock', 'ok', `Looking for ${lk.part}...`);
-  const why = lk && lk.why;
-  liveState('#liveLock', why && why !== 'let go' ? 'warn' : '', why === 'Repeaters only' ? 'Let go: lock-on works with Repeaters only.' : why && why !== 'let go' && why !== 'turned off' ? `Let go: ${why}.` : 'Ready. Press the key with your Repeaters out.');
-}
-$('#lkOn').addEventListener('change', (e) => { e.target.checked ? SFX.switchOn() : SFX.switchOff(); $('#gLock').classList.toggle('lit', e.target.checked); setAssist({ lock: e.target.checked }); });
-$('#lkPart').addEventListener('change', (e) => { SFX.tick(); setAssist({ lockPart: e.target.value }); });
-$('#lkSmooth').addEventListener('input', lkSmoothText);
-$('#lkSmooth').addEventListener('change', (e) => { SFX.tick(); setAssist({ lockSmooth: Number(e.target.value) }); });
 function liveInfo(procs) {
-  lockInfo(procs);
   if (!procs.length) { liveState('#liveDmg', S.running ? 'warn' : '', S.running ? 'The mod is not answering. Did you restart the game after set-up?' : 'Starts working when you play.'); return; }
   const srv = procs.filter((p) => p.role === 'server'), beh = srv.reduce((n, p) => n + (p.behemoths || 0), 0);
   if (!srv.length) { liveState('#liveDmg', 'warn', 'Needs the mod on your servers too (set-up turns that on).'); return; }

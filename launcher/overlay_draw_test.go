@@ -56,14 +56,6 @@ func TestOverlayFrames(t *testing.T) {
 	save("4b-broken-held", 1)
 	run(3)
 	save("4c-break-count", 1)
-	b.Lock = "Head"
-	m.update(b, now)
-	save("4d-locked", 1)
-	if m.lock != "Head" {
-		t.Fatal("the lock-on part was not taken")
-	}
-	b.Lock = ""
-	m.update(b, now)
 	if m.disp < 0.70 || m.disp > 0.73 {
 		t.Fatalf("health bar settled at %.3f", m.disp)
 	}
