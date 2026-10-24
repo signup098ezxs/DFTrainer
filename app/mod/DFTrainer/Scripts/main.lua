@@ -17,7 +17,16 @@ local STATUS_EVERY = 2.0    -- seconds between status heartbeats for the panel
 local PC_CLASSES   = { "player_controller_bp_C", "ArchonPlayerController", "PlayerController" }
 
 ---------------------------------------------------------------- helpers
-local function log(m) print("[DFTrainer] " .. tostring(m) .. "\n") end
+-- UE4SS.log is rewritten by every copy of the game that starts (each hunt server too), so the mod also keeps its own
+-- log per process in logs\<date>-<process>.log in its folder, which nothing overwrites (the panel keeps a week of them)
+local LogFile = nil
+local function log(m)
+    print("[DFTrainer] " .. tostring(m) .. "\n")
+    if LogFile then
+        local f = io.open(LogFile, "a")
+        if f then f:write(os.date("%H:%M:%S ") .. tostring(m) .. "\n") f:close() end
+    end
+end
 local logged = {}
 local function logOnce(k, m) if not logged[k] then logged[k] = true log(m) end end
 
@@ -91,6 +100,7 @@ local Base = modFolder()
 local TogglesFile = Base and (Base .. "/trainer-toggles.json")
 local ProcId = (tostring({}):match("0x(%x+)") or tostring(os.time())):sub(-8)
 local StatusFile = Base and (Base .. "/status/" .. ProcId .. ".json")
+if Base then LogFile = Base .. "/logs/" .. os.date("%Y%m%d-%H%M%S") .. "-" .. ProcId .. ".log" end
 if Base then log("mod folder: " .. Base .. " (process " .. ProcId .. ")") else log("could not find the mod folder; the panel cannot reach this process") end
 
 ---------------------------------------------------------------- toggles (flat JSON written by the panel)

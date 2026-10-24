@@ -1,5 +1,5 @@
 {
-  "version": "3.3.3",
+  "version": "3.3.4",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Behemoth overlay: part health is followed more reliably. A part whose game object is replaced mid-fight is found again (it no longer shows a stale value or a false \"Broken\"), and parts keep the same order and names."
+  "notes": "Behemoth overlay: part health is followed more reliably (a part replaced mid-fight is found again: no stale value or false \"Broken\"; parts keep the same order). The game mod now keeps its own log for each game and hunt server, so problems can be traced afterwards."
 }

@@ -283,6 +283,10 @@ function writeToggles(p, t) {
     // not the owner: the mod gets x1 and "locked"
     const out = { ...(isOwner() ? { ...clean, locked: false } : { ...TOGGLE_DEFAULTS, locked: true }), track: overlayOn() };
     fs.mkdirSync(path.join(p.modDir, 'track'), { recursive: true });
+    // the mod's own logs (logs\<date>-<process>.log, one per copy of the game): a week is kept
+    const logs = path.join(p.modDir, 'logs');
+    fs.mkdirSync(logs, { recursive: true });
+    try { for (const f of fs.readdirSync(logs)) { const full = path.join(logs, f); if (Date.now() - fs.statSync(full).mtimeMs > 7 * 86400000) fs.unlinkSync(full); } } catch {}
     fs.writeFileSync(f + '.tmp', JSON.stringify({ ...out, by: 'panel', time: Math.floor(Date.now() / 1000) }));
     fs.renameSync(f + '.tmp', f);
   }
@@ -322,7 +326,7 @@ async function setup() {
     if (!r.ok) return { ok: false, error: r.error || 'Could not install UE4SS.' };
     steps.push('Installed UE4SS (the mod loader).');
   }
-  copyDir(MOD_SRC, p.modDir, new Set(['trainer-toggles.json', 'status', 'track', 'refresh-request.json']));
+  copyDir(MOD_SRC, p.modDir, new Set(['trainer-toggles.json', 'status', 'track', 'logs', 'refresh-request.json']));
   fs.mkdirSync(path.join(p.modDir, 'status'), { recursive: true });
   writeToggles(p, readToggles(p));
   steps.push('Copied the Lantern Client mod.');
