@@ -33,6 +33,9 @@ if (ROOT && !fs.existsSync(SETTINGS) && fs.existsSync(path.join(HERE, 'trainer-s
   try { fs.copyFileSync(path.join(HERE, 'trainer-settings.json'), SETTINGS); } catch {}
 }
 const MOD_NAME = 'DFTrainer';
+// the game mod this panel ships (its main.lua says "local MOD_VERSION"): copies of the game started before an update
+// keep running the old one (hunt servers stay up between hunts), so the panel says when that is the case
+const MOD_VERSION = (() => { try { return (/local MOD_VERSION\s*=\s*"([^"]+)"/.exec(fs.readFileSync(path.join(__dirname, 'mod', 'DFTrainer', 'Scripts', 'main.lua'), 'utf8')) || [])[1] || ''; } catch { return ''; } })();
 const GAME_BUILD = '1.14.7';
 // the 1.14.7 package's local backend (backend\recorder-1147.js): one port per game service; inventory is "dauntless"
 const BACKEND_PORT = 63005;
@@ -736,9 +739,13 @@ function overlayTrack(p) {
   if (!best) return (ovCache = null);
   const b = best.t.b;
   const el = behemothElement(b.cls), stg = Array.isArray(b.stg) && b.stg[1] > 0 ? b.stg : null;
-  return (ovCache = { key: b.key, name: behemothName(p, b.cls), cur: b.cur, max: b.max, dead: !!b.dead,
+  if (!Number.isFinite(b.max) || b.max <= 0 || !Number.isFinite(b.cur)) return (ovCache = null);   // no valid health: nothing to show
+  return (ovCache = { key: b.key, name: behemothName(p, b.cls), cur: Math.min(Math.max(b.cur, 0), b.max), max: b.max, dead: !!b.dead,
     element: el.element, weak: el.weak, stagger: stg ? stg[0] : 0, staggerMax: stg ? stg[1] : 0, staggerDmg: Number.isFinite(b.sdmg) ? b.sdmg : -1,
-    parts: (b.parts || []).map(([n, c, m, k, x]) => ({ name: String(n), cur: c, max: m, breaks: k || 0, broken: x === 1 })) });
+    parts: (b.parts || []).filter((x) => Array.isArray(x) && Number.isFinite(x[2]) && x[2] > 0).map(([n, c, m, k, x]) => {
+      const broken = x === 1, known = Number.isFinite(c) && c >= 0;
+      return { name: String(n), cur: broken ? 0 : known ? Math.min(c, m) : null, max: m, breaks: k || 0, broken };
+    }) });
 }
 function overlayStyle() {
   const o = overlaySettings(), c = THEME_COLORS[(settings.prefs || {}).theme] || THEME_COLORS.aether;
@@ -783,6 +790,8 @@ async function buildState() {
     modInstalled: !!(p.modDir && fs.existsSync(path.join(p.modDir, 'Scripts', 'main.lua'))),
     modOn: !!(p.modsDir && modListed(p)), mode: modsMode(p),
     toggles: readToggles(p), processes: procs.map(({ time, ...s }) => s),
+    // live copies of the game running another version of the mod than this panel's (restart the game to update them)
+    modStale: MOD_VERSION ? procs.filter((s) => s.v !== MOD_VERSION).length : 0, modVersion: MOD_VERSION,
     overlay: { ...overlaySettings(), restoreBossbar: undefined, running: overlayAlive() },
     quests: questSettings(),
     queue: queue.map((j) => ({ what: describe(j) })), history,

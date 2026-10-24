@@ -10,6 +10,7 @@
 -- file. Otherwise it looks for behemoths every 1 to 2 seconds and checks their health every 150 ms and on every hit.
 -- Only property reads and writes are used. Logged as [DFTrainer] in UE4SS.log.
 
+local MOD_VERSION  = "6.2"
 local TICK_MS      = 150    -- how often behemoth health is checked while the multiplier is on
 local RESCAN_EVERY = 2.0    -- seconds between searches for behemoths
 local READ_EVERY   = 0.5    -- seconds between reads of the toggles file
@@ -408,7 +409,9 @@ local function findParts(e, sets, comps)
                 local read, st = partReader(actor, sets)
                 local raw = lastName(comp) or ""
                 local id = nameOf(actor) or raw
-                if read and not seen[id] then
+                -- no health object right now (the game is replacing it): the part stays listed, its health unknown
+                if not read then read = function() return nil end end
+                if not seen[id] then
                     seen[id] = true
                     parts[#parts + 1] = { raw = raw, name = prettyPart(raw), read = read, set = st, actor = actor, comp = comp }
                 end
@@ -468,6 +471,14 @@ local function trackScan(now)
                     local ok, ps = pcall(findParts, e, sets, comps)
                     e.partsLost = false
                     if ok then
+                        local was = {}
+                        for _, p in ipairs(e.parts) do was[p.name] = p.actor end
+                        for _, p in ipairs(ps) do
+                            if was[p.name] and was[p.name] ~= p.actor and nameOf(was[p.name]) ~= nameOf(p.actor) then
+                                logOnce("swap:" .. e.key .. p.name, string.format("overlay: %s %s: the game replaced its part actor (last health %s)%s", e.cls, p.name,
+                                    tostring(e.partLast[p.name]), e.broke[p.name] and ", broken" or ""))
+                            end
+                        end
                         local before = #e.parts
                         e.parts = ps
                         if #ps > 0 and before == 0 then
@@ -479,7 +490,9 @@ local function trackScan(now)
             end
         end
     end
-    for key in pairs(Tk.list) do if not found[key] then Tk.list[key] = nil end end
+    -- gone only when the behemoth object itself is gone (one search not listing it is not enough: dropping the entry
+    -- would also drop which parts broke in this fight)
+    for key, e in pairs(Tk.list) do if not found[key] and not valid(e.b) then Tk.list[key] = nil end end
 end
 
 
@@ -546,12 +559,24 @@ end
 local function trackJson(e)
     local hp, mx = readNum(e.set, "CurrentHealth") or 0, readNum(e.set, "MaxHealth") or 0
     local ps = {}
+    e.partMax = e.partMax or {}
     for _, p in ipairs(e.parts) do
         local c, m = p.read()
         if c == nil then e.partsLost = true end
+        if m and m > 0 then e.partMax[p.name] = m end
+        m = m or e.partMax[p.name]
         -- "Body" has millions of health (far more than the behemoth): not a part you can break, so it is not shown
-        if c and m and m > 0 and not (mx > 0 and m > mx) then
-            ps[#ps + 1] = string.format('["%s",%.0f,%.0f,%d,%d]', clean(p.name), math.max(c, 0), m, e.breaks[p.name] or 0, e.broke[p.name] and 1 or 0)
+        if m and m > 0 and not (mx > 0 and m > mx) then
+            if e.broke[p.name] then
+                -- broken: confirmed by the game or by its health reaching 0. What the game puts in its health after
+                -- that (a refill, a new health object) is not this part's health any more: it is sent as 0, broken
+                ps[#ps + 1] = string.format('["%s",0,%.0f,%d,1]', clean(p.name), m, e.breaks[p.name] or 0)
+            elseif c ~= nil and c == c and c > -1e9 and c < 1e12 then
+                ps[#ps + 1] = string.format('["%s",%.0f,%.0f,%d,0]', clean(p.name), math.min(math.max(c, 0), m), m, e.breaks[p.name] or 0)
+            else
+                -- no reading right now (the game is replacing its health object): sent as unknown, not as a number
+                ps[#ps + 1] = string.format('["%s",-1,%.0f,%d,0]', clean(p.name), m, e.breaks[p.name] or 0)
+            end
         end
     end
     local stg = ""
@@ -584,7 +609,10 @@ local function trackTick(now)
     -- what dropped since last time: that behemoth becomes the one to show
     local best = nil
     for key, e in pairs(Tk.list) do
-        if not valid(e.b) or not valid(e.set) then Tk.list[key] = nil
+        if not valid(e.b) then Tk.list[key] = nil   -- despawned or a new encounter: its parts start fresh
+        elseif not valid(e.set) then
+            -- replaced by the game: looked for again (at most every 3 s; one search goes through every object)
+            if now - (e.setAt or -100) >= TRACK_PARTS then e.setAt = now e.set = healthSetUnder(findAll({ "ArchonHealthAttributeSet" }), e.path) or e.set end
         else
             local hp = readNum(e.set, "CurrentHealth")
             local hit = hp and e.last and hp < e.last - 0.01
@@ -592,6 +620,7 @@ local function trackTick(now)
             for _, p in ipairs(e.parts) do
                 local c, m = p.read()
                 local was = e.partLast[p.name]
+                if c == nil then e.partsLost = true end   -- its health object is gone (replaced): found again by the scan
                 if c and was and c < was - 0.01 then hit = true end
                 -- a break: the game often refills that part right away (it can break again), so breaks are counted
                 if c and was and was > 0 and c <= 0 then
@@ -602,7 +631,7 @@ local function trackTick(now)
                 if c and was and ((was > 0 and c <= 0) or (was <= 0 and c > 0)) then
                     log(string.format("overlay: %s %s %s (%.0f/%s)", e.cls, p.name, c <= 0 and "broke" or "back", c, tostring(m)))
                 end
-                e.partLast[p.name] = c
+                if c ~= nil then e.partLast[p.name] = c end   -- a missing reading keeps the last real one for comparing
             end
             if hit then Tk.n = Tk.n + 1 e.at, e.atTime, e.n = now, os.time(), Tk.n end
             if hp and hp <= 0 and not e.deadAt then e.deadAt = now end
@@ -694,27 +723,62 @@ end
 -- for the behemoth being fought. Once broken, a part stays broken for that fight (e.broke is never cleared; a new
 -- fight is a new behemoth entry).
 local brokeFnOk = nil
-local function partsBrokenFromGame()
-    if brokeFnOk == false then return end
-    local best = nil
-    for _, e in pairs(Tk.list) do if e.at and (not best or e.at > best.at) then best = e end end
-    if not best then return end
+local function markBroken(e, p, how)
+    if e.broke[p.name] then return end
+    e.broke[p.name] = how
+    log(string.format("overlay: %s %s broken (%s)", e.cls, p.name, how))
+end
+local function partsBrokenIn(best)
     for _, p in ipairs(best.parts) do
         if not best.broke[p.name] and p.comp and valid(p.comp) then
             local ok, v = pcall(callM, p.comp, "IsBroken")
             if ok and type(v) == "boolean" then
                 if brokeFnOk == nil then brokeFnOk = true log("overlay: part break state from the game (IsBroken)") end
-                if v then
-                    best.broke[p.name] = "game"
-                    log(string.format("overlay: %s %s broken (the game says so)", best.cls, p.name))
-                end
+                if v then markBroken(best, p, "the game says so") end
             elseif brokeFnOk == nil then
                 brokeFnOk = false
-                log("overlay: no IsBroken on parts (" .. tostring(v) .. "); a part counts as broken when its health reaches 0")
+                log("overlay: no IsBroken on parts (" .. tostring(v) .. "); a part counts as broken when its health reaches 0 or the game reports the break")
                 return
             end
         end
     end
+end
+-- every behemoth hit in the last minute (not only the latest: two in a fight)
+local function partsBrokenFromGame()
+    if brokeFnOk == false then return end
+    local now = os.clock()
+    for _, e in pairs(Tk.list) do
+        if e.at and now - e.at < 60 and valid(e.b) then partsBrokenIn(e) end
+    end
+end
+-- The game's own "a part broke" events (its mastery and combat telemetry listen to them; on the hunt server). The
+-- part is found from what the event carries (the part component, its part actor, or its name); if that cannot be
+-- matched, every part of the behemoths being fought is asked IsBroken at once.
+local breakEventLogged = false
+local function onPartBrokenEvent(...)
+    if not T.track then return end
+    local args, names = { ... }, {}
+    local matched = false
+    for i = 2, #args do
+        local ok, v = pcall(function() return args[i]:get() end)
+        if ok and v ~= nil then
+            local n = (type(v) == "string" or type(v) == "number" or type(v) == "boolean") and tostring(v) or (function() local okT, t = pcall(function() return v:ToString() end) return okT and type(t) == 'string' and t or nil end)() or nameOf(v)
+            if n then
+                names[#names + 1] = n
+                for _, e in pairs(Tk.list) do
+                    for _, p in ipairs(e.parts) do
+                        local cn, an = p.comp and nameOf(p.comp), p.actor and nameOf(p.actor)
+                        if n == cn or n == an or (#n > 2 and (n == p.raw or (an and an:sub(-#n - 1) == "_" .. n) or (cn and cn:sub(-#n - 1) == "." .. n))) then
+                            markBroken(e, p, "the game's break event") matched = true
+                        end
+                    end
+                end
+            end
+        end
+    end
+    if not breakEventLogged then breakEventLogged = true log("overlay: part break event from the game, carrying: " .. (#names > 0 and table.concat(names, " | ") or "nothing readable")) end
+    if not matched then pcall(partsBrokenFromGame) end
+    Tk.lastBody = nil   -- written at the next tick
 end
 
 ---------------------------------------------------------------- quest tracking (your game only, while it is on)
@@ -997,8 +1061,8 @@ local function writeStatus(now)
     local f = io.open(StatusFile, "w")
     if not f then logOnce("nostatus", "cannot write " .. StatusFile .. " (the panel creates the status folder when it installs the mod)") return end
     local fns = invFns and table.concat({ table.unpack(invFns, 1, math.min(#invFns, 6)) }, ",") or ""
-    f:write(string.format('{"role":"%s","time":%d,"behemoths":%d,"damage":%g,"invFns":"%s","called":"%s","calledAt":%d}',
-        S.role, os.time(), #S.behemoths, T.damage, clean(fns), clean(S.called or ""), S.calledAt or 0))
+    f:write(string.format('{"v":"%s","role":"%s","time":%d,"behemoths":%d,"damage":%g,"invFns":"%s","called":"%s","calledAt":%d}',
+        MOD_VERSION, S.role, os.time(), #S.behemoths, T.damage, clean(fns), clean(S.called or ""), S.calledAt or 0))
     f:close()
 end
 
@@ -1051,6 +1115,13 @@ local hooked, hookErr = pcall(function()
 end)
 log(hooked and "hit hook ready" or ("hit hook not available (" .. tostring(hookErr) .. "); the timer still runs"))
 
+local brkHooks = {}
+for _, fn in ipairs({ "/Script/Archon.ArchonTelemetryComponent_Combat:RecordBehemothPartBroken", "/Script/Archon.MasteryComponent:OnBehemothPartBroken",
+                      "/Script/Archon.Objective_BehemothParts:OnPartBroken" }) do
+    if pcall(RegisterHook, fn, function(...) local a = { ... } pcall(onPartBrokenEvent, table.unpack(a)) end) then brkHooks[#brkHooks + 1] = fn:match("%.([%w_]+:[%w_]+)$") end
+end
+log("part break events hooked: " .. (#brkHooks > 0 and table.concat(brkHooks, ", ") or "none (breaks come from IsBroken and health)"))
+
 -- the game's own quest events (they fire when a quest's progress or status changes, and when quests arrive): the
 -- quest tracker reads then, on the game's thread. Each returns at once while the tracker is off.
 local qHooks = {}
@@ -1062,4 +1133,4 @@ for _, fn in ipairs({ "/Script/Archon.HUDObjectiveTracker:OnQuestObjectiveUpdate
 end
 log("quest events hooked: " .. (#qHooks > 0 and table.concat(qHooks, ", ") or "none (the tracker reads every second instead)"))
 
-log("loaded (v6.1: damage multiplier, overlay tracking with stagger and broken parts, quest tracker, instant refresh)")
+log("loaded (v" .. MOD_VERSION .. ": damage multiplier, overlay tracking with stagger and broken parts, quest tracker, instant refresh)")

@@ -30,9 +30,10 @@ var fontBoldTTF []byte
 // ------------------------------------------------------------------ data from the panel (GET /api/overlay/state)
 
 type ovPart struct {
-	Name string  `json:"name"`
-	Cur  float64 `json:"cur"`
-	Max  float64 `json:"max"`
+	Name string `json:"name"`
+	// nil: no reading right now (the game is replacing the part's health object), never shown as a value
+	Cur *float64 `json:"cur"`
+	Max float64  `json:"max"`
 	// times this part's health reached 0 this fight (the game refills a broken part's health at once)
 	Breaks int `json:"breaks"`
 	// broken this fight: the game said so (the part's IsBroken) or its health reached 0
@@ -78,6 +79,7 @@ type ovPartAnim struct {
 	breaks                 int
 	brokeAt                float64 // when it broke (0: not broken)
 	broken                 bool    // broken for the rest of this fight: refilled health is not shown
+	unknown                bool    // no reading right now: shown as "—", its last bar dimmed
 }
 
 type ovModel struct {
@@ -178,8 +180,23 @@ func (m *ovModel) setParts(ps []ovPart, now float64, fresh bool) {
 	}
 	out := make([]*ovPartAnim, 0, len(ps))
 	for _, p := range ps {
-		f := frac(p.Cur, p.Max)
+		if p.Max <= 0 || math.IsNaN(p.Max) || math.IsInf(p.Max, 0) {
+			continue // not a part with health
+		}
 		a := old[p.Name]
+		known := p.Cur != nil && !math.IsNaN(*p.Cur) && !math.IsInf(*p.Cur, 0)
+		if !known && !p.Broken && !(a != nil && a.broken) {
+			if a != nil { // no reading now: keep it, marked unknown, value not changed
+				a.unknown = true
+				out = append(out, a)
+			}
+			continue
+		}
+		cur := 0.0
+		if known {
+			cur = math.Max(0, math.Min(*p.Cur, p.Max))
+		}
+		f := frac(cur, p.Max)
 		if a == nil {
 			a = &ovPartAnim{name: p.Name, born: now, breaks: p.Breaks} // breaks from before it was shown: counted, not flashed
 			if fresh {
@@ -203,7 +220,7 @@ func (m *ovModel) setParts(ps []ovPart, now float64, fresh bool) {
 			}
 		}
 		a.breaks = p.Breaks
-		a.cur, a.max = p.Cur, p.Max
+		a.cur, a.max, a.unknown = cur, p.Max, false
 		if a.broken {
 			f = 0
 		}
@@ -798,6 +815,10 @@ func (r *ovRenderer) draw(m *ovModel, st ovStyle, u float64) *image.RGBA {
 			py := y + float64(i/2)*21*u
 			pa := math.Min(1, math.Max(0, (m.now-p.born)/0.3)) // a part found mid-fight fades in
 			val, valCol, valA, nameA := percent(p.disp), ovAsh, 0.9, 0.86*pa
+			barA := 1.0
+			if p.unknown && !p.broken {
+				val, valA, barA = "—", 0.6, 0.35
+			}
 			if p.broken {
 				// BROKEN for the rest of the fight; it lights up for a moment when it breaks
 				glow := 0.0
@@ -821,7 +842,7 @@ func (r *ovRenderer) draw(m *ovModel, st ovStyle, u float64) *image.RGBA {
 				c.rrect(px, by, colW*p.ghost, hb, hb/2, flat(ovPartC), 0.32, nil)
 			}
 			if fw := colW * p.disp; fw > 0.5 {
-				c.rrect(px, by, fw, hb, hb/2, flat(ovPartC), 0.9, nil)
+				c.rrect(px, by, fw, hb, hb/2, flat(ovPartC), 0.9*barA, nil)
 				if p.flash > 0.01 {
 					c.rrect(px, by, fw, hb, hb/2, flat(light), 0.6*p.flash, nil)
 				}

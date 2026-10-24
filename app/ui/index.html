@@ -1802,6 +1802,7 @@ function ovNote() {
   else if (setup) { t = 'Needs the game mod: press Set up at the top (with the game closed).'; warn = true; }
   else if (!S.app || !S.app.managed) { t = 'Shows in game when Lantern Client is opened from its own app.'; warn = true; }
   else if (S.app.launcher && !S.app.overlay) { t = 'Restart Lantern Client once to finish updating: the overlay comes with the new version.'; warn = true; }
+  else if (S.modStale) { t = `${S.modStale} running cop${S.modStale > 1 ? 'ies' : 'y'} of the game still use${S.modStale > 1 ? '' : 's'} an older game mod (hunt servers stay open between hunts). Close the game fully and start it again so the update applies.`; warn = true; }
   else t = S.running ? (OV.running ? 'On: it appears in game as soon as you hit a behemoth.' : 'On: starting in game...') : 'On: it appears in game as soon as you hit a behemoth. Dauntless Forever\'s Boss Health Bar is switched off meanwhile.';
   n.textContent = t; n.classList.toggle('warn', warn);
 }

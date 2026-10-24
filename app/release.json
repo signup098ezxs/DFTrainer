@@ -1,5 +1,5 @@
 {
-  "version": "3.9.1",
+  "version": "3.9.2",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Behemoth overlay: stagger shows again. The behemoth's stagger meter answers 0 in this game, so the overlay now also reads its stagger component and the stagger damage you and your party have dealt toward the next stagger: a STAGGER bar when the game gives a meter, otherwise STAGGER DAMAGE as a number that counts up and shows STAGGERED when the behemoth staggers."
+  "notes": "Behemoth overlay: a broken part stays BROKEN. The game refills or replaces a part's health when it breaks, and the break was only noticed if a health check landed on exactly 0; it now also comes from the game's own break state and break events, and once broken the part's later health is ignored until a new behemoth. Missing readings show as a dash instead of a number, out-of-range values are clamped, and a part no longer vanishes while the game replaces it. Settings tells you when copies of the game (hunt servers stay open between hunts) still run an older game mod."
 }
