@@ -439,6 +439,7 @@ end
 
 local function trackScan(now)
     Tk.lastScan = now
+    if now - (Tk.psAt or -100) >= 5 then Tk.psAt = now Tk.playerStates = findAll({ "ArchonPlayerState" }) end
     local found = {}
     local bl = findAll({ "ArchonBehemoth" })
     local sets, comps = nil, nil
@@ -562,10 +563,13 @@ local function trackJson(e)
     end
     if e.stagFn and e.stagFn[2] and e.stagFn[2] > 0 then
         stg = string.format(',"stg":[%.0f,%.0f]', math.max(e.stagFn[1], 0), e.stagFn[2])
+    elseif e.stagComp then
+        stg = string.format(',"stg":[%.0f,%.0f]', math.max(e.stagComp[1], 0), e.stagComp[2])
     elseif e.stag then
         local sc, sm = e.stag()
         if sc and sm and sm > 0 then stg = string.format(',"stg":[%.0f,%.0f]', math.max(sc, 0), sm) end
     end
+    if e.stagDmg then stg = stg .. string.format(',"sdmg":%.0f', math.max(e.stagDmg, 0)) end
     return string.format('{"key":"%s","cls":"%s","cur":%.0f,"max":%.0f,"at":%d,"n":%d,"dead":%s,"parts":[%s]%s}',
         clean(e.key), clean(e.cls), math.max(hp, 0), mx, e.atTime or 0, e.n or 0, tostring(hp <= 0), table.concat(ps, ","), stg)
 end
@@ -620,26 +624,69 @@ end
 ---------------------------------------------------------------- stagger from the game's own functions (hit hook only)
 -- The game keeps a behemoth's stagger behind functions (GetCurrentStaggerHealth / GetMaxStaggerHealth, in the game's
 -- exe), not properties. Functions are only called from the hit hook, which runs on the game's own thread.
-local stagFnOk = nil
+-- Three places, all the game's own, read on every hit (the hit hook runs on the game's thread):
+--   1. the behemoth's meter: ArchonBehemoth GetCurrentStaggerHealth / GetMaxStaggerHealth. In the 3.8 logs these
+--      answered 0/0 for every behemoth, so the meter was never shown; it is still asked, and used once it gives a max.
+--   2. its stagger component (staggerable_bpc): its stagger numbers, found by name once per kind (and logged).
+--   3. the stagger damage the players have dealt toward the next stagger: each player state's own count
+--      (ArchonPlayerState GetCurrentStaggerDamageDealt, which the game resets when the behemoth staggers), summed.
+-- Whichever gives a meter (current and max) is shown as the bar; the damage dealt is shown as a number.
+local stagSeen = {}
+local stagCompProps = {}   -- class -> { cur = name, max = name } or false
+local function isObj(v) return v ~= nil and type(v) ~= "number" and type(v) ~= "string" and type(v) ~= "boolean" and valid(v) end
 local function stagFromFunctions()
-    if stagFnOk == false then return end
     local best = nil
     for _, e in pairs(Tk.list) do if e.at and (not best or e.at > best.at) then best = e end end
     if not best or not valid(best.b) then return end
-    local okC, c, okM, m
-    for _, o in ipairs({ best.b, best.set }) do
-        if valid(o) then
-            okC, c = pcall(function() return o:GetCurrentStaggerHealth() end)
-            okM, m = pcall(function() return o:GetMaxStaggerHealth() end)
-            if okC and okM and type(c) == "number" and type(m) == "number" then break end
+    -- 1. the behemoth's own meter
+    local okC, c = pcall(callM, best.b, "GetCurrentStaggerHealth")
+    local okM, m = pcall(callM, best.b, "GetMaxStaggerHealth")
+    if okC and okM and type(c) == "number" and type(m) == "number" then
+        best.stagFn = { c, m }
+        if m > 0 and not stagSeen.fn then stagSeen.fn = true log(string.format("overlay: stagger meter from GetCurrent/GetMaxStaggerHealth (%.0f/%.0f)", c, m)) end
+    end
+    -- 2. its stagger component
+    local okS, comp = pcall(getField, best.b, "staggerable_bpc")
+    if okS and isObj(comp) then
+        local cls = (nameOf(comp) or "?"):match("^(%S+)") or "?"
+        local w = stagCompProps[cls]
+        if w == nil then
+            local nums, cur, max = {}, nil, nil
+            for _, pr in ipairs(floatProps(comp)) do
+                if pr.kind == "FloatProperty" or pr.kind == "IntProperty" or pr.kind == "DoubleProperty" then
+                    local l = pr.name:lower()
+                    local v = readNum(comp, pr.name)
+                    nums[#nums + 1] = pr.name .. "=" .. tostring(v)
+                    if l:find("stagger", 1, true) or l:find("poise", 1, true) or l:find("threshold", 1, true) then
+                        if l:find("max", 1, true) or l:find("threshold", 1, true) then max = max or pr.name
+                        elseif l:find("cur", 1, true) or l:find("damage", 1, true) or l:find("amount", 1, true) or l:find("health", 1, true) then cur = cur or pr.name end
+                    end
+                end
+            end
+            w = (cur and max) and { cur = cur, max = max } or false
+            stagCompProps[cls] = w
+            log("overlay: stagger component " .. cls .. " numbers: " .. (#nums > 0 and table.concat(nums, ", ", 1, math.min(#nums, 40)) or "none")
+                .. (w and (" -> meter " .. w.cur .. " / " .. w.max) or ""))
+        end
+        if w then
+            local cc, mm = readNum(comp, w.cur), readNum(comp, w.max)
+            if cc and mm and mm > 0 then best.stagComp = { cc, mm } end
         end
     end
-    if okC and okM and type(c) == "number" and type(m) == "number" then
-        if stagFnOk == nil then stagFnOk = true log(string.format("overlay: stagger from GetCurrentStaggerHealth/GetMaxStaggerHealth (%.0f/%.0f)", c, m)) end
-        best.stagFn = { c, m }
-    elseif stagFnOk == nil then
-        stagFnOk = false
-        log("overlay: no stagger functions on " .. best.cls .. " (" .. tostring(c) .. ")")
+    -- 3. stagger damage dealt toward the next stagger (the player states are found by the overlay's own scan)
+    local sum, any = 0, false
+    for _, ps in ipairs(Tk.playerStates or {}) do
+        if valid(ps) then
+            local ok, v = pcall(callM, ps, "GetCurrentStaggerDamageDealt")
+            if ok and type(v) == "number" then sum, any = sum + v, true end
+        end
+    end
+    if any then
+        best.stagDmg = sum
+        if sum > 0 and not stagSeen.dmg then stagSeen.dmg = true log(string.format("overlay: stagger damage from the players' GetCurrentStaggerDamageDealt (%.0f)", sum)) end
+    elseif not stagSeen.nodmg and #(Tk.playerStates or {}) > 0 then
+        stagSeen.nodmg = true
+        log("overlay: GetCurrentStaggerDamageDealt not available on " .. #Tk.playerStates .. " player state(s)")
     end
 end
 

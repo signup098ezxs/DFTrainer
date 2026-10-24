@@ -50,6 +50,9 @@ type ovBeh struct {
 	Weak       string  `json:"weak"`
 	Stagger    float64 `json:"stagger"`
 	StaggerMax float64 `json:"staggerMax"`
+	// stagger damage the players have dealt toward the next stagger (the game resets it when the behemoth staggers);
+	// nil or negative: not known
+	StaggerDmg *float64 `json:"staggerDmg"`
 }
 type ovStyle struct {
 	Accent  string  `json:"accent"`
@@ -93,6 +96,11 @@ type ovModel struct {
 	// with hits is taken from the meter itself (full at the start: it drains).
 	hasStag, stagDrains                   bool
 	sTarget, sDisp, sGhost, sHold, sFlash float64
+	// stagger damage as a number (when there is no meter): it counts up to the new value; "STAGGERED" shows a
+	// moment when the game resets it after a stagger
+	hasSDmg                   bool
+	sdTarget, sdDisp, sdFlash float64
+	staggeredAt               float64
 }
 
 func frac(cur, max float64) float64 {
@@ -111,7 +119,27 @@ func (m *ovModel) adopt(b *ovBeh, now float64) {
 	m.element, m.weak = b.Element, b.Weak
 	m.hasStag, m.stagDrains = b.StaggerMax > 0, b.StaggerMax > 0 && b.Stagger >= b.StaggerMax*0.999
 	m.sTarget, m.sDisp, m.sGhost, m.sHold, m.sFlash = m.stagProgress(b), 0, 0, 0, 0
+	m.hasSDmg, m.sdTarget, m.sdDisp, m.sdFlash, m.staggeredAt = false, 0, 0, 0, -10
+	m.setStaggerDmg(b, now)
 	m.alphaTarget = 1
+}
+
+func (m *ovModel) setStaggerDmg(b *ovBeh, now float64) {
+	if b.StaggerDmg == nil || *b.StaggerDmg < 0 {
+		m.hasSDmg = false
+		return
+	}
+	v := *b.StaggerDmg
+	if m.hasSDmg {
+		if v > m.sdTarget+0.5 {
+			m.sdFlash = 1
+		} else if v < m.sdTarget-0.5 && m.sdTarget > 0 && v <= 0.5 {
+			m.staggeredAt, m.sdDisp = now, 0 // reset by the game: the behemoth staggered
+		}
+	} else {
+		m.sdDisp = v
+	}
+	m.hasSDmg, m.sdTarget = true, v
 }
 
 func (m *ovModel) stagProgress(b *ovBeh) float64 {
@@ -218,6 +246,7 @@ func (m *ovModel) update(b *ovBeh, now float64) {
 		m.element, m.weak = b.Element, b.Weak
 		m.setParts(b.Parts, now, false)
 		m.setStagger(b, now)
+		m.setStaggerDmg(b, now)
 		m.alphaTarget, m.hasPending = 1, false
 	}
 }
@@ -275,6 +304,23 @@ func (m *ovModel) step(now, dt float64) bool {
 			moving = true
 		} else {
 			m.sDisp, m.sGhost, m.sFlash = m.sTarget, m.sTarget, 0
+		}
+	}
+	if m.hasSDmg {
+		if math.Abs(m.sdDisp-m.sdTarget) > 1+0.004*m.sdTarget { // the shown number counts up to the new value
+			m.sdDisp = approach(m.sdDisp, m.sdTarget, dt, 0.12)
+			moving = true
+		} else {
+			m.sdDisp = m.sdTarget
+		}
+		if m.sdFlash > 0.01 {
+			m.sdFlash *= math.Exp(-dt / 0.2)
+			moving = true
+		} else {
+			m.sdFlash = 0
+		}
+		if now-m.staggeredAt < 1.6 {
+			moving = true
 		}
 	}
 	for _, p := range m.parts {
@@ -576,6 +622,8 @@ func ovLayout(m *ovModel, st ovStyle, u float64) (cardW, cardH, margin float64) 
 	}
 	if m.hasStag {
 		y += 21 * u
+	} else if m.hasSDmg {
+		y += 17 * u
 	}
 	if n := len(m.parts); st.Parts && n > 0 {
 		rows := (n + 1) / 2
@@ -722,6 +770,19 @@ func (r *ovRenderer) draw(m *ovModel, st ovStyle, u float64) *image.RGBA {
 			}
 		}
 		y += 15 * u
+	}
+
+	// stagger damage (no meter from the game): the damage dealt toward the next stagger, as a number
+	if !m.hasStag && m.hasSDmg {
+		f, fv := ovFace(false, 10.5*u), ovFace(true, 11*u)
+		y += 6 * u
+		c.text(f, "STAGGER DAMAGE", ix, y+8*u, ovAsh, 0.7)
+		v, col := thousands(m.sdDisp), mix(ovStag, rgbf{1, 1, 1}, m.sdFlash*0.6)
+		if d := m.now - m.staggeredAt; d >= 0 && d < 1.6 {
+			v, col = "STAGGERED", mix(ovStag, rgbf{1, 1, 1}, (1-d/1.6)*0.6)
+		}
+		c.text(fv, v, ix+iw-textWidth(fv, v), y+8*u, col, 0.95)
+		y += 11 * u
 	}
 
 	// parts: two columns of thin neutral bars

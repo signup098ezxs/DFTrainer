@@ -737,7 +737,7 @@ function overlayTrack(p) {
   const b = best.t.b;
   const el = behemothElement(b.cls), stg = Array.isArray(b.stg) && b.stg[1] > 0 ? b.stg : null;
   return (ovCache = { key: b.key, name: behemothName(p, b.cls), cur: b.cur, max: b.max, dead: !!b.dead,
-    element: el.element, weak: el.weak, stagger: stg ? stg[0] : 0, staggerMax: stg ? stg[1] : 0,
+    element: el.element, weak: el.weak, stagger: stg ? stg[0] : 0, staggerMax: stg ? stg[1] : 0, staggerDmg: Number.isFinite(b.sdmg) ? b.sdmg : -1,
     parts: (b.parts || []).map(([n, c, m, k, x]) => ({ name: String(n), cur: c, max: m, breaks: k || 0, broken: x === 1 })) });
 }
 function overlayStyle() {

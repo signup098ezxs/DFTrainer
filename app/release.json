@@ -1,5 +1,5 @@
 {
-  "version": "3.9.0",
+  "version": "3.9.1",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "New quest tracker (Settings > Quest tracker): the quests you are on, over the game, with each objective's progress (1/3) read from the game itself. Pick which kinds to track (Main, Side, Special, Rumours), how many at once and where it sits; it updates when the game reports progress and closes quests that are handed in or dropped. Behemoth overlay: a broken part now shows BROKEN for the rest of the fight instead of refilling to 100% (from the game's own break state, or its health reaching 0)."
+  "notes": "Behemoth overlay: stagger shows again. The behemoth's stagger meter answers 0 in this game, so the overlay now also reads its stagger component and the stagger damage you and your party have dealt toward the next stagger: a STAGGER bar when the game gives a meter, otherwise STAGGER DAMAGE as a number that counts up and shows STAGGERED when the behemoth staggers."
 }

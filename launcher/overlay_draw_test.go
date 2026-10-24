@@ -79,6 +79,25 @@ func TestOverlayFrames(t *testing.T) {
 		t.Fatal("a broken part the game stopped reporting vanished")
 	}
 	save("4c-broken-stays", 1)
+	// stagger damage without a meter (what the game gave in 3.8): shown as a number, STAGGERED when it resets
+	b.StaggerMax, b.Stagger, b.StaggerDmg = 0, 0, f64(0)
+	m.update(b, now)
+	b.StaggerDmg = f64(4250)
+	m.update(b, now)
+	run(0.8)
+	if m.hasStag || !m.hasSDmg || m.sdDisp < 4249 {
+		t.Fatalf("stagger damage not shown (%.0f)", m.sdDisp)
+	}
+	save("4d-stagger-damage", 1)
+	b.StaggerDmg = f64(0)
+	m.update(b, now)
+	run(0.3)
+	save("4e-staggered", 1)
+	if m.now-m.staggeredAt > 1 {
+		t.Fatal("a stagger was not shown")
+	}
+	run(2)
+	b.StaggerMax, b.Stagger = 3000, 1700
 	if m.disp < 0.70 || m.disp > 0.73 {
 		t.Fatalf("health bar settled at %.3f", m.disp)
 	}
