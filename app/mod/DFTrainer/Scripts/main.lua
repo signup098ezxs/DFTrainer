@@ -959,13 +959,17 @@ local function lockFrame(now, dt)
     lockStatus(true, "")
 end
 
--- One aim step on the game's thread. Asked for by a timer only while a part is held: no game event is hooked, so with
--- the lock off nothing runs, and with it on there is one small step per ~16 ms, never a pile-up (one asked at a time).
+-- One aim step on the game's thread. v5.3: driven by your character's own per-frame event (BP_PlayerCharacter
+-- ReceiveTick, ~1 call a frame: the only per-frame event hooked; v5.1 also hooked engine-wide ones, which caused the
+-- lag). The hook is added the first time you lock and does nothing but return while no part is held. v5.2 asked the
+-- game thread through ExecuteInGameThread instead, but this game never ran those requests (0 aim steps a second in the
+-- logs), so that is now only the fallback when the character event cannot be hooked, and hits the last resort.
 local function aimStep()
     LK.pending = false
     if not (T.lock and LK.want and LK.pump) then return end
     local now = os.clock()
     local dt = now - LK.lastFrame
+    if dt < 0.002 then return end   -- the same frame again (another character's tick in a game with friends)
     if LK.lastFrame == 0 or dt > 0.5 then dt = 1 / 60 end   -- the first step of a lock: one frame's step, not a jump
     LK.lastFrame = now
     LK.steps = LK.steps + 1
@@ -973,31 +977,60 @@ local function aimStep()
     if not ok then logOnce("lockframe:" .. tostring(err), "lock-on error: " .. tostring(err)) release("error") end
 end
 
-local PUMP_MS = 8    -- asks at most once per game frame (one step waiting at a time), about 60+ a second
+-- your character's (else your controller's) ReceiveTick, hooked once
+local function hookTick()
+    if LK.tickHook ~= nil then return LK.tickHook end
+    local pc = localPC(os.clock())
+    if not pc then return false end   -- not in the world yet: tried again on the next lock
+    local okP, pawn = pcall(getField, pc, "Pawn")
+    local tries = {}
+    for _, o in ipairs({ okP and pawn or false, pc }) do
+        if o and valid(o) then
+            local okC, c = pcall(callM, o, "GetClass")
+            local path = okC and (nameOf(c) or ""):match("^%S+%s+(.+)$")
+            if path and path:sub(1, 6) == "/Game/" then tries[#tries + 1] = path .. ":ReceiveTick" end
+        end
+    end
+    LK.tickHook = false
+    for _, fn in ipairs(tries) do
+        local ok, err = pcall(RegisterHook, fn, function() if LK.pump then aimStep() end end)
+        log("lock-on: frame event " .. fn .. (ok and " hooked" or (" not available (" .. tostring(err) .. ")")))
+        if ok then LK.tickHook = fn break end
+    end
+    return LK.tickHook
+end
+
+local PUMP_MS = 8
 local function startPump()
     if LK.pump then return end
-    if not ExecuteInGameThread then
-        logOnce("noexec", "lock-on: this UE4SS has no ExecuteInGameThread; the aim moves on hits only")
-        LK.src = "hits"
-        return
-    end
-    LK.pump, LK.pending, LK.src = true, false, "game thread"
+    LK.pump, LK.pending = true, false
     LK.steps, LK.stepsAt = 0, os.clock()
+    local viaTick = hookTick()
+    LK.src = (viaTick and not LK.tickDead) and "character tick" or (ExecuteInGameThread and "game thread" or "hits")
+    -- a timer for this lock only: asks the game thread for steps when there is no character event, and checks after
+    -- two seconds that steps really run (else falls back: character event -> game thread -> hits)
     LoopAsync(PUMP_MS, function()
         if not LK.pump then LK.pending = false return true end   -- let go: the timer ends
-        if not LK.pending then
+        if LK.src == "game thread" and not LK.pending then
             LK.pending = true
-            local ok = pcall(ExecuteInGameThread, aimStep)
-            if not ok then LK.pending = false end
+            if not pcall(ExecuteInGameThread, aimStep) then LK.pending = false end
         end
-        -- once per lock: how many aim steps really ran in its first two seconds (for the log)
         local now = os.clock()
         if LK.stepsAt > 0 and now - LK.stepsAt >= 2 then
             local rate = LK.steps / (now - LK.stepsAt)
             LK.stepsAt = 0
-            log(string.format("lock-on: %.0f aim steps a second", rate))
+            log(string.format("lock-on: %.0f aim steps a second (%s)", rate, LK.src))
+            if rate < 5 and LK.src == "character tick" then
+                LK.tickDead = true   -- not tried again this session
+                LK.src = ExecuteInGameThread and "game thread" or "hits"
+                LK.steps, LK.stepsAt = 0, now
+                log("lock-on: trying " .. LK.src .. " instead")
+            elseif rate < 5 and LK.src == "game thread" then
+                LK.src = "hits"
+                log("lock-on: no per-frame event works here; the aim moves on hits only")
+            end
         end
-        return false
+        return LK.src == "hits"   -- hits need no timer
     end)
 end
 
@@ -1100,4 +1133,4 @@ pcall(function()
     RegisterKeyBind(Key.F8, function() pcall(lockNextPart) end)
 end)
 
-log("loaded (v5.2: damage multiplier, overlay tracking with stagger, part lock-on for solo and friends, instant refresh)")
+log("loaded (v5.3: damage multiplier, overlay tracking with stagger, part lock-on for solo and friends, instant refresh)")
