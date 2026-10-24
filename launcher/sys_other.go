@@ -68,3 +68,5 @@ func registerUninstall(exe, version string) error { return nil }
 func unregisterUninstall()                        {}
 func scheduleDelete(dir string)                   { _ = os.RemoveAll(dir) }
 func openURL(u string)                            { logf("open %s", u) }
+
+func runOverlay(base, token string) { logf("overlay %s (Windows only)", base) }

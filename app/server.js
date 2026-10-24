@@ -262,6 +262,8 @@ setInterval(() => {
 
 // ---------------------------------------------------------------- in-game switches
 const TOGGLE_DEFAULTS = { damage: 1, refresh: false, refreshFn: '' };
+// the behemoth overlay (anyone's panel, not just the owner's): the mod tracks behemoths only while it is on
+const overlayOn = () => !!(settings.overlay && settings.overlay.on);
 // the damage multiplier is the owner's: anyone else's client keeps the mod locked (x1)
 const isOwner = () => !!LIC.status().owner;
 function readToggles(p) {
@@ -279,7 +281,8 @@ function writeToggles(p, t) {
   if (p.modDir && fs.existsSync(p.modDir)) {
     const f = path.join(p.modDir, 'trainer-toggles.json');
     // not the owner: the mod gets x1 and "locked"
-    const out = isOwner() ? { ...clean, locked: false } : { ...TOGGLE_DEFAULTS, locked: true };
+    const out = { ...(isOwner() ? { ...clean, locked: false } : { ...TOGGLE_DEFAULTS, locked: true }), track: overlayOn() };
+    fs.mkdirSync(path.join(p.modDir, 'track'), { recursive: true });
     fs.writeFileSync(f + '.tmp', JSON.stringify({ ...out, by: 'panel', time: Math.floor(Date.now() / 1000) }));
     fs.renameSync(f + '.tmp', f);
   }
@@ -319,7 +322,7 @@ async function setup() {
     if (!r.ok) return { ok: false, error: r.error || 'Could not install UE4SS.' };
     steps.push('Installed UE4SS (the mod loader).');
   }
-  copyDir(MOD_SRC, p.modDir, new Set(['trainer-toggles.json', 'status', 'refresh-request.json']));
+  copyDir(MOD_SRC, p.modDir, new Set(['trainer-toggles.json', 'status', 'track', 'refresh-request.json']));
   fs.mkdirSync(path.join(p.modDir, 'status'), { recursive: true });
   writeToggles(p, readToggles(p));
   steps.push('Copied the Lantern Client mod.');
@@ -578,6 +581,84 @@ function syncMod(gameRunning) {
   } catch (e) { return false; }
 }
 
+// ---------------------------------------------------------------- behemoth overlay
+// The game mod (in your game and in each hunt server) writes the behemoth you are fighting to track\<process>.json in
+// its folder while the overlay is on. The overlay itself is "Lantern Client.exe --overlay": a small click-through
+// window over the game, drawn natively, that asks this panel for GET /api/overlay/state ten times a second. Names come
+// from the game's own kill tokens (TOKEN_KILL_COUNT_LERAWR_BETA = "Kill Token: Rogue Embermane").
+// While it is on, Dauntless Forever's Boss Health Bar (same job, built into its loader) is switched off, and back on
+// when the overlay is turned off, so two bars never show.
+const OVERLAY_DEFAULTS = { on: false, pos: 'top', size: 'm', opacity: 0.85, parts: true, numbers: true };
+const OVERLAY_POS = ['top', 'top-left', 'top-right', 'right'];
+const OVERLAY_SIZE = { s: 0.85, m: 1, l: 1.2 };
+const THEME_COLORS = { aether: ['#3cebff', '#4ff3ff', '#0b5f6d'], ember: ['#ff8a3d', '#ffa866', '#7a3410'], verdant: ['#4ff096', '#7cf5b0', '#0d5e35'],
+  amethyst: ['#b284ff', '#c7a6ff', '#47297d'], crimson: ['#ff5c78', '#ff8399', '#7a1526'], gold: ['#ffc84a', '#ffd978', '#7a560a'] };
+function overlaySettings() { return { ...OVERLAY_DEFAULTS, ...(settings.overlay || {}) }; }
+let BEH_NAMES = null;
+function behemothName(p, cls) {
+  if (!BEH_NAMES) {
+    BEH_NAMES = new Map();
+    for (const i of readJson(path.join(p.pkg, 'tools', 'catalog-1147.json'), {}).items || []) {
+      const m = /^TOKEN_KILL_COUNT_([A-Z0-9_]+)$/.exec(i.id || '');
+      if (m && i.name) BEH_NAMES.set(m[1], i.name.replace(/^Kill Token:\s*/i, '').trim());
+    }
+  }
+  // "lerawr_beta_bp_C" -> LERAWR_BETA; no variant -> LERAWR_NORMAL
+  const id = String(cls || '').replace(/_C$/i, '').replace(/_bp$/i, '').replace(/^BP_/i, '').toUpperCase();
+  const variant = /_(ALPHA|BETA|NORMAL)$/.test(id) ? id : id + '_NORMAL';
+  return BEH_NAMES.get(variant) || BEH_NAMES.get(id)
+    || id.toLowerCase().split('_').filter(Boolean).map((w) => w[0].toUpperCase() + w.slice(1)).join(' ') || 'Behemoth';
+}
+let ovCache = null, ovCacheAt = 0;
+const later = (a, b) => { for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] > b[i]; return false; };
+function overlayTrack(p) {
+  if (ovCache && Date.now() - ovCacheAt < 80) return ovCache;
+  let best = null;
+  const dir = p.modDir && path.join(p.modDir, 'track');
+  try {
+    const now = Date.now() / 1000;
+    for (const f of fs.readdirSync(dir)) {
+      if (!f.endsWith('.json')) continue;
+      const t = readJson(path.join(dir, f), null);
+      if (!t || !t.b || now - (t.time || 0) > 4) continue;
+      const score = [t.b.at || 0, (t.b.parts || []).length, t.role === 'server' ? 1 : 0, t.b.n || 0];
+      // the latest hit first; for the same moment, the copy that has the parts (a hunt server)
+      if (!best || later(score, best.score)) best = { t, score };
+    }
+  } catch {}
+  ovCacheAt = Date.now();
+  if (!best) return (ovCache = null);
+  const b = best.t.b;
+  return (ovCache = { key: b.key, name: behemothName(p, b.cls), cur: b.cur, max: b.max, dead: !!b.dead,
+    parts: (b.parts || []).map(([n, c, m]) => ({ name: String(n), cur: c, max: m })) });
+}
+function overlayStyle() {
+  const o = overlaySettings(), c = THEME_COLORS[(settings.prefs || {}).theme] || THEME_COLORS.aether;
+  return { accent: c[0], light: c[1], deep: c[2], pos: o.pos, scale: OVERLAY_SIZE[o.size] || 1, opacity: o.opacity, parts: o.parts, numbers: o.numbers };
+}
+function bossbarOn(p) {
+  try { return !/^\s*bossbar\s*=\s*off\s*$/mi.test(fs.readFileSync(path.join(p.dataDir, 'mods.txt'), 'utf8')); } catch { return true; }
+}
+async function overlayBossbar(p, on) {
+  // overlay on: Dauntless Forever's own bar goes off (remembered); overlay off: it comes back if it was on before
+  const o = settings.overlay || {};
+  if (on && bossbarOn(p)) { const r = await runTool(p, 'ue4ss.cjs', ['mod', 'Boss Health Bar', 'off']); if (r && r.ok) { o.restoreBossbar = true; settings.overlay = o; saveSettings(); } }
+  if (!on && o.restoreBossbar) { await runTool(p, 'ue4ss.cjs', ['mod', 'Boss Health Bar', 'on']); delete o.restoreBossbar; settings.overlay = o; saveSettings(); }
+}
+let overlayPid = 0, overlayTriedAt = 0;
+// the overlay is part of launcher 1.6.0 and later (an older one would just open the panel window)
+const launcherHasOverlay = () => { const v = String(process.env.DFT_LAUNCHER_VERSION || '0').split('.').map(Number); return v[0] > 1 || (v[0] === 1 && v[1] >= 6); };
+function overlayAlive() { if (!overlayPid) return false; try { process.kill(overlayPid, 0); return true; } catch { overlayPid = 0; return false; } }
+function ensureOverlay(running) {
+  if (!LAUNCHER || !launcherHasOverlay() || !overlayOn() || !running || overlayAlive() || !LIC.ok() || Date.now() - overlayTriedAt < 10000) return;
+  overlayTriedAt = Date.now();
+  try {
+    // not windowsHide: Windows would apply a hidden start to the overlay's window too
+    const c = spawn(LAUNCHER, ['--overlay', `http://127.0.0.1:${PORT}`, TOKEN], { detached: true, stdio: 'ignore' });
+    overlayPid = c.pid || 0; c.unref();
+  } catch {}
+}
+
 // ---------------------------------------------------------------- state, watched for changes and pushed
 let lastRunning = false, lastProcCount = 0;
 async function buildState() {
@@ -589,11 +670,12 @@ async function buildState() {
   const procs = modProcesses(p);
   return {
     found: true, license, user, pkg: p.pkg, gameDir: p.gameDir, running, playingAs,
-    app: { version: VERSION, managed: !!LAUNCHER, update: updateReady, checking: updateChecking },
+    app: { version: VERSION, managed: !!LAUNCHER, launcher: process.env.DFT_LAUNCHER_VERSION || '', overlay: launcherHasOverlay(), update: updateReady, checking: updateChecking },
     ue4ss: !!(p.ue4ssDll && fs.existsSync(p.ue4ssDll)),
     modInstalled: !!(p.modDir && fs.existsSync(path.join(p.modDir, 'Scripts', 'main.lua'))),
     modOn: !!(p.modsDir && modListed(p)), mode: modsMode(p),
     toggles: readToggles(p), processes: procs.map(({ time, ...s }) => s),
+    overlay: { ...overlaySettings(), restoreBossbar: undefined, running: overlayAlive() },
     queue: queue.map((j) => ({ what: describe(j) })), history,
     deliveries: deliveries.filter((d) => d.status === 'saved').map((d) => ({ what: d.what, at: d.at })),
   };
@@ -611,6 +693,7 @@ async function tickState() {
     if (n && !lastProcCount) note('mod', 'Mod connected', `${s.processes.filter((x) => x.role === 'game').length ? 'Game' : 'No game'} + ${s.processes.filter((x) => x.role === 'server').length} server(s)`);
     lastProcCount = n;
     lastRunning = s.running;
+    ensureOverlay(s.running);
   }
   const text = JSON.stringify(s);
   if (text !== lastStateText) { lastStateText = text; push('state', s); }
@@ -712,7 +795,8 @@ const routes = {
     return r;
   },
   'GET /api/feed': async () => feed,
-  'POST /api/setup': async () => isOwner() ? setup() : { ok: false, error: 'The game mod is set up by the owner.' },
+  // the owner (Damage) or anyone who turned the behemoth overlay on
+  'POST /api/setup': async () => (isOwner() || overlayOn()) ? setup() : { ok: false, error: 'Turn on the behemoth overlay in Settings first.' },
   'POST /api/toggles': async (b) => {
     if (!isOwner()) return { ok: false, error: 'The game mod is the owner\'s.' };
     const p = places(); if (!p.pkg) return { ok: false, error: 'Package not found.' };
@@ -734,6 +818,27 @@ const routes = {
     if (r.raised && r.raised.length) note('applied', 'Weapon levels raised', `${o.raisedNames}: level 20.`);
     if (job.action === 'maxweapons' && !o.raised) return { ok: true, nothingNew: true, message: 'Every weapon type is already at level 20.' };
     return { ok: true, ...o };
+  },
+  'GET /api/overlay/state': async () => {
+    const p = places(), o = overlaySettings();
+    if (!o.on || !p.pkg) return { ok: true, on: false };
+    return { ok: true, on: true, running: await backendUp(), style: overlayStyle(), b: overlayTrack(p) };
+  },
+  'POST /api/overlay': async (b) => {
+    const p = places(), o = overlaySettings(), was = o.on;
+    if (typeof b.on === 'boolean') o.on = b.on;
+    if (OVERLAY_POS.includes(b.pos)) o.pos = b.pos;
+    if (b.size in OVERLAY_SIZE) o.size = b.size;
+    if (typeof b.opacity === 'number' && b.opacity >= 0.4 && b.opacity <= 1) o.opacity = Math.round(b.opacity * 100) / 100;
+    if (typeof b.parts === 'boolean') o.parts = b.parts;
+    if (typeof b.numbers === 'boolean') o.numbers = b.numbers;
+    settings.overlay = { ...(settings.overlay || {}), ...o }; saveSettings();
+    if (p.pkg) {
+      if (o.on !== was) { try { await overlayBossbar(p, o.on); } catch {} }
+      writeToggles(p, readToggles(p));
+      ensureOverlay(await backendUp());
+    }
+    return { ok: true, overlay: { ...overlaySettings(), restoreBossbar: undefined, running: overlayAlive() } };
   },
   'POST /api/queue/clear': async () => { queue = []; settings.queue = queue; saveSettings(); return { ok: true }; },
   'GET /api/prefs': async () => settings.prefs || {},

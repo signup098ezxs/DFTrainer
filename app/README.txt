@@ -14,6 +14,12 @@ WHAT IT DOES
   Game rules
     1.14.7's rules: XP speeds, reward amounts, free crafting, free platinum, extra loadout slots (launcher's page).
     Damage (owner only, at the top of the page): x2 to x50, or One hit, against behemoths. Works at once.
+  Behemoth overlay (Settings)
+    The behemoth you are fighting, over the game: its real name, its health and each part's health (head, legs,
+    tail...), in your colour preset. Click-through, shown only while the game is in front, gone when the behemoth
+    dies or leaves. Position, size, background and what it shows are in Settings. Needs the game mod (Set up), with
+    "Also run mods on my servers" on: part health only exists on the hunt server. While it is on, Dauntless
+    Forever's own Boss Health Bar is switched off (and back on when you turn the overlay off).
   Live feed
     Everything that reaches your game, as it happens, with sounds and optional desktop alerts.
 

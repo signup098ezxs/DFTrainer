@@ -308,6 +308,46 @@ select option { background: var(--hull); }
 nav > button.settab { margin-top: auto; }
 .settab svg { transition: transform .6s var(--spring); }
 nav > button.settab.on svg { transform: rotate(60deg); }
+/* behemoth overlay settings + preview (the in-game card itself is drawn by the launcher, to the same design) */
+.ovgrid { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 20px; align-items: start; }
+.ovgrid .setrow:first-child { border-top: 0; }
+.ovnote { margin: 4px 0 10px; color: var(--ash); font-size: 12.5px; min-height: 1em; }
+.ovnote.warn { color: #f3d9ae; }
+.ovstage { position: relative; height: 270px; margin: 6px 0 10px; border-radius: 12px; overflow: hidden; border: 1px solid var(--seam);
+  background: radial-gradient(120% 90% at 20% 110%, #5b6b3a 0%, transparent 55%), radial-gradient(90% 70% at 85% 0%, #c9a46a 0%, transparent 60%), linear-gradient(160deg, #6f7f86, #2c3a35 60%, #1a2322); }
+.ovstage::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.05), rgba(0,0,0,.25)); pointer-events: none; }
+.ovtag { position: absolute; right: 10px; bottom: 8px; z-index: 2; font: 600 10.5px var(--display); letter-spacing: .12em; text-transform: uppercase; color: rgba(255,255,255,.55); }
+.ovcard { --u: 1; --op: .85; position: absolute; z-index: 1; width: calc(250px * var(--u)); padding: calc(9px * var(--u)); border-radius: calc(8px * var(--u)); font-family: 'Chakra Petch', var(--display);
+  background: linear-gradient(180deg, rgba(var(--d-rgb), calc(var(--op) * .1)), transparent 55%), rgba(7, 11, 16, var(--op)); border: 1px solid rgba(var(--a-rgb), .3);
+  box-shadow: 0 6px 22px rgba(0,0,0,.35); transition: left .35s var(--ease), top .35s var(--ease), right .35s var(--ease), opacity .25s, transform .25s; }
+.ovcard::before { content: ""; position: absolute; left: 10%; right: 10%; top: -1px; height: 1px; background: linear-gradient(90deg, transparent, var(--a-light), transparent); }
+.ovcard[data-pos="top"] { left: 50%; top: 18px; transform: translateX(-50%); }
+.ovcard[data-pos="top-left"] { left: 12px; top: 12px; }
+.ovcard[data-pos="top-right"] { left: calc(100% - 12px - 250px * var(--u) - 18px * var(--u)); top: 12px; }
+.ovcard[data-pos="right"] { left: calc(100% - 12px - 250px * var(--u) - 18px * var(--u)); top: 38%; }
+.ovcard.gone { opacity: 0; }
+.ovcard[data-pos="top"].gone { transform: translateX(-50%) translateY(-6px); }
+.ovhead { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: calc(12px * var(--u)); font-weight: 600; color: #eff7f9; text-shadow: 0 1px 1px rgba(0,0,0,.5); }
+.ovhead b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ovhead span { font-weight: 700; color: var(--a-light); }
+.ovbar { position: relative; height: calc(7px * var(--u)); margin-top: calc(5px * var(--u)); border-radius: 99px; background: rgba(var(--d-rgb), .5); overflow: visible; }
+.ovbar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 99px; }
+.ovbar .ghost { background: var(--a-light); opacity: .45; transition: width .35s ease .45s; }
+.ovbar .fill { background: linear-gradient(90deg, var(--aether), var(--a-light)); box-shadow: 0 0 10px rgba(var(--a-rgb), .45), inset 0 1px 0 rgba(255,255,255,.3); transition: width .18s ease-out; }
+.ovbar .fill.hit { animation: ovhit .3s ease-out; }
+@keyframes ovhit { from { filter: brightness(1.8); } to { filter: none; } }
+.ovnums { display: flex; justify-content: space-between; margin-top: calc(4px * var(--u)); font-size: calc(8.5px * var(--u)); font-weight: 600; color: #9eb5bf; }
+.ovnums span + span { opacity: .55; }
+.ovparts { display: grid; grid-template-columns: 1fr 1fr; gap: calc(5px * var(--u)) calc(10px * var(--u)); margin-top: calc(8px * var(--u)); padding-top: calc(6px * var(--u)); border-top: 1px solid rgba(255,255,255,.08); }
+.ovparts .p { min-width: 0; font-size: calc(8.5px * var(--u)); font-weight: 600; color: rgba(240,247,250,.86); }
+.ovparts .p .r { display: flex; justify-content: space-between; gap: 4px; }
+.ovparts .p .r em { font-style: normal; font-weight: 700; color: #9eb5bf; }
+.ovparts .p.broken { color: rgba(240,247,250,.5); }
+.ovparts .p.broken .r em { color: #ff8c9c; }
+.ovparts .p .b { position: relative; height: calc(3px * var(--u)); margin-top: calc(2px * var(--u)); border-radius: 99px; background: rgba(255,255,255,.1); }
+.ovparts .p .b i { position: absolute; inset: 0 auto 0 0; border-radius: 99px; background: #e8edf2; transition: width .2s ease-out; }
+.ovcard.nonums .ovnums, .ovcard.noparts .ovparts { display: none; }
+@media (max-width: 860px) { .ovgrid { grid-template-columns: 1fr; } }
 .setgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
 .setcard { padding: 14px 16px 6px; border-radius: 14px; border: 1px solid var(--seam); background: linear-gradient(180deg, var(--hull2), var(--hull)); }
 .setcard.wide { grid-column: 1 / -1; }
@@ -717,6 +757,28 @@ input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border: 0; bord
           <div class="setrow"><div class="lbl"><b>Color preset</b><small>The accent color of the whole panel.</small></div><div class="ctl"><div class="swatches" id="themes" role="radiogroup" aria-label="Color presets"></div></div></div>
           <div class="setrow"><div class="lbl"><b>Font</b><small>Every font comes with Lantern Client: nothing is downloaded.</small></div><div class="ctl"><div class="fontpick" id="fontPick"><button class="fp-btn" id="fpBtn" aria-haspopup="listbox" aria-expanded="false"><span id="fpName"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></button><ul class="fp-list" id="fpList" role="listbox" tabindex="-1" hidden></ul></div></div></div>
         </div>
+        <div class="setcard wide" id="ovCard"><h3>Behemoth overlay</h3>
+          <div class="ovgrid">
+            <div>
+              <div class="setrow"><div class="lbl"><b>Show in game</b><small>The behemoth you are fighting, over the game: its name, health and each part's health. Click-through, and only while the game is in front.</small></div><div class="ctl"><label class="sw sm"><input type="checkbox" id="ovOn"><span class="track"></span><span class="knob"></span></label></div></div>
+              <div class="setrow"><div class="lbl"><b>Position</b><small>Where it sits on the game's screen.</small></div><div class="ctl"><select id="ovPos"><option value="top">Top centre</option><option value="top-left">Top left</option><option value="top-right">Top right</option><option value="right">Right side</option></select></div></div>
+              <div class="setrow"><div class="lbl"><b>Size</b><small>Grows with the game's resolution too.</small></div><div class="ctl"><select id="ovSize"><option value="s">Small</option><option value="m">Medium</option><option value="l">Large</option></select></div></div>
+              <div class="setrow"><div class="lbl"><b>Background</b><small>How solid the card behind the bars is.</small></div><div class="ctl"><input type="range" id="ovOpacity" min="0.4" max="1" step="0.05"></div></div>
+              <div class="setrow"><div class="lbl"><b>Part health</b><small>Head, legs, tail... as thin bars under the health bar.</small></div><div class="ctl"><label class="sw sm"><input type="checkbox" id="ovParts" checked><span class="track"></span><span class="knob"></span></label></div></div>
+              <div class="setrow"><div class="lbl"><b>Health numbers</b><small>Exact health under the bar.</small></div><div class="ctl"><label class="sw sm"><input type="checkbox" id="ovNumbers" checked><span class="track"></span><span class="knob"></span></label></div></div>
+              <p class="ovnote" id="ovNote"></p>
+            </div>
+            <div class="ovstage" id="ovStage" aria-label="Preview">
+              <div class="ovcard" id="ovPrev" data-pos="top">
+                <div class="ovhead"><b id="ovpName">Rogue Embermane</b><span id="ovpPct">100%</span></div>
+                <div class="ovbar"><i class="ghost" id="ovpGhost"></i><i class="fill" id="ovpFill"></i></div>
+                <div class="ovnums"><span id="ovpNums">15,654 / 15,654</span><span>HEALTH</span></div>
+                <div class="ovparts" id="ovpParts"></div>
+              </div>
+              <span class="ovtag">Preview</span>
+            </div>
+          </div>
+        </div>
         <div class="setcard"><h3>Display</h3>
           <div class="setrow"><div class="lbl"><b>Window size</b><small>Resizes the window now and when it opens.</small></div><div class="ctl"><select id="setWin"><option value="auto">Fit screen</option><option value="1024x640">1024 x 640</option><option value="1180x760">1180 x 760</option><option value="1280x800">1280 x 800</option><option value="1440x900">1440 x 900</option></select></div></div>
           <div class="setrow"><div class="lbl"><b>Interface scale</b><small>Makes everything larger or smaller.</small></div><div class="ctl"><select id="setScale"><option value="0.9">90%</option><option value="1">100%</option><option value="1.1">110%</option><option value="1.25">125%</option></select></div></div>
@@ -991,6 +1053,8 @@ function onState(s) {
   else pill('#pMod', setupNeeded ? 'bad' : (s.running ? 'warn' : ''), setupNeeded ? 'Mod not set up' : s.running ? 'Mod not answering' : 'Mod ready');
   showBanner(setupNeeded ? 'setup' : null);
   syncToggles(s.toggles);
+  if (s.overlay && (!OV || JSON.stringify(s.overlay) !== JSON.stringify(OV))) ovSettings(s.overlay); else ovNote();
+  $('#pMod').hidden = !((LIC && LIC.owner) || (s.overlay && s.overlay.on));
   liveInfo(procs);
   renderRelay();
   renderQueue();
@@ -1018,7 +1082,7 @@ function onNote(n, fresh) {
 
 function showBanner(kind) {
   const b = $('#banner'), inp = $('#pkgInput'), btn = $('#bannerBtn');
-  if (kind === 'setup' && !(LIC && LIC.owner)) kind = null;
+  if (kind === 'setup' && !(LIC && LIC.owner) && !(S && S.overlay && S.overlay.on)) kind = null;   // the owner (Damage) or the overlay need the game mod
   placeBanner();
   b.classList.toggle('show', !!kind);
   if (!kind) return;
@@ -1243,7 +1307,7 @@ function tourSteps() {
     { tab: 'rules', target: '#rules > :first-child', title: 'Game rules', body: '<p>XP speeds (weapons, Hunt Pass, mastery), reward amounts (materials, Rams, Merits, Rare Cores), free crafting, free platinum and extra loadout slots. Pick a setting and it is saved; it applies the next time you press <b>Play</b>.</p>' },
     { tab: 'feed', target: 'nav > button[data-tab="feed"]', title: 'Live feed', body: '<p>Everything that reaches your game, as it happens: gifts delivered, the mod connecting, updates. Turn on <b>desktop alerts</b> there to see them while you are in game.</p>' },
     ...(owner ? [{ tab: 'keys', target: '#tab-keys .setcard', title: 'Keys (owner only)', body: '<p>Make a key for someone: enter who it is for, pick how long it lasts, press <b>Generate key</b> and send it. <b>Revoke</b> stops a key; add its id to licenses/revoked.txt on GitHub when asked.</p>' }] : []),
-    { tab: 'settings', target: 'nav > button[data-tab="settings"]', title: 'Settings', body: '<p>Colour presets, fonts, window size, interface scale, frame rate, sounds and the intro. <b>About</b> shows your key and checks for updates. Lantern Client updates itself.</p><p><b>Show the tour</b> there plays this again.</p>' },
+    { tab: 'settings', target: 'nav > button[data-tab="settings"]', title: 'Settings', body: '<p>The <b>behemoth overlay</b> (the behemoth you fight, its health and its parts' health, over the game), colour presets, fonts, window size, interface scale, frame rate, sounds and the intro. <b>About</b> shows your key and checks for updates. Lantern Client updates itself.</p><p><b>Show the tour</b> there plays this again.</p>' },
     { tab: 'items', title: "You're ready", body: `<p>${owner && setup ? 'Start with <b>Set up</b> at the top, then' : 'Next:'} press <b>Play</b> in the Dauntless Forever launcher and give yourself something.</p><p>Have a good hunt.</p>`, last: true },
   ];
 }
@@ -1431,6 +1495,79 @@ $('#rmGo').onclick = async (e) => {
   if (ok) { rmSel.clear(); renderRemove(); setTimeout(loadSave, 600); }
 };
 
+/* ================================================= behemoth overlay (Settings) */
+// The settings go to the panel, which starts the in-game overlay while you play. The preview here is the same card,
+// in the current colour preset, with a pretend fight so the animations can be judged.
+const OVP = { name: 'Rogue Embermane', max: 15654, cur: 15654, parts: [['Head', 2400], ['Left foreleg', 1800], ['Right foreleg', 1800], ['Tail', 1500], ['Back', 2000]].map(([n, m]) => ({ n, m, c: m })) };
+let OV = null, ovTimer = null;
+function ovSettings(o) {
+  if (!o) return;
+  OV = o;
+  $('#ovOn').checked = !!o.on; $('#ovPos').value = o.pos; $('#ovSize').value = o.size; $('#ovOpacity').value = o.opacity;
+  $('#ovParts').checked = !!o.parts; $('#ovNumbers').checked = !!o.numbers;
+  ovPreviewStyle();
+  ovNote();
+}
+function ovNote() {
+  const n = $('#ovNote'); if (!OV || !S) return;
+  const setup = !S.ue4ss || !S.modInstalled || !S.modOn || !(S.mode && S.mode.on && S.mode.servers);
+  let t = '', warn = false;
+  if (!OV.on) t = 'Off. Dauntless Forever\'s own Boss Health Bar is untouched.';
+  else if (setup) { t = 'Needs the game mod: press Set up at the top (with the game closed).'; warn = true; }
+  else if (!S.app || !S.app.managed) { t = 'Shows in game when Lantern Client is opened from its own app.'; warn = true; }
+  else if (S.app.launcher && !S.app.overlay) { t = 'Restart Lantern Client once to finish updating: the overlay comes with the new version.'; warn = true; }
+  else t = S.running ? (OV.running ? 'On: it appears in game as soon as you hit a behemoth.' : 'On: starting in game...') : 'On: it appears in game as soon as you hit a behemoth. Dauntless Forever\'s Boss Health Bar is switched off meanwhile.';
+  n.textContent = t; n.classList.toggle('warn', warn);
+}
+function ovPreviewStyle() {
+  const c = $('#ovPrev'); if (!OV) return;
+  const r = $('#ovOpacity'); r.style.setProperty('--fill', (OV.opacity - 0.4) / 0.6 * 100 + '%'); r.style.setProperty('--glow', 1);
+  c.dataset.pos = OV.pos; c.style.setProperty('--u', { s: 0.85, m: 1, l: 1.15 }[OV.size] || 1); c.style.setProperty('--op', OV.opacity);
+  c.classList.toggle('noparts', !OV.parts); c.classList.toggle('nonums', !OV.numbers);
+}
+const fmtN = (v) => Math.max(0, Math.round(v)).toLocaleString('en-US');
+const pctOf = (c, m) => { const p = Math.floor(c / m * 100); return (p === 0 && c > 0 ? 1 : p) + '%'; };
+function ovPreviewPaint(hit) {
+  const f = OVP.cur / OVP.max * 100;
+  $('#ovpName').textContent = OVP.name;
+  $('#ovpPct').textContent = OVP.cur > 0 ? pctOf(OVP.cur, OVP.max) : 'Defeated';
+  $('#ovpFill').style.width = f + '%'; $('#ovpGhost').style.width = f + '%';
+  if (hit) { const el = $('#ovpFill'); el.classList.remove('hit'); void el.offsetWidth; el.classList.add('hit'); }
+  $('#ovpNums').textContent = `${fmtN(OVP.cur)} / ${fmtN(OVP.max)}`;
+  setHTML('#ovpParts', OVP.parts.map((p) => `<div class="p${p.c <= 0 ? ' broken' : ''}"><div class="r"><span>${esc(p.n)}</span><em>${p.c <= 0 ? 'Broken' : pctOf(p.c, p.m)}</em></div><div class="b"><i style="width:${p.c / p.m * 100}%"></i></div></div>`).join(''));
+}
+function ovPreviewTick() {
+  const c = $('#ovPrev');
+  if (OVP.cur <= 0) {   // defeated: fade out, a fresh one sweeps in
+    c.classList.add('gone');
+    setTimeout(() => { OVP.cur = OVP.max; OVP.parts.forEach((p) => { p.c = p.m; }); ovPreviewPaint(); c.classList.remove('gone'); }, 900);
+    return;
+  }
+  const dmg = 500 + Math.random() * 1400;
+  OVP.cur = Math.max(0, OVP.cur - dmg);
+  const part = OVP.parts[Math.floor(Math.random() * OVP.parts.length)];
+  part.c = Math.max(0, part.c - dmg * 0.6);
+  ovPreviewPaint(true);
+}
+function ovPreviewRun() {
+  clearInterval(ovTimer); ovTimer = null;
+  if (activeTab() === 'settings' && !document.hidden && store.get('fps', 'display') !== 'off') ovTimer = setInterval(ovPreviewTick, 1300);
+}
+async function ovSave(patch) {
+  OV = { ...(OV || {}), ...patch }; ovPreviewStyle(); ovNote();
+  const r = await api('/api/overlay', patch);
+  if (r.ok) ovSettings(r.overlay); else { SFX.error(); toast('Not saved', r.error, 'error'); }
+}
+$('#ovOn').addEventListener('change', (e) => { e.target.checked ? SFX.switchOn() : SFX.switchOff(); ovSave({ on: e.target.checked }); });
+$('#ovParts').addEventListener('change', (e) => { e.target.checked ? SFX.switchOn() : SFX.switchOff(); ovSave({ parts: e.target.checked }); });
+$('#ovNumbers').addEventListener('change', (e) => { e.target.checked ? SFX.switchOn() : SFX.switchOff(); ovSave({ numbers: e.target.checked }); });
+$('#ovPos').addEventListener('change', (e) => { SFX.tick(); ovSave({ pos: e.target.value }); });
+$('#ovSize').addEventListener('change', (e) => { SFX.tick(); ovSave({ size: e.target.value }); });
+$('#ovOpacity').addEventListener('input', (e) => { if (OV) { OV.opacity = Number(e.target.value); ovPreviewStyle(); } });
+$('#ovOpacity').addEventListener('change', (e) => ovSave({ opacity: Number(e.target.value) }));
+document.addEventListener('visibilitychange', ovPreviewRun);
+ovPreviewPaint();
+
 /* ================================================= navigation */
 // the Dauntless Forever / set-up banner sits at the top of whichever page is open
 function placeBanner() { const sec = $('section.on'), b = $('#banner'); if (sec && b.parentElement !== sec) sec.prepend(b); }
@@ -1438,7 +1575,7 @@ function goTab(t, quiet) {
   const b = $(`nav > button[data-tab="${t}"]`); if (!b || b.classList.contains('on')) return;
   $$('nav > button').forEach((x) => x.classList.toggle('on', x === b));
   $$('section').forEach((s) => s.classList.toggle('on', s.id === 'tab-' + t));
-  placeBanner(); placeNav(); updateDock();
+  placeBanner(); placeNav(); updateDock(); ovPreviewRun();
   if (!quiet) SFX.tab();
 }
 const activeTab = () => ($('nav > button.on') || {}).dataset?.tab;
@@ -1453,7 +1590,7 @@ $('#nav').addEventListener('click', (e) => {
   $$('nav > button').forEach((x) => x.classList.toggle('on', x === b));
   $$('section').forEach((s) => s.classList.toggle('on', s.id === 'tab-' + b.dataset.tab));
   placeBanner();
-  placeNav();
+  placeNav(); ovPreviewRun();
   requestAnimationFrame(() => $$('#tab-' + b.dataset.tab + ' .seg').forEach(placeInd));
   if (b.dataset.tab === 'feed') { unseen = 0; $('#feedCount').classList.remove('show'); }
   updateDock();

@@ -1,14 +1,14 @@
 -- SPDX-License-Identifier: AGPL-3.0-only
--- Lantern Client: the owner's damage multiplier against behemoths, for Dauntless 1.14.7 (Dauntless Forever / UE4SS
--- 3.0.1), and the experimental instant inventory refresh.
+-- Lantern Client: the owner's damage multiplier against behemoths, behemoth tracking for the Lantern overlay, for
+-- Dauntless 1.14.7 (Dauntless Forever / UE4SS 3.0.1), and the experimental instant inventory refresh.
 --
 -- The panel writes trainer-toggles.json into this mod's folder; this script reads it twice a second. The folder is
 -- shared by your game and every hidden server copy (they all run the same exe), so the multiplier reaches the hunt
 -- servers, which own behemoth health ("Also run mods on my servers" must be on).
 --
--- Kept light on purpose: with the multiplier at x1 and instant refresh off, it only reads that small file. Otherwise
--- it looks for behemoths every 2 seconds and checks their health every 150 ms and on every hit. Only property reads
--- and writes are used. Logged as [DFTrainer] in UE4SS.log.
+-- Kept light on purpose: with the multiplier at x1, the overlay off and instant refresh off, it only reads that small
+-- file. Otherwise it looks for behemoths every 1 to 2 seconds and checks their health every 150 ms and on every hit.
+-- Only property reads and writes are used. Logged as [DFTrainer] in UE4SS.log.
 
 local TICK_MS      = 150    -- how often behemoth health is checked while the multiplier is on
 local RESCAN_EVERY = 2.0    -- seconds between searches for behemoths
@@ -94,7 +94,7 @@ local StatusFile = Base and (Base .. "/status/" .. ProcId .. ".json")
 if Base then log("mod folder: " .. Base .. " (process " .. ProcId .. ")") else log("could not find the mod folder; the panel cannot reach this process") end
 
 ---------------------------------------------------------------- toggles (flat JSON written by the panel)
-local T = { damage = 1, refresh = false, refreshFn = "", locked = false }
+local T = { damage = 1, refresh = false, refreshFn = "", locked = false, track = false }
 local togglesText = ""
 
 local function parseToggles(s)
@@ -102,8 +102,9 @@ local function parseToggles(s)
     T.damage  = math.max(1, math.min(1000, tonumber(s:match('"damage"%s*:%s*(%-?[%d%.]+)')) or 1))
     T.refresh = flag("refresh")
     T.refreshFn = s:match('"refreshFn"%s*:%s*"([%w_]*)"') or ""
-    T.locked = flag("locked")   -- not the owner's panel: nothing changes
+    T.locked = flag("locked")   -- not the owner's panel: no multiplier, no refresh
     if T.locked then T.damage, T.refresh = 1, false end
+    T.track = flag("track")     -- the behemoth overlay is on (anyone's panel)
 end
 
 local function readToggles()
@@ -115,7 +116,7 @@ local function readToggles()
     if s ~= togglesText and s:find("}", 1, true) then
         togglesText = s
         parseToggles(s)
-        log(string.format("toggles: damage=x%g refresh=%s", T.damage, tostring(T.refresh)))
+        log(string.format("toggles: damage=x%g refresh=%s track=%s", T.damage, tostring(T.refresh), tostring(T.track)))
     end
 end
 
@@ -293,9 +294,234 @@ local function checkRefresh()
     log("instant refresh: called " .. pick .. " on " .. #invs .. " inventory object(s)")
 end
 
+---------------------------------------------------------------- behemoth tracking (the Lantern overlay)
+local function clean(s) return (tostring(s or ""):gsub('[^%w_ .,:/>-]', '')) end
+-- Only while the overlay is on. Follows the behemoth you are fighting: one shows up once its health (or one of its
+-- parts' health) drops, the most recently hit one is followed, a dead one stays 4 s, a gone one is dropped at once.
+-- Written to track\<process>.json in this folder (10 times a second at most, while something changes); the panel
+-- picks the copy that knows most (a hunt server has the part actors, your game usually has none) and feeds the overlay.
+--
+-- Like Dauntless Forever's Boss Health Bar (its loader, d1147.cpp), parts are the behemoth's MonsterPartComponents,
+-- named by their object name ("LeftLeg" -> "Left leg"), each pointing at its part actor; but read through properties
+-- (health attribute sets), since calling game functions from this Lua does not give usable results here.
+local TRACK_SCAN   = 1.0     -- seconds between searches for behemoths while tracking
+local TRACK_PARTS  = 3.0     -- seconds between part searches for a behemoth that has none linked yet
+local TRACK_LINGER = 4.0     -- seconds a dead behemoth stays on the overlay
+local TRACK_BEAT   = 1.0     -- seconds: rewrite the file this often even when nothing changed
+local TrackFile = Base and (Base .. "/track/" .. ProcId .. ".json")
+local Tk = { list = {}, lastScan = -100, lastWrite = -100, lastBody = nil, n = 0, cleared = true }
+
+local function lastName(o)
+    local p = pathOf(o)
+    return p and p:match("([^%.:]+)$") or nil
+end
+local function classChain(o)
+    local out = {}
+    local ok, c = pcall(function() return o:GetClass() end)
+    for _ = 1, 30 do
+        if not (ok and c and valid(c)) then break end
+        out[#out + 1] = (nameOf(c) or ""):match("([^%.%s/]+)$") or ""
+        local okS, sup = pcall(function() return c:GetSuperStruct() end)
+        ok, c = okS, sup
+    end
+    return table.concat(out, ",")
+end
+local function propList(o)
+    local names = {}
+    local ok, c = pcall(function() return o:GetClass() end)
+    for _ = 1, 10 do
+        if not (ok and c and valid(c)) then break end
+        pcall(function() c:ForEachProperty(function(p)
+            local okN, n = pcall(function() return p:GetFName():ToString() end)
+            if okN and n then names[#names + 1] = n end
+        end) end)
+        local okS, sup = pcall(function() return c:GetSuperStruct() end)
+        ok, c = okS, sup
+    end
+    return names
+end
+-- "LeftLegPartComponent" -> "Left leg", "head_part" -> "Head" (the same tidying as the Boss Health Bar)
+local function prettyPart(raw)
+    local t = tostring(raw or "")
+    for _, cut in ipairs({ "PartComponent", "_part", "Part", "Component" }) do
+        if #t > #cut and t:sub(-#cut):lower() == cut:lower() then t = t:sub(1, -#cut - 1) end
+    end
+    t = t:gsub("_C$", ""):gsub("%d", ""):gsub("_", " ")
+    t = t:gsub("(%l)(%u)", "%1 %2"):gsub("%s+", " "):gsub("^%s+", ""):gsub("%s+$", "")
+    if t == "" then return "Part" end
+    t = t:lower()
+    return (t:gsub("^%l", string.upper))
+end
+
+-- how a part actor holds its health: an attribute set under it (like behemoths), or health properties on the actor
+local partLinkProp, partHpWay = nil, {}
+local function healthSetUnder(sets, path)
+    local best, bestMax = nil, 0
+    for _, st in ipairs(sets) do
+        if under(pathOf(st), path) then
+            local m = readNum(st, "MaxHealth") or 0
+            if m > bestMax then best, bestMax = st, m end
+        end
+    end
+    return best
+end
+local function partReader(actor, sets)
+    local ap = pathOf(actor)
+    local st = ap and healthSetUnder(sets, ap)
+    if st then
+        logOnce("parthp:set", "overlay: part health read from its ArchonHealthAttributeSet")
+        return function() return readNum(st, "CurrentHealth"), readNum(st, "MaxHealth") end, st
+    end
+    local cls = (nameOf(actor) or ""):match("^(%S+)") or "?"
+    local way = partHpWay[cls]
+    if way == nil then
+        local cur, max
+        for _, n in ipairs(propList(actor)) do
+            local l = n:lower()
+            if l:find("health", 1, true) and readNum(actor, n) and not (l:find("regen") or l:find("rate") or l:find("percent")
+                or l:find("threshold") or l:find("scale") or l:find("multiplier") or l:find("bonus")) then
+                if l:find("max", 1, true) then max = max or n
+                elseif l == "health" or l:find("current", 1, true) or l:find("cur", 1, true) then cur = cur or n end
+            end
+        end
+        way = cur and { cur, max } or false
+        partHpWay[cls] = way
+        log("overlay: part class " .. cls .. ": health " .. (way and (way[1] .. " / " .. tostring(way[2])) or "not found"))
+    end
+    if not way then return nil end
+    local top = 0
+    return function()
+        local c = readNum(actor, way[1])
+        local m = way[2] and readNum(actor, way[2]) or nil
+        if c and c > top then top = c end
+        return c, (m and m > 0) and m or top
+    end, actor
+end
+local function linkedActor(comp)
+    if partLinkProp then
+        local ok, a = pcall(function() return comp[partLinkProp] end)
+        return (ok and valid(a)) and a or nil
+    end
+    for _, n in ipairs(propList(comp)) do
+        local ok, a = pcall(function() return comp[n] end)
+        if ok and (type(a) == "userdata" or type(a) == "table") and valid(a) and classChain(a):find("MonsterPartActor", 1, true) then
+            partLinkProp = n
+            log("overlay: part components point at their part actor through " .. n)
+            return a
+        end
+    end
+    return nil
+end
+local function findParts(e, sets)
+    local parts, seen = {}, {}
+    for _, comp in ipairs(findAll({ "MonsterPartComponent" })) do
+        if under(pathOf(comp), e.path) then
+            local actor = linkedActor(comp)
+            if actor then
+                local read, src = partReader(actor, sets)
+                local name = prettyPart(lastName(comp))
+                local id = nameOf(actor) or name
+                if read and not seen[id] then
+                    seen[id] = true
+                    parts[#parts + 1] = { name = name, read = read, src = src }
+                end
+            end
+        end
+    end
+    table.sort(parts, function(a, b) return a.name < b.name end)
+    local count, nth = {}, {}
+    for _, p in ipairs(parts) do count[p.name] = (count[p.name] or 0) + 1 end
+    for _, p in ipairs(parts) do     -- two "Leg" parts: "Leg 1", "Leg 2"
+        if count[p.name] > 1 then local base = p.name nth[base] = (nth[base] or 0) + 1 p.name = base .. " " .. nth[base] end
+    end
+    return parts
+end
+
+local function trackScan(now)
+    Tk.lastScan = now
+    local found = {}
+    local bl = findAll({ "ArchonBehemoth" })
+    local sets = nil
+    for _, b in ipairs(bl) do
+        local key = nameOf(b)
+        if key then
+            local e = Tk.list[key]
+            if not e then
+                sets = sets or findAll({ "ArchonHealthAttributeSet" })
+                local path = pathOf(b)
+                local st = path and healthSetUnder(sets, path)
+                if st then
+                    e = { key = key, b = b, path = path, set = st, cls = (key:match("^(%S+)") or ""), last = nil, at = nil,
+                          parts = {}, partsAt = -100, partLast = {} }
+                    Tk.list[key] = e
+                end
+            end
+            if e then
+                found[key] = true
+                if #e.parts == 0 and now - e.partsAt >= TRACK_PARTS then
+                    e.partsAt = now
+                    sets = sets or findAll({ "ArchonHealthAttributeSet" })
+                    local ok, ps = pcall(findParts, e, sets)
+                    if ok then
+                        e.parts = ps
+                        if #ps > 0 then log(string.format("overlay: %s has %d part(s) (%s)", e.cls, #ps, S.role)) end
+                    else logOnce("parts:" .. tostring(ps), "overlay: part search failed: " .. tostring(ps)) end
+                end
+            end
+        end
+    end
+    for key in pairs(Tk.list) do if not found[key] then Tk.list[key] = nil end end
+end
+
+local function trackJson(e)
+    local hp, mx = readNum(e.set, "CurrentHealth") or 0, readNum(e.set, "MaxHealth") or 0
+    local ps = {}
+    for _, p in ipairs(e.parts) do
+        local c, m = p.read()
+        if c and m and m > 0 then ps[#ps + 1] = string.format('["%s",%.0f,%.0f]', clean(p.name), math.max(c, 0), m) end
+    end
+    return string.format('{"key":"%s","cls":"%s","cur":%.0f,"max":%.0f,"at":%d,"n":%d,"dead":%s,"parts":[%s]}',
+        clean(e.key), clean(e.cls), math.max(hp, 0), mx, e.atTime or 0, e.n or 0, tostring(hp <= 0), table.concat(ps, ","))
+end
+
+local function trackTick(now)
+    if not T.track or not TrackFile then
+        if not Tk.cleared and TrackFile then os.remove(TrackFile) Tk.cleared = true Tk.lastBody = nil end
+        return
+    end
+    Tk.cleared = false
+    if now - Tk.lastScan >= TRACK_SCAN then trackScan(now) end
+    -- what dropped since last time: that behemoth becomes the one to show
+    local best = nil
+    for key, e in pairs(Tk.list) do
+        if not valid(e.b) or not valid(e.set) then Tk.list[key] = nil
+        else
+            local hp = readNum(e.set, "CurrentHealth")
+            local hit = hp and e.last and hp < e.last - 0.01
+            if hp then e.last = hp end
+            for i, p in ipairs(e.parts) do
+                local c = p.read()
+                if c and e.partLast[i] and c < e.partLast[i] - 0.01 then hit = true end
+                e.partLast[i] = c
+            end
+            if hit then Tk.n = Tk.n + 1 e.at, e.atTime, e.n = now, os.time(), Tk.n end
+            if hp and hp <= 0 and not e.deadAt then e.deadAt = now end
+            if e.deadAt and now - e.deadAt > TRACK_LINGER then e.at = nil end
+            if e.at and (not best or e.at > best.at) then best = e end
+        end
+    end
+    local body = best and trackJson(best) or "null"
+    if body == Tk.lastBody and now - Tk.lastWrite < TRACK_BEAT then return end
+    local f = io.open(TrackFile, "w")
+    if not f then logOnce("notrack", "cannot write " .. TrackFile .. " (the panel creates the track folder)") return end
+    f:write(string.format('{"role":"%s","time":%d,"b":%s}', S.role, os.time(), body))
+    f:close()
+    if best and body ~= Tk.lastBody and not Tk.logged then Tk.logged = true log("overlay: tracking " .. best.cls .. " (" .. S.role .. ")") end
+    Tk.lastBody, Tk.lastWrite = body, now
+end
+
 ---------------------------------------------------------------- status heartbeat for the panel
 local lastStatus, lastRead = -100, -100
-local function clean(s) return (tostring(s or ""):gsub('[^%w_ .,:/>-]', '')) end
 local function writeStatus(now)
     lastStatus = now
     if not StatusFile then return end
@@ -318,6 +544,8 @@ local function step()
     end
     local ok, err = pcall(tick)
     if not ok then logOnce("tick:" .. tostring(err), "tick error: " .. tostring(err)) end
+    local okT, errT = pcall(trackTick, now)
+    if not okT then logOnce("track:" .. tostring(errT), "overlay error: " .. tostring(errT)) end
     if now - lastStatus >= STATUS_EVERY then
         if T.damage <= 1 and not T.refresh and now - lastRescan >= 10 then pcall(rescan, now) end   -- role only
         pcall(writeStatus, now)
@@ -330,17 +558,18 @@ LoopAsync(TICK_MS, function()
     return false
 end)
 
--- a hit lands: the multiplier answers at once, on the game's own thread (only while it is above x1)
+-- a hit lands: the multiplier and the overlay answer at once, on the game's own thread (only while one of them is on)
 local lastHitTick = -1
 local hooked, hookErr = pcall(function()
     RegisterHook("/Script/Archon.ArchonCombatTextComponent:MulticastSendMultitypeCombatText", function()
-        if T.damage <= 1 then return end
+        if T.damage <= 1 and not T.track then return end
         local now = os.clock()
         if now - lastHitTick < 0.03 then return end
         lastHitTick = now
         pcall(tick)
+        pcall(trackTick, now)   -- the overlay moves with the hit, not on the next timer tick
     end)
 end)
 log(hooked and "hit hook ready" or ("hit hook not available (" .. tostring(hookErr) .. "); the timer still runs"))
 
-log("loaded (v3: damage multiplier and instant refresh only)")
+log("loaded (v4: damage multiplier, overlay tracking, instant refresh)")

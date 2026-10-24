@@ -572,6 +572,14 @@ func main() {
 	case has("--check"):
 		os.Stdout.Write(mustJSON(checkOnly(15 * time.Second)))
 		return
+	case has("--overlay"):
+		// the behemoth overlay, started by the panel: --overlay <panel address> <token>
+		for i, a := range args {
+			if a == "--overlay" && i+2 < len(args) {
+				runOverlay(args[i+1], args[i+2])
+			}
+		}
+		return
 	case has("--stage"):
 		os.Stdout.Write(mustJSON(stageUpdate(20*time.Second, 5*time.Minute)))
 		return

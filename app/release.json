@@ -1,5 +1,5 @@
 {
-  "version": "3.2.3",
+  "version": "3.3.0",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Fixed: after \"Restart to update\" the Lantern Client window could stay invisible, so the app seemed not to open."
+  "notes": "New: the Behemoth overlay (Settings). Over the game it shows the behemoth you are fighting: its real name, its health and each part's health, in your colour preset, with smooth hits and transitions. It needs the game mod (Set up). While it is on, Dauntless Forever's own Boss Health Bar is switched off so two bars never show."
 }
