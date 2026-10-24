@@ -1,5 +1,5 @@
 {
-  "version": "3.2.0",
+  "version": "3.2.1",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "The Cheats page is gone: god mode, infinite stamina and their F8/F9 hotkeys are removed from the panel and the game mod. Damage now sits at the top of Game rules (owner only) and works as before. The game mod is much lighter: at x1 it does nothing in game. UE4SS's cheat manager mod is switched off."
+  "notes": "Fixed: removing (or giving) a very long list of items failed with \"spawn ENAMETOOLONG\". Remove items now always keeps everything a new character starts with (the beginner weapons of every type, starter armour, lantern, flask, glider, banner, emotes and so on), so removing everything leaves you ready to play. Those show as Starter."
 }

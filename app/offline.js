@@ -12,11 +12,12 @@
 // kept, next to items.js's own backups), and it is written to a temporary file and read back before it replaces it.
 //
 //   node offline.js <package folder> <job JSON> <your character ids JSON>
+//   node offline.js --args <file holding that list of three, as JSON>
 //   -> {"ok":true,"added":[...],"already":[...],"raised":[...],"unknown":[...]}
 'use strict';
 const fs = require('fs'), net = require('net'), path = require('path');
 const { plan, catalogs } = require('./live.js');
-const { protectedIds } = require('./protect.js');
+const { protectedIds, isStarter } = require('./protect.js');
 
 const out = (o) => { process.stdout.write(JSON.stringify(o)); };
 const fail = (error) => { out({ ok: false, error }); process.exit(0); };
@@ -49,7 +50,9 @@ function writeState(file, state) {
 }
 
 (async () => {
-  const [pkg, jobText, charsText] = process.argv.slice(2);
+  let argv = process.argv.slice(2);
+  if (argv[0] === '--args') { try { argv = JSON.parse(fs.readFileSync(argv[1], 'utf8')); } catch { fail('Bad request.'); } }   // long lists come in a file
+  const [pkg, jobText, charsText] = argv;
   if (!pkg || !jobText) fail('Usage: node offline.js <package> <job JSON> <character ids JSON>');
   const STATE = path.join(pkg, 'data', 'state.json');
   if (!fs.existsSync(STATE)) fail('No save yet. Press Play once and make a character first.');
@@ -66,7 +69,7 @@ function writeState(file, state) {
   const targets = (me.characters || []).filter((c) => c && mine.has(c.id) && (job.character === '*' || c.id === job.character));
   if (!targets.length) fail('Character not found.');
 
-  const result = { ok: true, added: [], already: [], raised: [], unknown: [], removed: [], kept: [] };
+  const result = { ok: true, added: [], already: [], raised: [], unknown: [], removed: [], kept: [], starter: [] };
   const push = (k, id) => { if (!result[k].includes(id)) result[k].push(id); };
   let changed = false;
   if (job.action === 'maxweapons') {
@@ -87,6 +90,7 @@ function writeState(file, state) {
       const keep = protectedIds(me, c.id);
       const drop = (i) => {
         if (!i || !want.has(i.catalogId)) return false;
+        if (isStarter(i.catalogId)) { push('starter', i.catalogId); return false; }   // failsafe: starting kit stays
         if (keep.has(i.catalogId) || (i.instanceId && keep.has(i.instanceId))) { push('kept', i.catalogId); return false; }
         push('removed', i.catalogId); changed = true; return true;
       };

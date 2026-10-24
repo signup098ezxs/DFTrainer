@@ -22,7 +22,7 @@ const HERE = __dirname;
 const UI_FILE = path.join(HERE, 'ui', 'index.html');
 const MOD_SRC = path.join(HERE, 'mod', 'DFTrainer');
 const LIVE = require('./live.js');
-const { protectedIds } = require('./protect.js');
+const { protectedIds, isStarter } = require('./protect.js');
 // Installed by the launcher, each version lives in its own folder (app\<version>): settings live one level up, in the
 // install folder (DFT_ROOT), so updates keep them. Started by hand (node server.js), they stay next to this file.
 const ROOT = process.env.DFT_ROOT || null;
@@ -177,14 +177,36 @@ function runTool(p, script, args, { timeout = 60000 } = {}) {
   });
 }
 // Lantern Client's own scripts that work on the save (offline.js), run like the package's tools: its Node.js, its folder
+// Lantern Client's own scripts get their arguments in a temporary file: a long item list on the command line goes past
+// Windows' 32,767-character limit (spawn ENAMETOOLONG)
 function runOwn(p, script, args, { timeout = 120000 } = {}) {
   return new Promise((resolve) => {
-    execFile(p.node, [path.join(HERE, script), ...args], { cwd: p.pkg, timeout, windowsHide: true, maxBuffer: 16 * 1024 * 1024 }, (e, out) => {
+    const file = path.join(os.tmpdir(), `lantern-args-${process.pid}-${crypto.randomBytes(4).toString('hex')}.json`);
+    try { fs.writeFileSync(file, JSON.stringify(args)); } catch (e) { resolve({ ok: false, error: `Could not hand ${script} its work: ${e.message}` }); return; }
+    execFile(p.node, [path.join(HERE, script), '--args', file], { cwd: p.pkg, timeout, windowsHide: true, maxBuffer: 16 * 1024 * 1024 }, (e, out) => {
+      try { fs.unlinkSync(file); } catch {}
       const text = String(out || '').trim();
       try { resolve(JSON.parse(text)); }
       catch { resolve({ ok: false, error: e ? `${script} failed: ${e.message.split('\n')[0]}` : `${script} gave no answer.` }); }
     });
   });
+}
+// the package's items.js takes its list on the command line: long lists go in several calls, the results merged
+const ARG_BUDGET = 20000;
+async function runItemsTool(p, job) {
+  const args = itemArgs(job);
+  if (args[2].length <= ARG_BUDGET || args[2] === 'all') return runTool(p, 'items.js', args);
+  const keys = job.action === 'set' ? Object.keys(job.counts) : job.list;
+  const per = Math.max(1, Math.floor(keys.length * ARG_BUDGET / args[2].length));
+  const merged = { ok: true };
+  for (let i = 0; i < keys.length; i += per) {
+    const part = keys.slice(i, i + per);
+    const sub = job.action === 'set' ? { ...job, counts: Object.fromEntries(part.map((k) => [k, job.counts[k]])) } : { ...job, list: part };
+    const r = await runTool(p, 'items.js', itemArgs(sub));
+    if (!r || !r.ok) return i ? { ...(r || {}), ok: false, error: `${(r && r.error) || 'items.js failed'} (after ${i} of ${keys.length} were done)` } : r;
+    for (const [k, v] of Object.entries(r)) if (Array.isArray(v)) merged[k] = (merged[k] || []).concat(v); else if (!(k in merged)) merged[k] = v;
+  }
+  return merged;
 }
 function copyDir(from, to, skip = new Set()) {
   fs.mkdirSync(to, { recursive: true });
@@ -367,7 +389,7 @@ async function applyJob(p, job, live = false) {
     const mine = await runTool(p, 'items.js', ['list']);
     r = mine && mine.ok ? await runOwn(p, 'offline.js', [p.pkg, JSON.stringify(job), JSON.stringify((mine.characters || []).map((c) => c.id))])
       : (mine || { ok: false, error: 'Could not read your characters.' });
-  } else r = await runTool(p, 'items.js', itemArgs(job));
+  } else r = await runItemsTool(p, job);
   history.unshift({ at: Date.now(), what: describe(job), ok: !!r.ok, live, error: r.ok ? undefined : r.error });
   history.length = Math.min(history.length, 40);
   return r;
@@ -387,9 +409,9 @@ function giftOutcome(p, job, r) {
   return o;
 }
 function removeOutcome(p, r) {
-  const removed = r.removed || [], kept = r.kept || [];
-  if (removed.length) note('applied', 'Removed from your save', `${removed.length.toLocaleString('en-US')} item${removed.length === 1 ? '' : 's'}${kept.length ? `; kept ${kept.length} in use` : ''}.`);
-  const message = removed.length ? undefined : kept.length ? `Nothing removed: ${listNames(p, kept, 3)} ${kept.length === 1 ? 'is' : 'are'} in use.` : 'You do not own any of those.';
+  const removed = r.removed || [], kept = [...(r.kept || []), ...(r.starter || [])];
+  if (removed.length) note('applied', 'Removed from your save', `${removed.length.toLocaleString('en-US')} item${removed.length === 1 ? '' : 's'}${kept.length ? `; kept ${kept.length} in use or starter kit` : ''}.`);
+  const message = removed.length ? undefined : kept.length ? `Nothing removed: ${listNames(p, kept, 3)} ${kept.length === 1 ? 'is' : 'are'} in use or starter kit, which is always kept.` : 'You do not own any of those.';
   if (message) note('ok', 'Nothing removed', message);
   return { ok: true, removed: removed.length, keptNames: kept.length ? listNames(p, kept, 3) : undefined, nothingNew: !removed.length, message };
 }
@@ -681,6 +703,7 @@ const routes = {
       for (const c of r.characters || []) {
         const pl = players.find((x) => (x.characters || []).some((y) => y && y.id === c.id));
         c.inUse = pl ? [...protectedIds(pl, c.id)].filter((id) => catalog(p).storage.has(id)) : [];
+        c.starter = (c.gear || []).map((g) => g.id).filter(isStarter);
       }
     }
     return r;

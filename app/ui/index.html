@@ -659,7 +659,7 @@ input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border: 0; bord
               <span class="grow"></span>
               <button class="btn danger" id="rmGo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg><span>Remove</span></button>
             </div>
-            <p class="cellnote">Your save is backed up first. Anything you are using is always kept: equipped gear, its parts, skins and dyes, and your emotes, banner, title, flare and glider. While the game runs, removal waits until you close it.</p>
+            <p class="cellnote">Your save is backed up first. Anything you are using is always kept (equipped gear, its parts, skins and dyes, your emotes, banner, title, flare and glider), and so is everything a new character starts with, so even removing everything leaves you ready to play. While the game runs, removal waits until you close it.</p>
           </div>
           <div class="toolbar"><div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="rq" placeholder="Search what you own" autocomplete="off" spellcheck="false"></div></div>
           <div class="cats" id="rmCats"></div>
@@ -1378,10 +1378,11 @@ const rmSel = new Set(); let rmCat = '', rmShown = 150, rmArmed = 0, rmTimer = n
 function rmChar() { return ((SAVE && SAVE.characters) || []).find((c) => c.id === charId()); }
 function rmOwned() {
   const c = rmChar(); if (!c || !CAT) return [];
-  const by = new Map(CAT.gear.map((g) => [g[0], g])), use = new Set(c.inUse || []), seen = new Set(), out = [];
+  const by = new Map(CAT.gear.map((g) => [g[0], g])), use = new Set(c.inUse || []), start = new Set(c.starter || []), seen = new Set(), out = [];
   for (const g of c.gear || []) {
     const e = by.get(g.id); if (!e || seen.has(g.id)) continue; seen.add(g.id);
-    out.push({ id: g.id, name: e[1], type: e[2], key: e.key, lock: use.has(g.id) || use.has(g.instanceId) || g.equipped });
+    const st = start.has(g.id);
+    out.push({ id: g.id, name: e[1], type: e[2], key: e.key, lock: st || use.has(g.id) || use.has(g.instanceId) || g.equipped, why: st ? 'Starter' : 'In use' });
   }
   return out;
 }
@@ -1408,7 +1409,7 @@ function renderRemove() {
   $('#rmCount').textContent = `${list.length.toLocaleString()} item${list.length === 1 ? '' : 's'}${q ? ' found' : rmCat ? ' in ' + rmCat : ''}`;
   $('#rmAll').textContent = pick.length ? `Select all ${pick.length.toLocaleString()}` : 'Select all';
   const rows = list.slice(0, rmShown).map((x) => x.lock
-    ? `<div class="item lock" title="In use: kept"><span class="cb">${CHECK}</span><div style="min-width:0"><div class="nm">${esc(x.name)}</div><div class="id">${esc(x.id)}${q ? ', ' + esc(x.type) : ''}</div></div><div><span class="tag">In use</span></div></div>`
+    ? `<div class="item lock" title="${x.why === 'Starter' ? 'Starter kit: always kept' : 'In use: kept'}"><span class="cb">${CHECK}</span><div style="min-width:0"><div class="nm">${esc(x.name)}</div><div class="id">${esc(x.id)}${q ? ', ' + esc(x.type) : ''}</div></div><div><span class="tag">${x.why}</span></div></div>`
     : `<div class="item${rmSel.has(x.id) ? ' sel' : ''}" data-id="${esc(x.id)}" role="checkbox" aria-checked="${rmSel.has(x.id)}" tabindex="0"><span class="cb">${CHECK}</span><div style="min-width:0"><div class="nm">${esc(x.name)}</div><div class="id">${esc(x.id)}${q ? ', ' + esc(x.type) : ''}</div></div><div></div></div>`).join('');
   setHTML('#rmList', (rows || `<div class="empty">${c ? 'Nothing here.' : 'Pick one character at the top.'}</div>`)
     + (list.length > rmShown ? `<div class="more"><button class="link" id="rmMore">Show ${Math.min(400, list.length - rmShown)} more</button></div>` : ''));
@@ -1578,7 +1579,7 @@ async function runItems(job, btn) {
   if (!r.ok) { SFX.error(); toast(job.action === 'remove' ? 'Not removed' : 'Not added', r.error || 'That did not work.', 'error', 7000); return false; }
   SFX.give();
   // "already own" only when the save itself listed those items as yours
-  if (job.action === 'remove' && !r.queued && !r.nothingNew) { toast(`Removed ${r.removed.toLocaleString()} item${r.removed === 1 ? '' : 's'}`, r.keptNames ? `Kept ${r.keptNames}: in use.` : 'Your save was backed up first.', 'applied', 5000); return true; }
+  if (job.action === 'remove' && !r.queued && !r.nothingNew) { toast(`Removed ${r.removed.toLocaleString()} item${r.removed === 1 ? '' : 's'}`, r.keptNames ? `Kept ${r.keptNames}: in use or starter kit.` : 'Your save was backed up first.', 'applied', 5000); return true; }
   if (r.nothingNew) toast(r.message || (r.owned ? `You already own ${r.owned}.` : 'Nothing new to add.'), r.unknownNames ? `Not in the 1.14.7 catalog: ${r.unknownNames}.` : '', 'ok', 5000);
   else {
     if (r.queued && !r.live) toast('Waiting for the game to close', r.raiseLater ? `You already own ${r.raiseLater}: it is raised to max level when you close the game.` : (r.note || 'It is added the moment you close the game.'), 'queued', 6000);
