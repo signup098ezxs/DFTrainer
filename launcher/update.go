@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -212,18 +213,45 @@ func download(ctx context.Context, urls map[string]string, a Asset) ([]byte, err
 	return b, nil
 }
 
-// lock: the launcher and the panel may both look for updates; only one installs at a time
+// lock: the launcher and the panel may both look for updates; only one installs at a time. The lock holds its
+// owner's process id: an update that was stopped part way (its process killed when the panel restarted, or the PC
+// shut down) leaves the file behind, and a lock whose owner is no longer running is cleared at once instead of
+// blocking every update for the next 15 minutes ("Could not check for updates: another update is running").
 func takeLock() (func(), bool) {
 	p := filepath.Join(rootDir(), "update.lock")
-	if st, err := os.Stat(p); err == nil && time.Since(st.ModTime()) > 15*time.Minute {
+	for try := 0; try < 2; try++ {
+		f, err := os.OpenFile(p, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
+		if err == nil {
+			fmt.Fprintf(f, "%d", os.Getpid())
+			f.Close()
+			return func() { _ = os.Remove(p) }, true
+		}
+		if !lockStale(p) {
+			return nil, false
+		}
+		logf("update: cleared a lock left by an update that was stopped")
 		_ = os.Remove(p)
 	}
-	f, err := os.OpenFile(p, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
+	return nil, false
+}
+
+// lockStale: the lock's owner is not running any more, or it is older than any update can take
+func lockStale(p string) bool {
+	st, err := os.Stat(p)
 	if err != nil {
-		return nil, false
+		return true
 	}
-	f.Close()
-	return func() { _ = os.Remove(p) }, true
+	if time.Since(st.ModTime()) > 7*time.Minute { // the longest update (download 5 min) is over by then
+		return true
+	}
+	b, _ := os.ReadFile(p)
+	pid, err := strconv.Atoi(strings.TrimSpace(string(b)))
+	if err != nil || pid <= 0 {
+		// an empty lock (written by launchers before 1.6.10, which did not record their process): its owner may still
+		// be downloading, so only the age counts (above)
+		return false
+	}
+	return pid != os.Getpid() && !processAlive(pid)
 }
 
 func checkOnly(timeout time.Duration) Result {

@@ -836,6 +836,8 @@ function stageUpdate(manual = false) {
         note('update', `Lantern Client ${r.to} is ready`, r.notes ? `${r.notes} Restart to use it.` : 'Restart to use it.');
       } else if (manual) {
         if (r.error === 'no update channel set') note('error', 'No update channel yet', 'This build has no GitHub repository set for updates.');
+        // the launcher itself is installing one right now (it started first): not a failure; asked again shortly
+        else if (r.error === 'another update is running') { note('update', 'An update is already installing', 'Checking again in 30 seconds.'); setTimeout(() => stageUpdate(true), 30000); }
         else if (r.error) note('error', r.available ? 'The update did not install' : 'Could not check for updates', r.error);
         else if (!updateReady) note('ok', 'You have the latest version', `Lantern Client ${VERSION}`);
       }
