@@ -24,6 +24,7 @@ const MOD_SRC = path.join(HERE, 'mod', 'DFTrainer');
 const LIVE = require('./live.js');
 const { protectedIds, isStarter } = require('./protect.js');
 const PLAYMODE = require('./playmode.js');
+const BUILDS = require('./builds/index.js');
 // Installed by the launcher, each version lives in its own folder (app\<version>): settings live one level up, in the
 // install folder (DFT_ROOT), so updates keep them. Started by hand (node server.js), they stay next to this file.
 const ROOT = process.env.DFT_ROOT || null;
@@ -883,6 +884,23 @@ const routes = {
     const groups = (readJson(path.join(p.pkg, 'items.json'), {}).groups || []);
     const c = catalog(p);
     return { ok: true, build: GAME_BUILD, gear: c.gear, types: c.types, groups, rules: rulesInfo(p), cells: cells(p) };
+  },
+  // Meta Build Creator (anyone with a key): the choices, and a build for them (made in a worker thread)
+  'GET /api/builds/options': async () => ({ ok: true, ...BUILDS.options() }),
+  'POST /api/builds/generate': async (b) => {
+    let owned = null;
+    if (b && b.ownedOnly) {
+      const p = places();
+      const l = p.pkg ? await listChars(p) : null;
+      const c = l && l.ok && (l.characters || []).find((x) => x && x.id === String(b.character || ''));
+      if (c) {
+        const gear = new Set((c.gear || []).map((g) => g.id)), cells = {};
+        for (const g of c.gear || []) if (/^CELL_/.test(g.id)) cells[g.id] = (cells[g.id] || 0) + 1;
+        for (const [id, n] of Object.entries(c.items || {})) if (n > 0) { gear.add(id); cells[id] = n; }
+        owned = { gear: [...gear], cells };
+      }
+    }
+    return BUILDS.generate(b || {}, owned);
   },
   'GET /api/save': async () => {
     const p = places(); if (!p.pkg) return { ok: false, error: 'Package not found.' };

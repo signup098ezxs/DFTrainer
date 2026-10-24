@@ -1,0 +1,11 @@
+Lantern Client - Build Creator data
+
+kb-1147.json is made by tools/builds-kb.py from:
+
+- Dauntless Builder (pre-Awakening version, "Dauntless Builder Reforged") by atomicptr and contributors,
+  https://github.com/atomicptr/dauntless-builder-legacy - item data for Dauntless 1.14.6 and its copy of the
+  community "Dauntless Meta Builds - 1.10+" spreadsheet. Licensed AGPL-3.0, like Lantern Client.
+- The Dauntless Forever 1.14.7 package's item catalog (read from the game's own files), used to check that every
+  item exists in 1.14.7 and to find its id.
+
+Dauntless and its item names, texts and assets are the property of Phoenix Labs.

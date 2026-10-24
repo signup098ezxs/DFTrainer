@@ -1,5 +1,5 @@
 {
-  "version": "3.6.1",
+  "version": "3.7.0",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Part lock-on: lighter and steadier. About half the game calls and a quarter of the memory churn per frame, no aim writes once it is on the part, no jump on the first frame of a lock, keeps the lock when the game swaps a part's actor, and lets go when the behemoth is defeated even with the overlay off."
+  "notes": "New Build Creator tab: answer a few questions (goals in priority order, weapon, target, Omnicell, play style, owned gear) and get a full Dauntless 1.14.7 build (weapon, bond, parts, armour, cells, lantern, Omnicell) checked against the game's slot, perk-cap, bond and Exotic rules, with why each piece is there, how to play it, sources and a confidence level. Built from community-researched 1.14.6/1.14.7 data and 500+ community meta builds; works offline."
 }
