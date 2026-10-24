@@ -13,6 +13,7 @@ import { deflateRawSync } from 'node:zlib';
 import { mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { Script } from 'node:vm';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
@@ -92,6 +93,11 @@ rmSync(OUT, { recursive: true, force: true });
 mkdirSync(OUT, { recursive: true });
 const appDir = join(ROOT, 'app');
 checkWindowsNames(files(appDir));
+// the panel's page: a syntax error in its script leaves the window stuck on the intro, so it never ships
+for (const [i, m] of [...readFileSync(join(appDir, 'ui', 'index.html'), 'utf8').matchAll(/<script>([\s\S]*?)<\/script>/g)].entries()) {
+  try { new Script(m[1], { filename: `ui/index.html <script> ${i + 1}` }); } catch (e) { console.error(`ui/index.html: ${e.message}`); process.exit(1); }
+}
+for (const f of files(appDir).filter((f) => f.endsWith('.js'))) execFileSync(process.execPath, ['--check', f], { stdio: 'inherit' });
 const entries = files(appDir).map((p) => {
   const name = relative(appDir, p).split(sep).join('/');
   let data = readFileSync(p);

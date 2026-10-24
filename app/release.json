@@ -1,5 +1,5 @@
 {
-  "version": "3.3.0",
+  "version": "3.3.1",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "New: the Behemoth overlay (Settings). Over the game it shows the behemoth you are fighting: its real name, its health and each part's health, in your colour preset, with smooth hits and transitions. It needs the game mod (Set up). While it is on, Dauntless Forever's own Boss Health Bar is switched off so two bars never show."
+  "notes": "Fixed: 3.3.0 could get stuck on the opening screens (a typo in the new Settings text stopped the page). The behemoth overlay from 3.3.0 is in Settings."
 }
