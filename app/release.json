@@ -1,5 +1,5 @@
 {
-  "version": "3.8.2",
+  "version": "3.8.3",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Lock-on fix: it turns your aim again. 3.8.1's way of reaching the game thread is never run by this game (the logs showed 0 aim steps), so lock-on follows your character's own per-frame event again: only that one, added the first time you lock, idle while nothing is held. If a way gives no steps, it switches to the next one by itself."
+  "notes": "Lock-on fix: it now aims at the part itself. The game's part markers all sit at the behemoth's centre, so lock-on was turning your aim to the middle of the behemoth. It now follows the matching bone of the behemoth's skeleton (head, a middle tail bone, the left forearm...), read every frame, so the aim follows the part as it moves."
 }

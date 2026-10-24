@@ -682,7 +682,7 @@ end
 -- letting go always ends the lock: switching weapons, a part or behemoth gone... the key locks again
 local function release(why)
     -- every game object it held is let go (nothing kept alive between locks)
-    LK.beh, LK.behKey, LK.set, LK.comp, LK.actor, LK.parts, LK.partsStr = nil, nil, nil, nil, nil, nil, ""
+    LK.beh, LK.behKey, LK.set, LK.comp, LK.actor, LK.parts, LK.partsStr, LK.pos = nil, nil, nil, nil, nil, nil, "", nil
     LK.pawn, LK.pcm, LK.pawnAt, LK.weaponAt, LK.want, LK.wy = nil, nil, -100, -100, false, nil
     LK.weapons, LK.weaponsAt, LK.setYaw = nil, -100, nil
     LK.pump = false   -- the aim-step timer stops by itself on its next run
@@ -825,38 +825,154 @@ local function pickBehemoth(cx, cy, cz, yaw, pitch)
     return best
 end
 
-local logPartSpots
 local function normAngle(a) a = (a + 180) % 360 if a < 0 then a = a + 360 end return a - 180 end
 local function callM2(o, m, x) return o[m](o, x) end
 
 -- the part named LK.part on LK.beh (exact name, else the first that contains it: "Head" -> "Head left")
 local function choosePart()
-    LK.comp, LK.actor = nil, nil
+    LK.comp, LK.actor, LK.pos = nil, nil, nil
     local want = LK.part:lower()
-    for _, p in ipairs(LK.parts) do if p.name:lower() == want then LK.comp, LK.actor = p.comp, p.actor return end end
-    for _, p in ipairs(LK.parts) do if p.name:lower():find(want, 1, true) then LK.comp, LK.actor, LK.part = p.comp, p.actor, p.name return end end
+    for _, p in ipairs(LK.parts) do if p.name:lower() == want then LK.comp, LK.actor, LK.pos = p.comp, p.actor, p.pos return end end
+    for _, p in ipairs(LK.parts) do if p.name:lower():find(want, 1, true) then LK.comp, LK.actor, LK.part, LK.pos = p.comp, p.actor, p.name, p.pos return end end
 end
--- once per kind of behemoth: how far each part is from the behemoth's centre. Parts that all sit at the same spot
--- would mean the game gives no real part positions (the aim would go to the middle of the behemoth)
-local spotsLogged = {}
-logPartSpots = function()
-    local cls = (LK.behKey or ""):match("^(%S+)") or "?"
-    if spotsLogged[cls] then return end
-    spotsLogged[cls] = true
-    local bx, by, bz = locOf(LK.beh)
-    if not bx then return end
-    local out, keys = {}, {}
-    for _, p in ipairs(LK.parts or {}) do
-        local x, y, z = partPos(p.comp, p.actor)
-        if x then
-            out[#out + 1] = string.format("%s %.0fcm", p.name, math.sqrt((x - bx) ^ 2 + (y - by) ^ 2 + (z - bz) ^ 2))
-            keys[string.format("%.0f,%.0f,%.0f", x / 10, y / 10, z / 10)] = true
+-- Where a part really is. In the game the part markers (MonsterPartComponent and its part actor) all sit at the
+-- behemoth's centre (the 3.8.2 logs: every part 0 cm from it), so the aim went to the middle of the behemoth. The real
+-- places are the bones of its skeleton: the part's own bone or socket name when the part says which, else the bone
+-- whose name matches the part (Head -> head, Tail -> a middle tail bone, Front left -> the left forearm...). The bone's
+-- position is asked for every step (GetSocketLocation), so the aim follows the head as it moves. Found once per lock.
+local function toStr(n)
+    if n == nil then return nil end
+    if type(n) == "string" then return n end
+    local ok, v = pcall(function() return n:ToString() end)
+    return ok and type(v) == "string" and v or nil
+end
+local bonesOf = {}   -- behemoth class -> its bone names (lower case -> real name), read once
+local function meshOf(beh)
+    local ok, m = pcall(getField, beh, "Mesh")
+    if ok and m and valid(m) then return m end
+    return nil
+end
+local function boneNames(cls, mesh)
+    if bonesOf[cls] then return bonesOf[cls] end
+    local list = {}
+    local okN, n = pcall(callM, mesh, "GetNumBones")
+    if okN and type(n) == "number" then
+        for i = 0, math.min(n, 600) - 1 do
+            local okB, bn = pcall(callM2, mesh, "GetBoneName", i)
+            local name = okB and toStr(bn)
+            if name and name ~= "None" then list[#list + 1] = name end
         end
     end
-    local distinct = 0
-    for _ in pairs(keys) do distinct = distinct + 1 end
-    log(string.format("lock-on: %s parts from its centre: %s%s", cls, table.concat(out, ", "),
-        (#out > 1 and distinct <= 1) and " -- all at one spot: no real part positions" or ""))
+    bonesOf[cls] = list
+    log(string.format("lock-on: %s has %d bones%s", cls, #list, #list > 0 and (": " .. table.concat(list, " ", 1, math.min(#list, 160))) or (" (GetNumBones: " .. tostring(n) .. ")")))
+    return list
+end
+-- the part's own bone/socket name, if its class has one (read from its property list: names and types only)
+local namePropsOf = {}
+local function ownBone(comp)
+    local cls = (nameOf(comp) or ""):match("^(%S+)") or "?"
+    local props = namePropsOf[cls]
+    if not props then
+        props = {}
+        local all = {}
+        for _, pr in ipairs(floatProps(comp)) do
+            all[#all + 1] = pr.name .. ":" .. pr.kind
+            local l = pr.name:lower()
+            if pr.kind == "NameProperty" and (l:find("bone", 1, true) or l:find("socket", 1, true)) then props[#props + 1] = pr.name end
+        end
+        namePropsOf[cls] = props
+        log("lock-on: " .. cls .. " properties: " .. table.concat(all, ", ", 1, math.min(#all, 80)))
+    end
+    for _, pn in ipairs(props) do
+        local ok, v = pcall(getField, comp, pn)
+        local n = ok and toStr(v)
+        if n and n ~= "" and n ~= "None" then return n end
+    end
+    return nil
+end
+local function side(l)
+    if l:find("left", 1, true) or l:match("[_%.%s]l$") or l:match("[_%.%s]l[_%d%.%s]") or l:match("^l[_%.%s]") then return "left" end
+    if l:find("right", 1, true) or l:match("[_%.%s]r$") or l:match("[_%.%s]r[_%d%.%s]") or l:match("^r[_%.%s]") then return "right" end
+    return nil
+end
+local KEYS = {
+    head = { "head", "skull", "jaw", "neck" }, tail = { "tail" },
+    front = { "forearm", "lowerarm", "elbow", "upperarm", "arm", "hand", "front", "clavicle" },
+    back = { "calf", "shin", "knee", "thigh", "leg", "foot", "rear" },
+    spine = { "spine", "chest", "back", "pelvis" },
+}
+-- the bone that best matches a part's name
+local function matchBone(partName, bones)
+    local l = partName:lower()
+    local want = l:find("left", 1, true) and "left" or (l:find("right", 1, true) and "right" or nil)
+    local keys
+    if l:find("head", 1, true) then keys = KEYS.head
+    elseif l:find("tail", 1, true) then keys = KEYS.tail
+    elseif l:find("arm", 1, true) or l:find("front", 1, true) then keys = KEYS.front
+    elseif l:find("upper back", 1, true) then keys = KEYS.spine
+    elseif l:find("back", 1, true) or l:find("leg", 1, true) then keys = KEYS.back
+    else keys = KEYS.spine end
+    for _, k in ipairs(keys) do
+        local hits, sided = {}, {}
+        for _, b in ipairs(bones) do
+            local bl = b:lower()
+            if bl:find(k, 1, true) and not bl:find("twist", 1, true) and not bl:find("ik", 1, true) and not bl:find("end", 1, true) then
+                hits[#hits + 1] = b
+                if want and side(bl) == want then sided[#sided + 1] = b end
+            end
+        end
+        local pool = (#sided > 0) and sided or ((want and #hits > 0) and (function()   -- a sided part: never the other side
+            local n = {} for _, b in ipairs(hits) do if side(b:lower()) ~= (want == "left" and "right" or "left") then n[#n + 1] = b end end return n end)() or hits)
+        if #pool > 0 then
+            if k == "tail" then return pool[math.max(1, math.floor((#pool + 1) / 2))] end   -- the middle of the tail
+            table.sort(pool, function(a, b) return #a < #b end)   -- "head" before "head_01_fx"
+            return pool[1]
+        end
+    end
+    return nil
+end
+local function boneFn(mesh, bone)
+    local okF, fn = pcall(FName, bone)
+    if not okF or not fn then return nil end
+    return function()
+        local ok, v = pcall(callM2, mesh, "GetSocketLocation", fn)
+        if ok then return vec(v) end
+        return nil
+    end
+end
+local function resolveParts()
+    local beh = LK.beh
+    local cls = (LK.behKey or ""):match("^(%S+)") or "?"
+    local bx, by, bz = locOf(beh)
+    local mesh = meshOf(beh)
+    local bones = mesh and boneNames(cls, mesh) or {}
+    if not mesh then logOnce("nomesh:" .. cls, "lock-on: " .. cls .. " has no Mesh to read bones from") end
+    local out = {}
+    for _, p in ipairs(LK.parts or {}) do
+        local how, bone = nil, nil
+        if mesh then
+            bone = ownBone(p.comp)
+            if bone then how = "its bone" else bone = matchBone(p.name, bones) how = bone and "matched bone" end
+            if bone then p.pos = boneFn(mesh, bone) end
+        end
+        local x, y, z
+        if p.pos then x, y, z = p.pos() end
+        if not x then   -- no bone: the part actor if it is somewhere else than the centre, else the part marker
+            p.pos = nil
+            local ax, ay, az = (p.actor and valid(p.actor)) and locOf(p.actor)
+            if ax and bx and ((ax - bx) ^ 2 + (ay - by) ^ 2 + (az - bz) ^ 2) > 2500 then
+                local a = p.actor
+                p.pos = function() return locOf(a) end
+                how, x, y, z = "part actor", ax, ay, az
+            else
+                how, bone = "part marker (centre)", nil
+                x, y, z = partPos(p.comp, p.actor)
+            end
+        end
+        out[#out + 1] = string.format("%s -> %s%s %s", p.name, how or "?", bone and (" " .. bone) or "",
+            (x and bx) and string.format("%.0fcm", math.sqrt((x - bx) ^ 2 + (y - by) ^ 2 + (z - bz) ^ 2)) or "?")
+    end
+    logOnce("parts:" .. cls, "lock-on: " .. cls .. " part spots from its centre: " .. table.concat(out, ", "))
 end
 -- a behemoth to lock onto, its parts and its health (all looked up once here, not per frame)
 local function acquire(cx, cy, cz, yaw, pitch)
@@ -870,8 +986,9 @@ local function acquire(cx, cy, cz, yaw, pitch)
     local e = LK.behKey and Tk.list[LK.behKey]
     LK.set = (e and e.set) or healthSetUnder(findAll({ "ArchonHealthAttributeSet" }), pathOf(LK.beh))
     LK.checkAt = -100
+    local okR, errR = pcall(resolveParts)
+    if not okR then logOnce("resolve:" .. tostring(errR), "lock-on: part spots: " .. tostring(errR)) end
     choosePart()
-    pcall(logPartSpots)
     return true
 end
 
@@ -924,7 +1041,8 @@ local function lockFrame(now, dt)
         if LK.actor and not valid(LK.actor) then LK.actor = linkedActor(LK.comp) end
     end
     if not valid(LK.comp) then return release(LK.part .. " destroyed") end
-    local tx, ty, tz = partPos(LK.comp, LK.actor)
+    local tx, ty, tz
+    if LK.pos then tx, ty, tz = LK.pos() else tx, ty, tz = partPos(LK.comp, LK.actor) end
     if not tx then return release(LK.method == "actor" and (LK.part .. " destroyed") or "part lost") end
     local dx, dy, dz = tx - cx, ty - cy, tz - cz
     local flat = math.sqrt(dx * dx + dy * dy)
@@ -1056,7 +1174,7 @@ local function lockNextPart()
     if S.role ~= "game" or not T.lock or not LK.parts or #LK.parts == 0 then return end
     local i = 1
     for j, p in ipairs(LK.parts) do if p.name == LK.part then i = j % #LK.parts + 1 end end
-    LK.part, LK.comp, LK.actor = LK.parts[i].name, LK.parts[i].comp, LK.parts[i].actor
+    LK.part, LK.comp, LK.actor, LK.pos = LK.parts[i].name, LK.parts[i].comp, LK.parts[i].actor, LK.parts[i].pos
     LK.changed = true
     log("lock-on: part " .. LK.part)
 end
@@ -1133,4 +1251,4 @@ pcall(function()
     RegisterKeyBind(Key.F8, function() pcall(lockNextPart) end)
 end)
 
-log("loaded (v5.3: damage multiplier, overlay tracking with stagger, part lock-on for solo and friends, instant refresh)")
+log("loaded (v5.4: damage multiplier, overlay tracking with stagger, part lock-on for solo and friends, instant refresh)")
