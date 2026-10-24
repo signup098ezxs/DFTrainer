@@ -1,5 +1,5 @@
 {
-  "version": "3.0.0",
+  "version": "3.0.1",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Lantern Client now supports Dauntless Forever 1.14.7 only. Give items uses the 1.14.7 catalog: 3,500+ items including the new weapons, armour, omnicells, gliders, pets and skins. Cells use their real names, Max weapon levels takes every weapon type to level 20, and Game rules shows the 1.14.7 rules."
+  "notes": "Move speed is removed from the Cheats page. If you had raised it, your normal speed comes back."
 }

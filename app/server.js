@@ -247,7 +247,7 @@ function writeToggles(p, t) {
   const clean = {
     godmode: !!t.godmode, stamina: !!t.stamina,
     damage: Math.min(1000, Math.max(1, Number(t.damage) || 1)),
-    speed: Math.min(5, Math.max(0.5, Number(t.speed) || 1)),
+    speed: 1,   // move speed was removed from the cheats: always x1 (the mod puts a raised speed back)
     refresh: !!t.refresh, refreshFn: /^[A-Za-z_]\w{0,80}$/.test(String(t.refreshFn || '')) ? String(t.refreshFn) : '',
   };
   settings.toggles = clean; saveSettings();

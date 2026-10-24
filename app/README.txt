@@ -10,7 +10,6 @@ WHAT IT DOES
     God mode ........... your health refills constantly and after every hit (hotkey F8 in game)
     Infinite stamina ... the stamina bar stays full                            (hotkey F9 in game)
     Damage ............. x2 to x50, or One hit, against behemoths
-    Move speed ......... x0.5 to x3
   Give items (also while the game runs)
     Any of the 3,500+ weapons, armour, lanterns, parts, omnicells, gliders, pets, skins and other cosmetics in the
     1.14.7 catalog. Every cell (Cells view), Max weapon levels (every weapon type to level 20), Unlock all cosmetics,

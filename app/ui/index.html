@@ -392,8 +392,8 @@ h2 { margin: 0; font: 600 21px/1.2 var(--display); letter-spacing: .01em; }
 .sw input:focus-visible ~ .track { outline: 2px solid var(--aether); outline-offset: 3px; }
 .sw.sm { width: 44px; height: 24px; } .sw.sm .knob { top: 3px; left: 3px; width: 18px; height: 18px; } .sw.sm input:checked ~ .knob { transform: translateX(20px); }
 
-/* instrument strip: damage + speed */
-.strip { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); margin-top: 12px; border-radius: 14px; border: 1px solid var(--seam); background: linear-gradient(180deg, var(--hull2), var(--hull)); }
+/* instrument strip: damage */
+.strip { display: grid; grid-template-columns: minmax(0, 1fr); margin-top: 12px; border-radius: 14px; border: 1px solid var(--seam); background: linear-gradient(180deg, var(--hull2), var(--hull)); }
 .strip > div { padding: 14px 16px 12px; min-width: 0; }
 .strip > div + div { border-left: 1px solid var(--seam); }
 .strip .top { display: flex; align-items: center; gap: 14px; }
@@ -645,12 +645,6 @@ input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border: 0; bord
               <div><h3>Damage</h3><div class="sub">Against behemoths</div></div><span class="readout" id="dmgVal">x1</span></div>
             <div class="seg" id="dmgSeg"><span class="ind"></span></div>
             <div class="state" id="liveDmg"></div>
-          </div>
-          <div>
-            <div class="top"><div class="glyph" id="gSpeed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17a8 8 0 1 1 16 0M12 17l4.5-6"/></svg></div>
-              <div><h3>Move speed</h3><div class="sub">Walking and sprinting</div></div><span class="readout" id="speedVal">x1.0</span></div>
-            <div class="dial"><input type="range" id="speed" min="0.5" max="3" step="0.1" value="1" aria-label="Move speed"><div class="ticks"><span>x0.5</span><span>x1</span><span>x2</span><span>x3</span></div></div>
-            <div class="state" id="liveSpeed"></div>
           </div>
         </div>
       </div>
@@ -1260,7 +1254,7 @@ function tourSteps() {
     { title: `Welcome${LIC && LIC.name && !owner ? ', ' + esc(LIC.name) : ''}`, body: `<p>Lantern Client sits next to Dauntless Forever (1.14.7): an item giver that works while you play, currencies and game rules${owner ? ', plus the owner cheats' : ''}.</p><p>This quick tour shows how to set it up and what each page does. It takes about a minute.</p>` },
     { target: '.pills', title: 'Status at a glance', body: '<ul><li><b>Live</b>: the panel is connected and updating in real time.</li><li><b>Game</b>: whether Dauntless Forever is running.</li><li><b>Mod</b>: whether the in-game mod is set up and answering.</li></ul>' },
     ...(!owner ? [] : [{ tab: 'cheats', target: setup ? '#banner' : '#pMod', title: 'One-time set-up for cheats', body: `<p>Lantern Client finds your Dauntless Forever 1.14.7 install by itself (or asks you for its folder).</p><p>With the game <b>closed</b>, press <b>Set up</b>${setup ? ' here' : ' on the Player page'}. It installs the Lantern mod (and UE4SS if needed) and turns on modded mode and server mods. Then press <b>Play</b> in the Dauntless Forever launcher.</p>${setup ? '' : '<p>Your set-up is already done: the Mod light shows it.</p>'}` },
-    { tab: 'cheats', target: '#tab-cheats .tiles', title: 'Cheats (owner only)', body: '<ul><li><b>God mode</b>: your health refills constantly.</li><li><b>Infinite stamina</b>: the stamina bar stays full.</li><li><b>Damage</b>: multiplies your damage to behemoths, up to one hit.</li><li><b>Move speed</b>: faster or slower walking and sprinting.</li></ul><p>They work at once, in Ramsgate or mid-hunt. In game, <kbd>F8</kbd> toggles god mode and <kbd>F9</kbd> infinite stamina.</p>' }]),
+    { tab: 'cheats', target: '#tab-cheats .tiles', title: 'Cheats (owner only)', body: '<ul><li><b>God mode</b>: your health refills constantly.</li><li><b>Infinite stamina</b>: the stamina bar stays full.</li><li><b>Damage</b>: multiplies your damage to behemoths, up to one hit.</li></ul><p>They work at once, in Ramsgate or mid-hunt. In game, <kbd>F8</kbd> toggles god mode and <kbd>F9</kbd> infinite stamina.</p>' }]),
     { tab: 'items', target: '#tab-items .search', title: 'Give items', body: '<p>Search the whole 1.14.7 catalog (weapons, armour, lanterns, parts, omnicells, gliders, pets, skins and every cosmetic), tick what you want and press <b>Give</b>.</p><ul><li><b>Max weapon levels</b> takes every weapon type to level 20.</li><li><b>Unlock all cosmetics</b> unlocks every cosmetic in one click.</li><li><b>Cells</b> (switch at the top) gives every cell at once, at +3 or every level.</li></ul><p>With the game closed, gifts go into your save. While you play, they arrive live and are announced in game chat.</p>' },
     { target: '#charSel', title: 'Who gets it', body: '<p>Pick which character receives gifts, or all of them. While you play, it follows the character you are on.</p>' },
     { tab: 'currency', target: '#tab-currency .head', title: 'Currencies and materials', body: '<p>Type any amount of Rams, Merits, tokens, materials and cell cores, then press <b>Apply changes</b>. <b>Max everything</b> fills them all. Works while you play.</p>' },
@@ -1445,7 +1439,6 @@ function syncToggles(t) {
   placeInd($('#dmgSeg'));
   setReadout('#dmgVal', t.damage >= 1000 ? 'One hit' : 'x' + t.damage, t.damage > 1);
   $('#gDmg').classList.toggle('lit', t.damage > 1);
-  if (document.activeElement !== $('#speed')) { $('#speed').value = t.speed; paintSpeed(); }
   $('#tRefresh').checked = !!t.refresh;
   lastT = { ...t };
 }
@@ -1492,21 +1485,13 @@ $('#dmgSeg').addEventListener('click', (e) => {
   setReadout('#dmgVal', v >= 1000 ? 'One hit' : 'x' + v, v > 1); $('#gDmg').classList.toggle('lit', v > 1);
   setToggle({ damage: v });
 });
-function paintSpeed() {
-  const el = $('#speed'), v = Number(el.value), pct = (v - 0.5) / 2.5 * 100;
-  el.style.setProperty('--fill', pct + '%'); el.style.setProperty('--glow', v === 1 ? 0 : 1);
-  setReadout('#speedVal', 'x' + v.toFixed(1), v !== 1); $('#gSpeed').classList.toggle('lit', v !== 1);
-}
-let lastStep = null;
-$('#speed').addEventListener('input', () => { paintSpeed(); const s = $('#speed').value; if (s !== lastStep) { lastStep = s; SFX.tick(); } });
-$('#speed').addEventListener('change', () => setToggle({ speed: Number($('#speed').value) }));
 
 function liveState(id, kind, text) { const el = $(id); el.className = 'state ' + kind; el.textContent = text; }
 function liveInfo(procs) {
   const srv = procs.filter((p) => p.role === 'server'), game = procs.filter((p) => p.role === 'game');
   if (!procs.length) {
     const t = S.running ? 'The mod is not answering. Did you restart the game after set-up?' : 'Starts working when you play.';
-    ['#liveGod', '#liveStam', '#liveDmg', '#liveSpeed'].forEach((i) => liveState(i, S.running ? 'warn' : '', t)); return;
+    ['#liveGod', '#liveStam', '#liveDmg'].forEach((i) => liveState(i, S.running ? 'warn' : '', t)); return;
   }
   const withPlayer = srv.filter((p) => p.players > 0);
   const hset = procs.some((p) => p.healthSets > 0);
@@ -1515,7 +1500,6 @@ function liveInfo(procs) {
   liveState('#liveStam', st ? 'ok' : 'warn', st ? `Linked to ${st.stamina}.` : 'Stamina value not found yet.');
   const beh = srv.reduce((n, p) => n + p.behemoths, 0);
   liveState('#liveDmg', beh ? 'ok' : '', beh ? `${beh} behemoth${beh > 1 ? 's' : ''} nearby.` : 'No behemoths nearby.');
-  liveState('#liveSpeed', game.length && srv.length ? 'ok' : 'warn', game.length && srv.length ? 'Applied in your game and its server.' : 'Needs the mod in your game and its server.');
 }
 
 /* ================================================= give items */
