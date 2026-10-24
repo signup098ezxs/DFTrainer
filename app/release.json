@@ -1,5 +1,5 @@
 {
-  "version": "3.8.0",
+  "version": "3.8.1",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Build Creator: every build now passes a pre-build check before it is shown: legal gear and cells, perk levels counted twice, weapon fit and element, goal order, which perks reach +6 (and why any don't), a comparison with the community meta builds, and the alternatives searched. A build that fails is rebuilt and checked again; one that still breaks a rule is never shown. The results are under Checks and sources."
+  "notes": "Lock-on fix: no more lag. Lock-on no longer hooks the game's per-frame events (they kept running after the lock let go); it only works while a part is held. The Repeaters check no longer searches the whole game several times a second, and Repeater hits update the overlay at most 8 times a second. New log lines show where each part is and whether the game accepts the aim change."
 }
