@@ -114,7 +114,7 @@ button { cursor: pointer; }
 @keyframes introout { to { opacity: 0; transform: scale(1.04); filter: blur(6px); } }
 body.booting header, body.booting main { opacity: 0; }
 body.revealing header { animation: drop .7s var(--ease) both; }
-body.revealing nav > button, body.revealing nav .keys { animation: slidein .6s var(--ease) both; animation-delay: calc(.12s + var(--i, 0) * 55ms); }
+body.revealing nav > button { animation: slidein .6s var(--ease) both; animation-delay: calc(.12s + var(--i, 0) * 55ms); }
 body.revealing .reveal { animation: settle .75s var(--ease) both; animation-delay: calc(.2s + var(--i, 0) * 75ms); }
 @keyframes drop { from { opacity: 0; transform: translateY(-14px); } }
 @keyframes slidein { from { opacity: 0; transform: translateX(-16px); } }
@@ -305,7 +305,7 @@ select option { background: var(--hull); }
 @media (max-width: 760px) { .kform { grid-template-columns: 1fr; } .krow { grid-template-columns: minmax(0, 1fr) auto; } .krow .acts { grid-column: 1 / -1; } }
 
 /* ------------------------------------------------ settings page */
-nav > button.settab { margin-top: 4px; }
+nav > button.settab { margin-top: auto; }
 .settab svg { transition: transform .6s var(--spring); }
 nav > button.settab.on svg { transform: rotate(60deg); }
 .setgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
@@ -356,7 +356,6 @@ nav .count { margin-left: auto; min-width: 20px; height: 20px; padding: 0 6px; b
 nav .count.show { transform: scale(1); }
 nav .navlabel { margin: 14px 12px 4px; color: var(--ash2); font: 600 11px/1 var(--display); letter-spacing: .12em; text-transform: uppercase; }
 nav .navlabel[hidden], nav .keys[hidden] { display: none; }
-nav .keys { margin-top: auto; padding: 10px 12px; color: var(--ash2); font-size: 12px; line-height: 1.8; }
 kbd { display: inline-block; min-width: 22px; padding: 0 6px; border-radius: 6px; border: 1px solid var(--seam2); border-bottom-width: 2px; background: var(--hull2); color: var(--aether); font: 600 11.5px/18px var(--display); text-align: center; }
 .pages { position: relative; min-height: 0; overflow: hidden; }
 section { position: absolute; inset: 0; overflow: auto; padding: 18px 24px 90px; visibility: hidden; opacity: 0; transform: translateY(8px); transition: opacity .28s var(--ease), transform .35s var(--ease), visibility 0s .35s; }
@@ -366,22 +365,10 @@ h2 { margin: 0; font: 600 21px/1.2 var(--display); letter-spacing: .01em; }
 .lede { margin: 2px 0 0; color: var(--ash); font-size: 13.5px; max-width: 70ch; }
 .wrap { max-width: 1100px; }
 
-/* ------------------------------------------------ charge tiles (god mode, stamina) */
-.tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.tile { position: relative; overflow: hidden; isolation: isolate; padding: 14px 16px 12px; border-radius: 14px; border: 1px solid var(--seam); background: linear-gradient(180deg, var(--hull2), var(--hull)); transition: border-color .45s, box-shadow .45s; cursor: pointer; }
-.tile::before { content: ""; position: absolute; inset: 0; z-index: -1; background: radial-gradient(120% 140% at var(--cx, 88%) var(--cy, 22%), rgba(var(--a-rgb), .2), rgba(var(--d-rgb), .08) 40%, transparent 70%); opacity: 0; transform: scale(.4); transform-origin: var(--cx, 88%) var(--cy, 22%); transition: opacity .55s var(--ease), transform .7s var(--ease); }
-.tile::after { content: ""; position: absolute; left: 22px; right: 22px; top: 0; height: 1px; background: linear-gradient(90deg, transparent, var(--aether), transparent); opacity: 0; transition: opacity .5s; }
-.tile.on { border-color: rgba(var(--a-rgb), .38); box-shadow: 0 0 0 1px rgba(var(--a-rgb), .08), 0 14px 40px -12px rgba(var(--a-rgb), .35); }
-.tile.on::before { opacity: 1; transform: scale(1); }
-.tile.on::after { opacity: .9; }
-.tile:hover:not(.on) { border-color: var(--seam2); }
-.tile .top { display: flex; align-items: flex-start; gap: 14px; }
+/* ------------------------------------------------ damage card (Game rules, owner only) */
 .glyph { width: 36px; height: 36px; flex: none; display: grid; place-items: center; border-radius: 10px; border: 1px solid var(--seam2); background: rgba(6, 10, 15, .6); color: var(--ash); transition: color .4s, border-color .4s, box-shadow .4s; }
 .glyph svg { width: 18px; height: 18px; }
-.on .glyph, .strip .glyph.lit { color: var(--aether); border-color: rgba(var(--a-rgb), .4); box-shadow: 0 0 18px rgba(var(--a-rgb), .25), inset 0 0 12px rgba(var(--a-rgb), .12); }
-.tile h3 { margin: 0; font: 600 16.5px/1.2 var(--display); }
-.tile .hk { margin-top: 2px; color: var(--ash); font-size: 12px; }
-.tile p { margin: 8px 0 0; color: #a7bdc6; font-size: 13.5px; max-width: 46ch; }
+.strip .glyph.lit { color: var(--aether); border-color: rgba(var(--a-rgb), .4); box-shadow: 0 0 18px rgba(var(--a-rgb), .25), inset 0 0 12px rgba(var(--a-rgb), .12); }
 .state { display: flex; align-items: center; gap: 8px; margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--seam); color: var(--ash); font-size: 12.5px; min-height: 28px; }
 .state::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--ash2); flex: none; }
 .state.ok { color: var(--a-pale); } .state.ok::before { background: var(--aether); box-shadow: 0 0 8px var(--aether); }
@@ -405,6 +392,7 @@ h2 { margin: 0; font: 600 21px/1.2 var(--display); letter-spacing: .01em; }
 .strip > div { padding: 14px 16px 12px; min-width: 0; }
 .strip > div + div { border-left: 1px solid var(--seam); }
 .strip .top { display: flex; align-items: center; gap: 14px; }
+#dmgCard { margin: 0 0 12px; }
 .strip h3 { margin: 0; font: 600 16px/1.2 var(--display); }
 .strip .sub { color: var(--ash); font-size: 12px; }
 .readout { margin-left: auto; font: 700 21px/1 var(--display); color: var(--frost); font-variant-numeric: tabular-nums; transition: color .3s, text-shadow .3s; }
@@ -559,9 +547,8 @@ input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border: 0; bord
   .dock { left: 0; }
   main { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
   nav { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--seam); padding: 8px; }
-  nav .bar, nav .keys { display: none; }
-  nav > button { flex: none; height: 40px; }
-  .tiles, .strip { grid-template-columns: 1fr; }
+  nav .bar,   nav > button { flex: none; height: 40px; }
+  .strip { grid-template-columns: 1fr; }
   .strip > div + div { border-left: 0; border-top: 1px solid var(--seam); }
   section { padding: 22px 16px 110px; }
   .dock { left: 0; padding: 12px 16px; }
@@ -615,51 +602,14 @@ input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border: 0; bord
     <button data-tab="rules"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>Game rules</button>
     <button data-tab="feed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Live feed <span class="count" id="feedCount"></span></button>
     <div class="navlabel" id="ownerLabel" hidden>Owner</div>
-    <button data-tab="cheats" id="cheatsTab" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7.5" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/></svg>Cheats</button>
     <button data-tab="keys" id="keysTab" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 9.8-9.8M17 6l3 3M14.5 8.5l2.5 2.5"/></svg>Keys</button>
-    <div class="keys" id="hotkeys" hidden>In game<br><kbd>F8</kbd> God mode<br><kbd>F9</kbd> Infinite stamina</div>
     <button data-tab="settings" class="settab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</button>
   </nav>
 
   <div class="pages">
-    <!-- CHEATS -->
-    <section id="tab-cheats">
-      <div class="banner" id="banner"><div class="t"><b id="bannerTitle"></b><span id="bannerText"></span></div><input id="pkgInput" hidden placeholder="...\DauntlessForever\versions\1.14.7"><button class="btn primary" id="bannerBtn"></button></div>
-      <div class="head"><div><h2>Cheats</h2><p class="lede">Owner only. Switch any time, in Ramsgate or mid-hunt.</p></div></div>
-      <div class="wrap">
-        <div class="tiles">
-          <div class="tile" id="tileGod" data-for="tGod">
-            <div class="top">
-              <div class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg></div>
-              <div><h3>God mode</h3><div class="hk"><kbd>F8</kbd> in game</div></div>
-              <label class="sw"><input type="checkbox" id="tGod" aria-label="God mode"><span class="track"></span><span class="knob"></span></label>
-            </div>
-            <p>Your health refills constantly and right after every hit.</p>
-            <div class="state" id="liveGod"></div>
-          </div>
-          <div class="tile" id="tileStam" data-for="tStam">
-            <div class="top">
-              <div class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></div>
-              <div><h3>Infinite stamina</h3><div class="hk"><kbd>F9</kbd> in game</div></div>
-              <label class="sw"><input type="checkbox" id="tStam" aria-label="Infinite stamina"><span class="track"></span><span class="knob"></span></label>
-            </div>
-            <p>Sprint, dodge and climb without the bar ever emptying.</p>
-            <div class="state" id="liveStam"></div>
-          </div>
-        </div>
-        <div class="strip">
-          <div>
-            <div class="top"><div class="glyph" id="gDmg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg></div>
-              <div><h3>Damage</h3><div class="sub">Against behemoths</div></div><span class="readout" id="dmgVal">x1</span></div>
-            <div class="seg" id="dmgSeg"><span class="ind"></span></div>
-            <div class="state" id="liveDmg"></div>
-          </div>
-        </div>
-      </div>
-    </section>
-
     <!-- ITEMS -->
     <section id="tab-items" class="on">
+      <div class="banner" id="banner"><div class="t"><b id="bannerTitle"></b><span id="bannerText"></span></div><input id="pkgInput" hidden placeholder="...\DauntlessForever\versions\1.14.7"><button class="btn primary" id="bannerBtn"></button></div>
       <div class="head"><div><h2>Give items</h2><p class="lede">Send anything from the 1.14.7 catalog to your character: gear, gliders, pets, skins and every other cosmetic.</p></div></div>
       <div class="wrap">
         <div class="relay" id="relay">
@@ -728,7 +678,17 @@ input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border: 0; bord
     <!-- RULES -->
     <section id="tab-rules">
       <div class="head"><div><h2>Game rules</h2><p class="lede">Applies the next time you press Play.</p></div></div>
-      <div class="wrap"><div class="list" id="rules"></div></div>
+      <div class="wrap">
+        <div class="strip" id="dmgCard" hidden>
+          <div>
+            <div class="top"><div class="glyph" id="gDmg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg></div>
+              <div><h3>Damage</h3><div class="sub">Against behemoths. Owner only, works at once (needs the game mod)</div></div><span class="readout" id="dmgVal">x1</span></div>
+            <div class="seg" id="dmgSeg"><span class="ind"></span></div>
+            <div class="state" id="liveDmg"></div>
+          </div>
+        </div>
+        <div class="list" id="rules"></div>
+      </div>
     </section>
 
     <!-- KEYS (owner only) -->
@@ -955,7 +915,7 @@ function reveal() {
 const KIND = {
   added: ['var(--aether)', '<path d="M12 5v14M5 12h14"/>'], delivered: ['#4ff0b4', '<path d="m5 12 5 5L20 7"/>'], applied: ['#4ff0b4', '<path d="m5 12 5 5L20 7"/>'],
   queued: ['#ffb547', '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'], error: ['#ff5a74', '<path d="M12 8v5M12 16h.01"/><circle cx="12" cy="12" r="9"/>'],
-  hotkey: ['var(--aether)', '<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10h.01M11 10h.01M15 10h.01M8 14h8"/>'], mod: ['var(--aether)', '<path d="M12 2 3 7v10l9 5 9-5V7z"/>'],
+  mod: ['var(--aether)', '<path d="M12 2 3 7v10l9 5 9-5V7z"/>'],
   update: ['var(--aether)', '<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>'],
   game: ['var(--aether)', '<path d="M6 12h4M8 10v4M15 13h.01M18 11h.01"/><rect x="2" y="6" width="20" height="12" rx="4"/>'], ok: ['var(--aether)', '<path d="m5 12 5 5L20 7"/>'],
 };
@@ -1052,7 +1012,7 @@ function onNote(n, fresh) {
   if (activeTab() !== 'feed') { unseen++; $('#feedCount').textContent = unseen; $('#feedCount').classList.add('show'); }
   if (!['game', 'mod'].includes(n.kind)) toast(n.title, n.text, n.kind, n.kind === 'delivered' ? 5000 : 3200);
   if (n.kind === 'delivered' || n.kind === 'update') { SFX.deliver(); if (n.kind === 'delivered') loadSave(); } else if (n.kind === 'error') SFX.error(); else if (n.kind === 'added' || n.kind === 'applied') { /* the Give click already chimed */ } else SFX.note();
-  if (['delivered', 'added', 'applied', 'hotkey', 'error', 'update'].includes(n.kind)) desktop(n.title, n.text);
+  if (['delivered', 'added', 'applied', 'error', 'update'].includes(n.kind)) desktop(n.title, n.text);
   if (n.kind === 'applied' || n.kind === 'added') loadSave();
 }
 
@@ -1070,14 +1030,14 @@ function showBanner(kind) {
     btn.onclick = async () => { SFX.tick(); const r = await api('/api/package', { package: inp.value }); if (r.ok) { toast('Found it', 'Loading your save...'); } else { SFX.error(); toast('That folder did not work', r.error, 'error'); } };
   } else {
     inp.hidden = true;
-    $('#bannerTitle').textContent = 'One-time set-up for cheats';
+    $('#bannerTitle').textContent = 'One-time set-up for the game mod';
     $('#bannerText').textContent = S.running ? 'Close the game first. Set-up installs the trainer mod and turns on modded mode and server mods.' : 'Installs the trainer mod (and UE4SS if needed) and turns on modded mode and server mods.';
     btn.textContent = 'Set up'; btn.disabled = !!S.running;
     btn.onclick = async () => {
       SFX.tick(); btn.classList.add('busy'); btn.textContent = 'Setting up';
       const r = await api('/api/setup', {});
       btn.classList.remove('busy');
-      if (r.ok) { SFX.give(); toast('Trainer set up', 'Press Play in the launcher.', 'applied'); } else { SFX.error(); toast('Set-up stopped', r.error, 'error', 7000); btn.textContent = 'Set up'; }
+      if (r.ok) { SFX.give(); toast('Game mod set up', 'Press Play in the launcher.', 'applied'); } else { SFX.error(); toast('Set-up stopped', r.error, 'error', 7000); btn.textContent = 'Set up'; }
     };
   }
 }
@@ -1100,9 +1060,9 @@ function renderLicense(l) {
       : l.state === 'invalid' ? 'The saved key is not valid. Paste the one you were given below, then confirm it.'
       : 'Paste the key you were given into the box (Ctrl+V), then confirm it.';
   }
-  $('#keysTab').hidden = $('#cheatsTab').hidden = $('#ownerLabel').hidden = $('#hotkeys').hidden = !l.owner;
+  $('#keysTab').hidden = $('#ownerLabel').hidden = $('#dmgCard').hidden = !l.owner;
   $('#pMod').hidden = !l.owner;
-  if (!l.owner && ['keys', 'cheats'].includes(activeTab())) goTab('items', true);
+  if (!l.owner && activeTab() === 'keys') goTab('items', true);
   requestAnimationFrame(placeNav);
   $('#licInfo').textContent = l.owner ? 'Owner: you make the keys (Keys page).'
     : l.ok ? `Licensed to ${l.name}. ${l.expires ? `Runs until ${fmtDate(l.expires)} (${daysLeft(l.expires)} day${daysLeft(l.expires) === 1 ? '' : 's'} left).` : 'Never runs out.'}` : 'No key';
@@ -1274,18 +1234,17 @@ let introDone = false, tourOn = false, tourI = 0, TOUR = [];
 function tourSteps() {
   const owner = LIC && LIC.owner, setup = $('#banner').classList.contains('show');
   return [
-    { title: `Welcome${LIC && LIC.name && !owner ? ', ' + esc(LIC.name) : ''}`, body: `<p>Lantern Client sits next to Dauntless Forever (1.14.7): an item giver that works while you play, currencies and game rules${owner ? ', plus the owner cheats' : ''}.</p><p>This quick tour shows how to set it up and what each page does. It takes about a minute.</p>` },
+    { title: `Welcome${LIC && LIC.name && !owner ? ', ' + esc(LIC.name) : ''}`, body: `<p>Lantern Client sits next to Dauntless Forever (1.14.7): an item giver that works while you play, currencies and game rules${owner ? ', plus a damage multiplier for the owner' : ''}.</p><p>This quick tour shows how to set it up and what each page does. It takes about a minute.</p>` },
     { target: '.pills', title: 'Status at a glance', body: '<ul><li><b>Live</b>: the panel is connected and updating in real time.</li><li><b>Game</b>: whether Dauntless Forever is running.</li><li><b>Mod</b>: whether the in-game mod is set up and answering.</li></ul>' },
-    ...(!owner ? [] : [{ tab: 'cheats', target: setup ? '#banner' : '#pMod', title: 'One-time set-up for cheats', body: `<p>Lantern Client finds your Dauntless Forever 1.14.7 install by itself (or asks you for its folder).</p><p>With the game <b>closed</b>, press <b>Set up</b>${setup ? ' here' : ' on the Player page'}. It installs the Lantern mod (and UE4SS if needed) and turns on modded mode and server mods. Then press <b>Play</b> in the Dauntless Forever launcher.</p>${setup ? '' : '<p>Your set-up is already done: the Mod light shows it.</p>'}` },
-    { tab: 'cheats', target: '#tab-cheats .tiles', title: 'Cheats (owner only)', body: '<ul><li><b>God mode</b>: your health refills constantly.</li><li><b>Infinite stamina</b>: the stamina bar stays full.</li><li><b>Damage</b>: multiplies your damage to behemoths, up to one hit.</li></ul><p>They work at once, in Ramsgate or mid-hunt. In game, <kbd>F8</kbd> toggles god mode and <kbd>F9</kbd> infinite stamina.</p>' }]),
+    ...(!owner ? [] : [{ tab: 'rules', target: setup ? '#banner' : '#dmgCard', title: 'Damage (owner only)', body: `<p><b>Damage</b> on the Game rules page multiplies your damage to behemoths, up to one hit, at once.</p><p>It needs the Lantern game mod: with the game <b>closed</b>, press <b>Set up</b>${setup ? ' here' : ''}. It installs the mod (and UE4SS if needed) and turns on modded mode and server mods.</p>${setup ? '' : '<p>Your set-up is already done: the Mod light shows it.</p>'}` }]),
     { tab: 'items', target: '#tab-items .search', title: 'Give items', body: '<p>Search the whole 1.14.7 catalog (weapons, armour, lanterns, parts, omnicells, gliders, pets, skins and every cosmetic), tick what you want and press <b>Give</b>.</p><ul><li><b>Max weapon levels</b> takes every weapon type to level 20.</li><li><b>Unlock all cosmetics</b> unlocks every cosmetic in one click.</li><li><b>Cells</b> (switch at the top) gives every cell at once, at +3 or every level.</li><li><b>Remove items</b> takes unused gear and cosmetics away in bulk: a smaller inventory means less stutter in game.</li></ul><p>With the game closed, gifts go into your save. While you play, they arrive live and are announced in game chat.</p>' },
     { target: '#charSel', title: 'Who gets it', body: '<p>Pick which character receives gifts, or all of them. While you play, it follows the character you are on.</p>' },
     { tab: 'currency', target: '#tab-currency .head', title: 'Currencies and materials', body: '<p>Type any amount of Rams, Merits, tokens, materials and cell cores, then press <b>Apply changes</b>. <b>Max everything</b> fills them all. Works while you play.</p>' },
     { tab: 'rules', target: '#rules > :first-child', title: 'Game rules', body: '<p>XP speeds (weapons, Hunt Pass, mastery), reward amounts (materials, Rams, Merits, Rare Cores), free crafting, free platinum and extra loadout slots. Pick a setting and it is saved; it applies the next time you press <b>Play</b>.</p>' },
-    { tab: 'feed', target: 'nav > button[data-tab="feed"]', title: 'Live feed', body: '<p>Everything that reaches your game, as it happens: gifts delivered, switches flipped, updates. Turn on <b>desktop alerts</b> there to see them while you are in game.</p>' },
+    { tab: 'feed', target: 'nav > button[data-tab="feed"]', title: 'Live feed', body: '<p>Everything that reaches your game, as it happens: gifts delivered, the mod connecting, updates. Turn on <b>desktop alerts</b> there to see them while you are in game.</p>' },
     ...(owner ? [{ tab: 'keys', target: '#tab-keys .setcard', title: 'Keys (owner only)', body: '<p>Make a key for someone: enter who it is for, pick how long it lasts, press <b>Generate key</b> and send it. <b>Revoke</b> stops a key; add its id to licenses/revoked.txt on GitHub when asked.</p>' }] : []),
     { tab: 'settings', target: 'nav > button[data-tab="settings"]', title: 'Settings', body: '<p>Colour presets, fonts, window size, interface scale, frame rate, sounds and the intro. <b>About</b> shows your key and checks for updates. Lantern Client updates itself.</p><p><b>Show the tour</b> there plays this again.</p>' },
-    { tab: 'items', title: "You're ready", body: `<p>${owner && setup ? 'Start with <b>Set up</b> on the Cheats page, then' : 'Next:'} press <b>Play</b> in the Dauntless Forever launcher${owner ? ' and switch on what you like' : ' and give yourself something'}.</p><p>Have a good hunt.</p>`, last: true },
+    { tab: 'items', title: "You're ready", body: `<p>${owner && setup ? 'Start with <b>Set up</b> at the top, then' : 'Next:'} press <b>Play</b> in the Dauntless Forever launcher and give yourself something.</p><p>Have a good hunt.</p>`, last: true },
   ];
 }
 function startTour() {
@@ -1298,7 +1257,7 @@ function startTour() {
 function endTour() {
   if (!tourOn) return;
   tourOn = false; $('#tour').hidden = true; store.set('onboarded', true);
-  goTab(LIC && LIC.owner ? 'cheats' : 'items', true);
+  goTab('items', true);
 }
 function maybeTour() {
   if (tourOn || !introDone || !menuReady || welcomeOn || !LIC || !LIC.ok || lockHold || $('#lock').classList.contains('on') || store.get('onboarded', false)) return;
@@ -1508,26 +1467,17 @@ function placeInd(seg) {
   ind.style.opacity = 1; ind.style.width = on.offsetWidth + 'px'; ind.style.transform = `translateX(${on.offsetLeft}px)`;
 }
 
-/* ================================================= cheats */
+/* ================================================= damage (Game rules, owner only) and the mod's switches */
 const DMG = [[1, 'x1'], [2, 'x2'], [5, 'x5'], [10, 'x10'], [50, 'x50'], [1000, 'One hit']];
 $('#dmgSeg').insertAdjacentHTML('beforeend', DMG.map(([v, l]) => `<button data-v="${v}">${l}</button>`).join(''));
-let holdUntil = 0, lastT = null;
+let holdUntil = 0;
 function syncToggles(t) {
   if (Date.now() < holdUntil) return;   // don't fight a click in flight
-  const changed = lastT && (lastT.godmode !== t.godmode || lastT.stamina !== t.stamina);
-  setSwitch('#tGod', '#tileGod', t.godmode, changed && lastT.godmode !== t.godmode);
-  setSwitch('#tStam', '#tileStam', t.stamina, changed && lastT.stamina !== t.stamina);
-  if (changed) (t.godmode && lastT.godmode !== t.godmode) || (t.stamina && lastT.stamina !== t.stamina) ? SFX.switchOn() : SFX.switchOff();
   $$('#dmgSeg button').forEach((b) => b.classList.toggle('on', Number(b.dataset.v) === t.damage));
   placeInd($('#dmgSeg'));
   setReadout('#dmgVal', t.damage >= 1000 ? 'One hit' : 'x' + t.damage, t.damage > 1);
   $('#gDmg').classList.toggle('lit', t.damage > 1);
   $('#tRefresh').checked = !!t.refresh;
-  lastT = { ...t };
-}
-function setSwitch(inp, tile, v, animate) {
-  const i = $(inp); i.checked = v; $(tile).classList.toggle('on', v);
-  if (animate) { const sw = i.closest('.sw'); sw.classList.remove('ping'); void sw.offsetWidth; if (v) sw.classList.add('ping'); }
 }
 function setReadout(sel, text, lit) {
   const r = $(sel); if (r.textContent !== text) { r.textContent = text; r.classList.remove('bump'); void r.offsetWidth; r.classList.add('bump'); }
@@ -1537,28 +1487,9 @@ async function setToggle(o) {
   holdUntil = Date.now() + 1500;
   const r = await api('/api/toggles', o);
   holdUntil = 0;
-  if (r.ok) { S.toggles = r.toggles; lastT = { ...lastT, ...r.toggles }; syncToggles(r.toggles); }
+  if (r.ok) { S.toggles = r.toggles; syncToggles(r.toggles); }
   else { SFX.error(); toast('Could not switch that', r.error, 'error'); }
 }
-function bindSwitch(inp, tile, key) {
-  $(inp).addEventListener('change', (e) => {
-    const v = e.target.checked;
-    v ? SFX.switchOn() : SFX.switchOff();
-    setSwitch(inp, tile, v, true);
-    if (lastT) lastT[key] = v;
-    setToggle({ [key]: v });
-  });
-  // the whole tile is a target; the charge spreads from where you clicked
-  $(tile).addEventListener('click', (e) => {
-    if (e.target.closest('.sw')) return;
-    const r = $(tile).getBoundingClientRect();
-    $(tile).style.setProperty('--cx', ((e.clientX - r.left) / r.width * 100) + '%');
-    $(tile).style.setProperty('--cy', ((e.clientY - r.top) / r.height * 100) + '%');
-    $(inp).click();
-  });
-}
-bindSwitch('#tGod', '#tileGod', 'godmode');
-bindSwitch('#tStam', '#tileStam', 'stamina');
 $('#dmgSeg').addEventListener('click', (e) => {
   const b = e.target.closest('button'); if (!b || b.classList.contains('on')) return;
   const i = DMG.findIndex(([v]) => v === Number(b.dataset.v));
@@ -1571,18 +1502,10 @@ $('#dmgSeg').addEventListener('click', (e) => {
 
 function liveState(id, kind, text) { const el = $(id); el.className = 'state ' + kind; el.textContent = text; }
 function liveInfo(procs) {
-  const srv = procs.filter((p) => p.role === 'server'), game = procs.filter((p) => p.role === 'game');
-  if (!procs.length) {
-    const t = S.running ? 'The mod is not answering. Did you restart the game after set-up?' : 'Starts working when you play.';
-    ['#liveGod', '#liveStam', '#liveDmg'].forEach((i) => liveState(i, S.running ? 'warn' : '', t)); return;
-  }
-  const withPlayer = srv.filter((p) => p.players > 0);
-  const hset = procs.some((p) => p.healthSets > 0);
-  liveState('#liveGod', !withPlayer.length ? '' : hset ? 'ok' : 'warn', !withPlayer.length ? 'Waiting for you to load into Ramsgate or a hunt.' : hset ? `Linked to your health on ${withPlayer.length} server${withPlayer.length > 1 ? 's' : ''}.` : 'Your health value was not found yet.');
-  const st = procs.find((p) => p.stamina);
-  liveState('#liveStam', st ? 'ok' : 'warn', st ? `Linked to ${st.stamina}.` : 'Stamina value not found yet.');
-  const beh = srv.reduce((n, p) => n + p.behemoths, 0);
-  liveState('#liveDmg', beh ? 'ok' : '', beh ? `${beh} behemoth${beh > 1 ? 's' : ''} nearby.` : 'No behemoths nearby.');
+  if (!procs.length) { liveState('#liveDmg', S.running ? 'warn' : '', S.running ? 'The mod is not answering. Did you restart the game after set-up?' : 'Starts working when you play.'); return; }
+  const srv = procs.filter((p) => p.role === 'server'), beh = srv.reduce((n, p) => n + (p.behemoths || 0), 0);
+  if (!srv.length) { liveState('#liveDmg', 'warn', 'Needs the mod on your servers too (set-up turns that on).'); return; }
+  liveState('#liveDmg', beh ? 'ok' : '', beh ? `${beh} behemoth${beh > 1 ? 's' : ''} nearby.` : (S.toggles && S.toggles.damage > 1 ? 'No behemoths nearby.' : 'Ready.'));
 }
 
 /* ================================================= give items */

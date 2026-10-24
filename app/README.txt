@@ -2,14 +2,10 @@ LANTERN CLIENT  -  a companion panel for Dauntless Forever (Dauntless 1.14.7 onl
 ===========================================================================================
 Created by Alex, powered by Claude.
 
-A separate window next to the game: cheats you switch on and off, and an item giver that works while you play.
+A separate window next to the game: an item giver that works while you play, currencies and game rules.
 The Dauntless Forever launcher is not changed.
 
 WHAT IT DOES
-  Cheats (owner only: Owner > Cheats; switch any time, also mid-hunt)
-    God mode ........... your health refills constantly and after every hit (hotkey F8 in game)
-    Infinite stamina ... the stamina bar stays full                            (hotkey F9 in game)
-    Damage ............. x2 to x50, or One hit, against behemoths
   Give items (also while the game runs)
     Any of the 3,500+ weapons, armour, lanterns, parts, omnicells, gliders, pets, skins and other cosmetics in the
     1.14.7 catalog. Every cell (Cells view), Max weapon levels (every weapon type to level 20), Unlock all cosmetics,
@@ -17,6 +13,7 @@ WHAT IT DOES
     Remove items: take unused gear and cosmetics away in bulk (a smaller inventory stutters less in game).
   Game rules
     1.14.7's rules: XP speeds, reward amounts, free crafting, free platinum, extra loadout slots (launcher's page).
+    Damage (owner only, at the top of the page): x2 to x50, or One hit, against behemoths. Works at once.
   Live feed
     Everything that reaches your game, as it happens, with sounds and optional desktop alerts.
 
@@ -29,7 +26,7 @@ FIRST TIME
      accepted, Enter takes you in, with a short welcome each time it opens. The key is kept: you enter it once.
   4. The first time, a short tour shows how to set up and what each page does (Settings > Show the tour replays it).
      (Windows may say it protects your PC the first time: the exe is not code-signed. "More info", "Run anyway".)
-  3. Press "Set up" in the amber bar. It installs the trainer mod (and UE4SS, the mod loader, if you don't have it)
+  3. Owner, for Damage: press "Set up" in the amber bar. It installs the game mod (and UE4SS, the mod loader, if you don't have it)
      and turns on Modded mode and "Also run mods on my servers" for 1.14.7.
   4. Press Play in the launcher. The "Mod" pill at the top lights up when the mod answers.
 
@@ -58,21 +55,22 @@ UPDATES (automatic)
   - Your choices, waiting gifts and the game mod's switches are kept across updates.
   - Remove it from Windows Settings > Apps (Lantern Client), like any other app. Your game and save are not touched.
 
-HOW CHEATS WORK (and why they need server mods)
-  Dauntless runs every hunt on a hidden server copy of the game on your PC, and that server owns health and damage.
-  The Lantern Client mod (UE4SS Lua) runs in your game and in those server copies; the panel writes your switches to
-  trainer-toggles.json in the mod's folder and every copy reads them a few times a second.
+HOW DAMAGE WORKS (and why it needs server mods)
+  Dauntless runs every hunt on a hidden server copy of the game on your PC, and that server owns behemoth health.
+  The Lantern Client mod (UE4SS Lua) runs in your game and in those server copies; the panel writes the multiplier to
+  trainer-toggles.json in the mod's folder and every copy reads it twice a second. At x1 (and with Instant refresh
+  off) the mod does nothing else, so it costs nothing in game.
 
 GOOD TO KNOW
   - The in-game parts could not be tested in the real game when they were written (no Windows or game there). The
     panel, the item giving and the live delivery were tested against a copy of the 1.14.7 package and its real backend with a test
-    save and a stand-in for the game's backend. Each cheat card says whether the mod found what it needs; if one shows
+    save and a stand-in for the game's backend. The Damage card says whether the mod is answering; if it shows
     an amber line, look for [DFTrainer] lines (the mod kept its folder name) in <game>\Archon\Binaries\Win64\ue4ss\UE4SS.log.
   - Sounds and the intro: the speaker button at the top right (sound on or off, volume, intro on or off).
   - Fonts come from Google Fonts; offline, the panel uses Windows' own font instead.
   - One hit leaves a behemoth at 1 HP after your hit, so the game's own next hit finishes it.
-  - Games you host for friends: the server mods (and so these cheats) apply to everyone in your hunts. When you join
-    someone else's game, their server decides, so the cheats do nothing there.
+  - Games you host for friends: the server mods (and so Damage) apply to everyone in your hunts. When you join
+    someone else's game, their server decides, so Damage does nothing there.
   - With the game closed, items go into your save through the package's own tools\items.js, which backs the save up
     first (backup\inventory, last 10 kept).
   - Lantern Client is its own window (drawn by WebView2, the web engine built into Windows 10 and 11; no browser

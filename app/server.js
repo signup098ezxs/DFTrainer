@@ -9,7 +9,8 @@
 //   - real time: the panel gets a live event stream (Server-Sent Events). Gifts are announced in game chat through
 //     data\announce.txt (the backend says that file's text in chat every 2 s), and logs\requests.jsonl is followed so
 //     the panel knows the moment the game loads your inventory again: "delivered".
-//   - in-game switches: trainer-toggles.json in the DFTrainer UE4SS mod's folder (game + hidden servers read it).
+//   - the game mod: trainer-toggles.json in the DFTrainer UE4SS mod's folder (game + hidden servers read it): the
+//     owner's damage multiplier against behemoths, and the experimental instant inventory refresh.
 //   - game rules: data\rules.txt, like the launcher's Game Rules page.
 //
 //   node server.js [--package "<...>\versions\1.14.7"] [--no-open] [--port 61777]
@@ -235,26 +236,24 @@ setInterval(() => {
 }, 1000);
 
 // ---------------------------------------------------------------- in-game switches
-const TOGGLE_DEFAULTS = { godmode: false, stamina: false, damage: 1, speed: 1, refresh: false, refreshFn: '' };
-// cheats are the owner's: anyone else's client keeps the mod locked (everything off, hotkeys ignored)
+const TOGGLE_DEFAULTS = { damage: 1, refresh: false, refreshFn: '' };
+// the damage multiplier is the owner's: anyone else's client keeps the mod locked (x1)
 const isOwner = () => !!LIC.status().owner;
 function readToggles(p) {
   const t = p.modDir ? readJson(path.join(p.modDir, 'trainer-toggles.json'), null) : null;
   if (!isOwner()) return { ...TOGGLE_DEFAULTS };
-  const { locked, ...rest } = t || {};
-  return { ...TOGGLE_DEFAULTS, ...(settings.toggles || {}), ...rest };
+  const all = { ...TOGGLE_DEFAULTS, ...(settings.toggles || {}), ...(t || {}) };
+  return { damage: all.damage, refresh: all.refresh, refreshFn: all.refreshFn };
 }
 function writeToggles(p, t) {
   const clean = {
-    godmode: !!t.godmode, stamina: !!t.stamina,
     damage: Math.min(1000, Math.max(1, Number(t.damage) || 1)),
-    speed: 1,   // move speed was removed from the cheats: always x1 (the mod puts a raised speed back)
     refresh: !!t.refresh, refreshFn: /^[A-Za-z_]\w{0,80}$/.test(String(t.refreshFn || '')) ? String(t.refreshFn) : '',
   };
   settings.toggles = clean; saveSettings();
   if (p.modDir && fs.existsSync(p.modDir)) {
     const f = path.join(p.modDir, 'trainer-toggles.json');
-    // without a valid key the mod gets everything off and "locked" (its hotkeys do nothing either)
+    // not the owner: the mod gets x1 and "locked"
     const out = isOwner() ? { ...clean, locked: false } : { ...TOGGLE_DEFAULTS, locked: true };
     fs.writeFileSync(f + '.tmp', JSON.stringify({ ...out, by: 'panel', time: Math.floor(Date.now() / 1000) }));
     fs.renameSync(f + '.tmp', f);
@@ -527,6 +526,14 @@ function modFiles(dir, base = dir, out = []) {
   }
   return out;
 }
+// UE4SS ships a mod that switches on the game's built-in cheat manager; Lantern Client has no use for it, so it is
+// turned off whenever the game is closed (UE4SS's own mods list, ue4ss\Mods\mods.txt; the folder itself stays)
+function devModsOff(p) {
+  try {
+    if (!p.modsDir || !/^\s*CheatManagerEnablerMod\s*:\s*1\s*$/m.test(fs.readFileSync(path.join(p.modsDir, 'mods.txt'), 'utf8'))) return;
+    runTool(p, 'ue4ss.cjs', ['mod', 'CheatManagerEnablerMod', 'off']).catch(() => {});
+  } catch {}
+}
 function syncMod(gameRunning) {
   try {
     const p = places();
@@ -538,13 +545,16 @@ function syncMod(gameRunning) {
     if (!stale.length) return false;
     for (const rel of stale) { fs.mkdirSync(path.dirname(path.join(p.modDir, rel)), { recursive: true }); fs.copyFileSync(path.join(MOD_SRC, rel), path.join(p.modDir, rel)); }
     fs.mkdirSync(path.join(p.modDir, 'status'), { recursive: true });
+    // heartbeats and switches from an older mod version: rewritten in the current form
+    if (!gameRunning) for (const f of fs.readdirSync(path.join(p.modDir, 'status'))) { try { fs.unlinkSync(path.join(p.modDir, 'status', f)); } catch {} }
+    writeToggles(p, readToggles(p));
     note('mod', 'Game mod updated', gameRunning ? 'Restart the game to use it.' : 'It loads the next time you press Play.');
     return true;
   } catch (e) { return false; }
 }
 
 // ---------------------------------------------------------------- state, watched for changes and pushed
-let lastRunning = false, lastProcCount = 0, lastToggleText = '';
+let lastRunning = false, lastProcCount = 0;
 async function buildState() {
   const p = places();
   const license = LIC.status();
@@ -570,22 +580,12 @@ async function tickState() {
     if (s.running !== lastRunning) {
       note('game', s.running ? 'Game started' : 'Game closed', s.running ? 'Gifts go in live now.' : (queue.length ? 'Adding the gifts that were waiting...' : ''));
       if (!s.running) for (const d of deliveries) if (d.status === 'saved') d.status = 'closed';
-      if (!s.running) syncMod(false);
+      if (!s.running) { syncMod(false); devModsOff(places()); }
     }
     const n = s.processes.length;
     if (n && !lastProcCount) note('mod', 'Mod connected', `${s.processes.filter((x) => x.role === 'game').length ? 'Game' : 'No game'} + ${s.processes.filter((x) => x.role === 'server').length} server(s)`);
     lastProcCount = n;
     lastRunning = s.running;
-    // switches flipped in game with F5/F6
-    const p = places();
-    const raw = p.modDir ? readJson(path.join(p.modDir, 'trainer-toggles.json'), null) : null;
-    const txt = JSON.stringify(raw);
-    if (lastToggleText && txt !== lastToggleText && raw && raw.by === 'hotkey') {
-      const old = JSON.parse(lastToggleText) || {};
-      if (old.godmode !== raw.godmode) note('hotkey', `God mode ${raw.godmode ? 'on' : 'off'}`, 'Switched in game (F5)');
-      if (old.stamina !== raw.stamina) note('hotkey', `Infinite stamina ${raw.stamina ? 'on' : 'off'}`, 'Switched in game (F6)');
-    }
-    lastToggleText = txt;
   }
   const text = JSON.stringify(s);
   if (text !== lastStateText) { lastStateText = text; push('state', s); }
@@ -686,12 +686,11 @@ const routes = {
     return r;
   },
   'GET /api/feed': async () => feed,
-  'POST /api/setup': async () => isOwner() ? setup() : { ok: false, error: 'Cheats are for the owner.' },
+  'POST /api/setup': async () => isOwner() ? setup() : { ok: false, error: 'The game mod is set up by the owner.' },
   'POST /api/toggles': async (b) => {
-    if (!isOwner()) return { ok: false, error: 'Cheats are for the owner.' };
+    if (!isOwner()) return { ok: false, error: 'The game mod is the owner\'s.' };
     const p = places(); if (!p.pkg) return { ok: false, error: 'Package not found.' };
     const t = writeToggles(p, { ...readToggles(p), ...b });
-    lastToggleText = JSON.stringify(readJson(path.join(p.modDir || '', 'trainer-toggles.json'), null));
     return { ok: true, toggles: t };
   },
   'POST /api/items': async (b) => {
@@ -810,7 +809,7 @@ function listen(tries = 0) {
     console.log(`DF Trainer panel: ${url}`);   // older launchers (before the rename) look for this line
     writeRunning(url);
     try { const p = places(); if (p.pkg) writeToggles(p, LIC.ok() ? readToggles(p) : (settings.toggles || {})); } catch {}
-    backendUp().then((up) => syncMod(up)).catch(() => {});
+    backendUp().then((up) => { syncMod(up); if (!up) devModsOff(places()); }).catch(() => {});
     tickState().catch(() => {});
     openWindow(url);
   });

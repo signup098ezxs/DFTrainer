@@ -1,5 +1,5 @@
 {
-  "version": "3.1.0",
+  "version": "3.2.0",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "New: Give items > Remove items takes gear and cosmetics away in bulk, by category or one by one. A big inventory makes 1.14.7 stutter and set you back, because every change in game makes it reload all of it. Anything you are using is always kept, and your save is backed up first."
+  "notes": "The Cheats page is gone: god mode, infinite stamina and their F8/F9 hotkeys are removed from the panel and the game mod. Damage now sits at the top of Game rules (owner only) and works as before. The game mod is much lighter: at x1 it does nothing in game. UE4SS's cheat manager mod is switched off."
 }

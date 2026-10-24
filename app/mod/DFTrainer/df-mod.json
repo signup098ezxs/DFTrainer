@@ -1,5 +1,5 @@
 {
   "title": "Lantern Client",
-  "about": "God mode, infinite stamina, damage and speed multipliers. Controlled from the Lantern Client panel. Needs server mods on.",
-  "keys": [["F8", "god mode on/off"], ["F9", "infinite stamina on/off"]]
+  "about": "Damage multiplier against behemoths (owner only) and the experimental instant inventory refresh. Controlled from the Lantern Client panel. Needs server mods on.",
+  "keys": []
 }

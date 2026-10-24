@@ -2,7 +2,7 @@
 
 Trainer for Dauntless Forever that works (formerly DF Trainer).
 
-A companion panel for [Dauntless Forever](https://github.com/addison2k/DauntlessForever) (Dauntless 1.14.7): cheats, an item giver that works while you play, and game rules. Created by Alex, powered by Claude.
+A companion panel for [Dauntless Forever](https://github.com/addison2k/DauntlessForever) (Dauntless 1.14.7): an item giver that works while you play, currencies and game rules. Created by Alex, powered by Claude.
 
 **Players:** download `Lantern-Client-Setup.exe` from the [latest release](../../releases/latest) and run it, then paste the key you were given. It installs, opens, and keeps itself up to date. See `app/README.txt`.
 
