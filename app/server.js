@@ -754,7 +754,8 @@ const routes = {
   'POST /api/update/restart': async () => {
     if (!LAUNCHER) return { ok: false, error: 'Updates come with the Lantern Client launcher.' };
     // the launcher waits for this panel to exit, then starts the new version (gifts still waiting are kept)
-    spawn(LAUNCHER, ['--after', String(process.pid)], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+    // not windowsHide: Windows would apply that hidden start to the launcher's window too
+    spawn(LAUNCHER, ['--after', String(process.pid)], { detached: true, stdio: 'ignore' }).unref();
     setTimeout(() => process.exit(0), 400);
     return { ok: true };
   },

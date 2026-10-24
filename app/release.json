@@ -1,5 +1,5 @@
 {
-  "version": "3.2.2",
+  "version": "3.2.3",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Hunt arrivals (the animation as you land on a hunt) now have their own category in Give items and Remove items, instead of being mixed into Emotes."
+  "notes": "Fixed: after \"Restart to update\" the Lantern Client window could stay invisible, so the app seemed not to open."
 }

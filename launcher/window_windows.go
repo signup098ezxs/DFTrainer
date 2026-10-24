@@ -47,6 +47,7 @@ var (
 	procFindWindowW           = user32.NewProc("FindWindowW")
 	procShowWindow            = user32.NewProc("ShowWindow")
 	procIsIconic              = user32.NewProc("IsIconic")
+	procIsWindowVisible       = user32.NewProc("IsWindowVisible")
 	procSetForegroundWindow   = user32.NewProc("SetForegroundWindow")
 	procOpenClipboard         = user32.NewProc("OpenClipboard")
 	procCloseClipboard        = user32.NewProc("CloseClipboard")
@@ -160,6 +161,8 @@ func focusExisting() bool {
 	}
 	if iconic, _, _ := procIsIconic.Call(hwnd); iconic != 0 {
 		procShowWindow.Call(hwnd, 9 /* SW_RESTORE */)
+	} else if vis, _, _ := procIsWindowVisible.Call(hwnd); vis == 0 {
+		procShowWindow.Call(hwnd, 5 /* SW_SHOW */) // a window left hidden (see openAppWindow)
 	}
 	procSetForegroundWindow.Call(hwnd)
 	return true
@@ -208,6 +211,11 @@ func openAppWindow(url string) {
 		procDwmSetWindowAttribute.Call(hwnd, 19, uintptr(unsafe.Pointer(&dark)), 4) // older Windows 10 builds
 	}
 	moveWindow(hwnd, wPt, hPt)
+	// Windows ignores the first ShowWindow of a process started hidden (the panel's "Restart to update" started the
+	// launcher that way) and applies the starter's SW_HIDE instead: the window existed but never appeared. A second
+	// call is always honoured.
+	procShowWindow.Call(hwnd, 5 /* SW_SHOW */)
+	procSetForegroundWindow.Call(hwnd)
 
 	// called from the panel: Settings > Window size, and closing this window after "Restart to update"
 	_ = wv.Bind("dftResize", func(wPt, hPt int) error {
