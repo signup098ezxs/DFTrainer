@@ -694,60 +694,104 @@ input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border: 0; bord
 .bcprog li.done { color: var(--a-pale); } .bcprog li.done i { background: var(--aether); border-color: var(--aether); }
 .bcprog li.done i::after { content: ""; width: 7px; height: 4px; border-left: 2px solid var(--a-ink); border-bottom: 2px solid var(--a-ink); transform: rotate(-45deg) translate(1px, -1px); }
 /* result */
-.bcres { display: grid; gap: 12px; }
-.bctop { position: relative; overflow: hidden; border-radius: 16px; border: 1px solid rgba(var(--a-rgb), .35); padding: 18px 20px; background: radial-gradient(100% 140% at 0% 0%, rgba(var(--a-rgb), .16), transparent 60%), linear-gradient(180deg, var(--hull2), var(--hull)); }
+.bcres { display: grid; gap: 12px; max-width: 900px; }
+.bctop { position: relative; overflow: hidden; border-radius: 16px; border: 1px solid rgba(var(--a-rgb), .35); padding: 16px 18px; background: radial-gradient(100% 140% at 0% 0%, rgba(var(--a-rgb), .16), transparent 60%), linear-gradient(180deg, var(--hull2), var(--hull)); }
 .bctop::after { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, .09) 45%, transparent 60%); transform: translateX(-100%); animation: bcshine 1.4s .3s var(--ease) both; pointer-events: none; }
 @keyframes bcshine { to { transform: translateX(100%); } }
-.bctop h3 { margin: 0; font: 700 24px/1.15 var(--display); }
-.bctop .sub { color: var(--ash); font-size: 13.5px; margin-top: 3px; }
+.bctop .tt { display: flex; align-items: flex-start; gap: 12px; justify-content: space-between; }
+.bctop h3 { margin: 0; font: 700 22px/1.15 var(--display); }
+.bctop .sub { color: var(--ash); font-size: 13px; margin-top: 3px; }
 .bctop .acts { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 14px; }
-.bcconf { position: absolute; top: 16px; right: 18px; display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 99px; font-size: 12px; font-weight: 700; letter-spacing: .04em; border: 1px solid; }
+.bcconf { flex: none; display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 99px; font-size: 11.5px; font-weight: 700; letter-spacing: .04em; border: 1px solid; cursor: help; }
 .bcconf.High { color: var(--ok); border-color: rgba(79, 240, 180, .45); background: rgba(79, 240, 180, .08); }
 .bcconf.Medium { color: var(--ember); border-color: rgba(255, 181, 71, .45); background: rgba(255, 181, 71, .08); }
 .bcconf.Low { color: var(--fault); border-color: rgba(255, 90, 116, .45); background: rgba(255, 90, 116, .08); }
-.bcgoals { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px 16px; margin-top: 14px; }
-.bcgoals div { font-size: 12.5px; color: var(--ash); }
-.bcgoals div b { color: var(--frost); font-weight: 600; }
-.bcgoals .bar { height: 6px; border-radius: 6px; background: rgba(255, 255, 255, .07); margin-top: 5px; overflow: hidden; }
-.bcgoals .bar i { display: block; height: 100%; border-radius: 6px; background: linear-gradient(90deg, var(--a-mid), var(--a-light)); box-shadow: 0 0 10px rgba(var(--a-rgb), .5); transform-origin: left; animation: wline .9s .2s var(--ease) both; transform: scaleX(0); }
+.bcgoals { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px 16px; margin-top: 12px; }
+.bcgoals span { display: flex; justify-content: space-between; font-size: 12px; color: var(--ash); }
+.bcgoals span b { color: var(--frost); font-weight: 600; }
+.bcgoals .bar { height: 5px; border-radius: 5px; background: rgba(255, 255, 255, .07); margin-top: 4px; overflow: hidden; }
+.bcgoals .bar i { display: block; height: 100%; border-radius: 5px; background: linear-gradient(90deg, var(--a-mid), var(--a-light)); box-shadow: 0 0 10px rgba(var(--a-rgb), .5); transform-origin: left; animation: wline .9s .2s var(--ease) both; transform: scaleX(0); }
 .bccard { border-radius: 14px; border: 1px solid var(--seam); background: linear-gradient(180deg, var(--hull2), var(--hull)); padding: 14px 16px; animation: rise .4s var(--ease) both; }
-.bccard > h4 { margin: 0 0 10px; font: 600 13px var(--display); letter-spacing: .08em; text-transform: uppercase; color: var(--ash); display: flex; align-items: center; gap: 8px; }
+.bccard > h4 { margin: 0 0 10px; font: 600 12.5px var(--display); letter-spacing: .08em; text-transform: uppercase; color: var(--ash); display: flex; align-items: center; gap: 8px; }
+.bccard > h4 small { text-transform: none; letter-spacing: 0; font: 400 11.5px var(--body, inherit); color: var(--ash2); }
 .bccard > h4::after { content: ""; flex: 1; height: 1px; background: var(--seam); }
-.bcgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.bcitem { border: 1px solid var(--seam); border-radius: 12px; padding: 11px 12px; background: rgba(0, 0, 0, .16); min-width: 0; }
-.bcitem .k { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ash); }
-.bcitem .n { font: 600 15.5px/1.25 var(--display); margin-top: 2px; }
-.bcitem .m { color: var(--ash); font-size: 12.5px; margin-top: 2px; }
-.bcitem .pk { display: inline-flex; gap: 5px; align-items: center; margin: 6px 6px 0 0; padding: 2px 8px; border-radius: 7px; background: rgba(var(--a-rgb), .1); color: var(--a-pale); font-size: 12px; font-weight: 600; }
-.bcitem .fx { font-size: 12.5px; color: var(--frost); opacity: .85; margin-top: 6px; }
-.bccell { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--seam); font-size: 13px; }
-.bccell .slot { font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; padding: 2px 7px; border-radius: 6px; border: 1px solid var(--seam2); color: var(--ash); }
-.bccell b { font-weight: 600; }
-.bctag { display: inline-block; font-size: 10.5px; padding: 1px 6px; border-radius: 6px; border: 1px solid rgba(255, 181, 71, .5); color: var(--ember); margin-left: 6px; vertical-align: 2px; cursor: help; }
-.bcperks { width: 100%; border-collapse: collapse; font-size: 13px; }
-.bcperks td { padding: 7px 6px; border-top: 1px solid var(--seam); vertical-align: top; }
-.bcperks td:first-child { white-space: nowrap; font-weight: 600; }
-.bcperks .lv { display: inline-grid; place-items: center; min-width: 28px; height: 22px; border-radius: 6px; background: rgba(var(--a-rgb), .14); color: var(--a-pale); font-weight: 700; font-size: 12px; margin-right: 8px; }
-.bcperks .lv.max { background: var(--aether); color: var(--a-ink); box-shadow: 0 0 10px rgba(var(--a-rgb), .5); }
-.bcperks .g { color: var(--aether); font-size: 11.5px; white-space: nowrap; }
-.bcperks .dim td { opacity: .55; }
-.bclist { margin: 0; padding-left: 18px; font-size: 13.5px; display: grid; gap: 5px; }
-.bclist.bad li::marker { color: var(--ember); }
-.bcuse { display: grid; gap: 8px; counter-reset: u; }
-.bcuse div { position: relative; padding: 9px 12px 9px 40px; border: 1px solid var(--seam); border-radius: 11px; background: rgba(0, 0, 0, .15); font-size: 13.5px; }
-.bcuse div::before { counter-increment: u; content: counter(u); position: absolute; left: 11px; top: 9px; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; color: var(--a-ink); background: var(--aether); }
-.bcuse b { display: block; font: 600 13.5px var(--display); margin-bottom: 1px; }
-.bcchecks { display: flex; flex-wrap: wrap; gap: 6px; }
+/* equip list */
+.lgrid { display: grid; }
+.lrow { border-top: 1px solid var(--seam); }
+.lrow:first-child { border-top: 0; }
+.lrow > summary, div.lrow { display: grid; grid-template-columns: 78px minmax(0, 1fr) auto 18px; align-items: center; gap: 12px; padding: 9px 2px; list-style: none; cursor: pointer; }
+div.lrow { cursor: default; }
+.lrow > summary::-webkit-details-marker { display: none; }
+.lrow > summary:hover .it b { color: var(--a-pale); }
+.lrow .slotk { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ash); }
+.lrow .it { min-width: 0; }
+.lrow .it b { font: 600 14.5px/1.3 var(--display); transition: color .2s; }
+.lrow .it .sep { color: var(--ash2); margin: 0 6px; }
+.lrow .it em { display: block; font-style: normal; color: var(--ash); font-size: 12px; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lrow .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; vertical-align: 1px; }
+.lrow .cells { display: flex; flex-wrap: wrap; gap: 5px; justify-content: flex-end; }
+.cellchip { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 9px; border-radius: 7px; border: 1px solid var(--seam2); background: rgba(0, 0, 0, .25); font-size: 12px; font-weight: 600; white-space: nowrap; }
+.cellchip i { width: 7px; height: 7px; border-radius: 2px; transform: rotate(45deg); }
+.lrow .chev { width: 8px; height: 8px; border-right: 2px solid var(--ash); border-bottom: 2px solid var(--ash); transform: rotate(45deg); transition: transform .25s var(--ease); justify-self: center; }
+.lrow .chev.none { visibility: hidden; }
+.lrow[open] .chev { transform: rotate(225deg); }
+.lrow .more { padding: 0 2px 10px 90px; font-size: 13px; color: var(--frost); text-align: left; animation: rise .25s var(--ease) both; }
+.kit { margin-top: 12px; }
+.kit .kh { font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--ash); margin-bottom: 6px; }
+.kitrow { border-top: 1px solid var(--seam); text-align: left; }
+.kitrow > summary { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 12px; align-items: baseline; padding: 7px 2px; list-style: none; cursor: pointer; font-size: 13px; }
+.kitrow > summary::-webkit-details-marker { display: none; }
+.kitrow > summary b { font: 600 13px var(--display); color: var(--a-pale); }
+.kitrow > summary span { color: var(--frost); opacity: .85; }
+.kitrow p { margin: 0 0 8px; padding-left: 224px; font-size: 13px; color: var(--ash); }
+@media (max-width: 760px) { .kitrow > summary { grid-template-columns: 1fr; gap: 2px; } .kitrow p { padding-left: 2px; } }
+.lrow .more p { margin: 0 0 5px; opacity: .88; }
+/* perks */
+.pgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+.ptile { display: flex; flex-direction: column; align-items: stretch; gap: 5px; text-align: left; padding: 9px 11px; border-radius: 11px; border: 1px solid var(--seam2); background: rgba(0, 0, 0, .18); color: var(--frost); transition: border-color .2s, background .2s; }
+.ptile:hover { border-color: rgba(var(--a-rgb), .45); }
+.ptile .pn { display: flex; justify-content: space-between; font: 600 14px var(--display); }
+.ptile .pn b { color: var(--aether); }
+.ptile .pips { display: flex; gap: 3px; }
+.ptile .pips i { flex: 1; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, .08); }
+.ptile .pips i.on { background: linear-gradient(90deg, var(--a-mid), var(--a-light)); box-shadow: 0 0 6px rgba(var(--a-rgb), .4); }
+.ptile .pg { font-size: 11px; color: var(--aether); }
+.ptile .pe { font-size: 12px; color: var(--ash); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ptile.open .pe { -webkit-line-clamp: unset; color: var(--frost); }
+.pminor { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; font-size: 12px; color: var(--ash); }
+.pminor span[title] { padding: 2px 8px; border-radius: 6px; border: 1px solid var(--seam); cursor: help; }
+/* tabs */
+.bctabs .seg { margin: 0 0 12px; }
+.tpanel { display: none; }
+.tpanel.on { display: block; animation: rise .3s var(--ease) both; }
+.steps { margin: 0; padding: 0; list-style: none; counter-reset: s; display: grid; gap: 2px; }
+.steps li { position: relative; padding: 8px 4px 8px 36px; border-top: 1px solid var(--seam); font-size: 13.5px; }
+.steps li:first-child { border-top: 0; }
+.steps li::before { counter-increment: s; content: counter(s); position: absolute; left: 4px; top: 9px; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; color: var(--a-ink); background: var(--aether); }
+.steps b { display: block; font: 600 13.5px var(--display); }
+.steps span { color: var(--frost); opacity: .85; }
+.lead { margin: 0 0 10px; font-size: 14px; }
+.why { margin: 0 0 10px; padding: 0; list-style: none; display: grid; gap: 6px; font-size: 13.5px; }
+.why li { position: relative; padding-left: 22px; }
+.why li::before { position: absolute; left: 0; top: 0; font-weight: 700; }
+.why.good li::before { content: "+"; color: var(--ok); }
+.why.link li::before { content: "↔"; color: var(--aether); }
+.why.bad li::before { content: "!"; color: var(--ember); left: 4px; }
+.why.note { color: var(--ash); font-size: 12.5px; margin-top: 10px; }
+.why.note li::before { content: "·"; }
+.bctag { display: inline-block; font-size: 10.5px; padding: 1px 6px; border-radius: 6px; border: 1px solid rgba(255, 181, 71, .5); color: var(--ember); margin-left: 6px; vertical-align: 2px; font-weight: 500; font-family: inherit; cursor: help; }
+.bcchecks { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
 .bcchecks span { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 4px 9px; border-radius: 8px; border: 1px solid rgba(79, 240, 180, .3); color: #c6fbe6; background: rgba(79, 240, 180, .06); }
 .bcchecks span::before { content: "✓"; color: var(--ok); font-weight: 700; }
 .bcsrc { display: grid; gap: 6px; font-size: 13px; }
 .bcsrc a { color: var(--aether); text-decoration: none; word-break: break-word; }
 .bcsrc a:hover { text-decoration: underline; }
+@media (max-width: 760px) { .lrow > summary, div.lrow { grid-template-columns: 60px minmax(0, 1fr) 14px; } .lrow .cells { grid-column: 2; justify-content: flex-start; } .lrow .more { padding-left: 2px; } .bctop .tt { flex-direction: column; } }
 .bcerr { border: 1px solid rgba(255, 90, 116, .45); background: rgba(255, 90, 116, .08); border-radius: 14px; padding: 16px 18px; }
 .bcerr h4 { margin: 0 0 4px; font: 600 16px var(--display); color: #ffd0d8; }
 .bcerr p { margin: 0 0 12px; color: var(--frost); font-size: 13.5px; }
-@media (max-width: 760px) { .bcsteps, .bcgrid { grid-template-columns: 1fr; } .bcopts { grid-template-columns: 1fr 1fr; } .bcflowhead > b { display: none; } .bcconf { position: static; margin-bottom: 8px; } }
-@media (prefers-reduced-motion: reduce) { .bchero .rune, .bcring .r1, .bcring .r2, .bcring .core, .bcring .spark, .bctop::after { animation: none; } }
+@media (max-width: 760px) { .bcsteps { grid-template-columns: 1fr; } .bcopts { grid-template-columns: 1fr 1fr; } .bcflowhead > b { display: none; } }
+@media (prefers-reduced-motion: reduce) { .bchero .rune, .bcring .r1, .bcring .r2, .bcring .core, .bcring .spark, .bctop::after, .bcgoals .bar i { animation: none; transform: none; } }
 </style>
 </head>
 <body class="booting">
@@ -1984,65 +2028,95 @@ function bcError(msg) {
   bcStage('bcResult');
 }
 
-// ---- the build
-const bcLv = (n) => `<span class="lv${n >= 6 ? ' max' : ''}">+${n}</span>`;
+// ---- the build: what to equip first (one row per slot, details on click), then the perks, then tabs for how to play,
+// why it works, and checks and sources
+const BC_CELLC = { Brutality: '#ff6b6b', Finesse: '#ffd25e', Alacrity: '#5ec8ff', Fortitude: '#6fe08a', Insight: '#c08bff', Prismatic: '#e9f6f8' };
 const bcInf = (x) => x && x.exists === 'inferred' ? '<span class="bctag" title="In your 1.14.7 game files without an English name; matched by elimination">unnamed in game files</span>' : '';
-const bcPerks = (p) => Object.entries(p || {}).map(([n, v]) => `<span class="pk">${esc(n)} +${v}</span>`).join('');
-const bcCell = (c) => c && c.slot ? `<div class="bccell"><span class="slot">${esc(c.slot)}</span>${c.name ? `<b>${esc(c.name)}</b>` : '<span style="color:var(--ash)">empty</span>'}${c.exists === 'inferred' ? bcInf(c) : ''}</div>` : '';
+const bcDot = (e) => e ? `<i class="dot" style="background:${BC_EL[e] || '#888'}"></i>` : '';
+const bcCellChip = (c) => c && c.slot ? `<span class="cellchip" title="${esc(c.slot)} slot${c.exists === 'inferred' ? ' · unnamed in game files' : ''}"><i style="background:${BC_CELLC[c.slot] || '#888'}"></i>${c.name ? esc(c.name.replace(/ Cell$/, '')) : 'empty'}</span>` : '';
+const bcPerkList = (p) => Object.entries(p || {}).map(([n, x]) => `${esc(n)} +${x}`).join(', ');
+function bcRow(slot, main, sub, cells, more) {
+  const body = `<span class="slotk">${slot}</span><span class="it">${main}${sub ? `<em>${sub}</em>` : ''}</span><span class="cells">${cells || ''}</span>`;
+  return more ? `<details class="lrow"><summary>${body}<i class="chev"></i></summary><div class="more">${more}</div></details>` : `<div class="lrow">${body}<i class="chev none"></i></div>`;
+}
+// how to play: the tips first, then the kit in one line each (the first sentence; the rest on click)
+function bcPlay(usage) {
+  const kitTitle = /^(Chamber|Grip|Mod|Special|Omnicell|Lantern|Weapon effect|Legendary ability)\b/;
+  const tips = usage.filter((u) => u.kind ? u.kind !== 'kit' : !kitTitle.test(u.title));
+  const kit = usage.filter((u) => !tips.includes(u));
+  const first = (t) => { const m = /^(.+?[.!])(\s|$)/.exec(t); return m ? m[1] : t; };
+  return `${tips.length ? `<ol class="steps">${tips.map((u) => `<li><b>${esc(u.title)}</b><span>${esc(u.text)}</span></li>`).join('')}</ol>` : ''}
+    ${kit.length ? `<div class="kit"><div class="kh">Your kit</div>${kit.map((u) => `<details class="kitrow"><summary><b>${esc(u.title)}</b><span>${esc(first(u.text))}</span></summary>${first(u.text) !== u.text ? `<p>${esc(u.text)}</p>` : ''}</details>`).join('')}</div>` : ''}`;
+}
 function bcShow(v, req) {
   BC.last = v;
-  const w = v.weapon, el = (e) => e ? `<i class="el" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${BC_EL[e] || '#888'};margin-right:5px"></i>${esc(e)}` : 'No element';
+  const w = v.weapon, typeName = w.type === 'Repeater' ? 'Repeaters' : w.type;
   const owned = req && req.ownedOnly;
   const miss = v.missing || { gear: [], cells: [] };
+  const fx = (list) => (list || []).map((e) => `<p>${esc(e)}</p>`).join('');
+  const rows = [];
+  rows.push(bcRow('Weapon', `<b>${esc(w.name)}</b>${bcInf(w)}`, `${bcDot(w.element)}${esc(w.element || 'No element')} · ${esc(typeName)}${w.bond ? ' · legendary' : ''}${w.exotic ? ' · Exotic' : ''}`,
+    w.cells.map(bcCellChip).join(''), `${Object.keys(w.perks).length ? `<p><b>Perks:</b> ${bcPerkList(w.perks)}</p>` : ''}${fx(w.effects)}`));
+  if (w.bond) rows.push(bcRow('Bond', `<b>${esc(w.bond.name)}</b>${bcInf(w.bond)}`, `Gives ${bcPerkList(w.bond.perks) || 'its effects'} to ${esc(w.name)}`, '',
+    fx(w.bond.effects) || '<p>A legendary weapon takes the bonded weapon\'s perks and effects.</p>'));
+  if (w.parts.length) rows.push(bcRow('Parts', w.parts.map((p) => `<b>${esc(p.name)}</b>`).join('<span class="sep">·</span>'), w.parts.map((p) => esc(p.kind)).join(' · '), '',
+    w.parts.map((p) => `<p><b>${esc(p.kind)}: ${esc(p.name)}.</b> ${esc(p.effect)}</p>`).join('')));
+  for (const a of v.armour) rows.push(bcRow(a.slot, `<b>${esc(a.gameName || a.name)}</b>${bcInf(a)}`, a.empty ? 'Nothing owned for this slot' : `${bcDot(a.element)}${esc(a.element || 'Neutral')}${a.weakness ? ` · weak to ${esc(a.weakness)}` : ''}${Object.keys(a.perks).length ? ' · ' + bcPerkList(a.perks) : ''}`,
+    bcCellChip(a.cell), a.effects.length ? fx(a.effects) : ''));
+  rows.push(bcRow('Lantern', `<b>${esc(v.lantern.name)}</b>`, 'Hold for its ability', bcCellChip(v.lantern.cell),
+    `${v.lantern.hold ? `<p><b>Hold:</b> ${esc(v.lantern.hold)}</p>` : ''}${v.lantern.instant ? `<p><b>Tap:</b> ${esc(v.lantern.instant)}</p>` : ''}`));
+  rows.push(bcRow('Omnicell', `<b>${esc(v.omnicell.name)}</b>`, esc(v.omnicell.why), '', `<p><b>Passive:</b> ${esc(v.omnicell.passive)}</p><p><b>Active:</b> ${esc(v.omnicell.active)}</p>`));
+  // perks: the ones that serve your goals first; the rest smaller
+  const tile = (p) => `<button class="ptile${p.weight > 0 ? '' : ' minor'}" title="${esc(p.effect)}"><span class="pn">${esc(p.name)}<b>+${p.counts}</b></span><span class="pips">${[1, 2, 3, 4, 5, 6].map((i) => `<i class="${i <= p.counts ? 'on' : ''}"></i>`).join('')}</span>${p.goals.length ? `<span class="pg">${esc(p.goals.join(' · '))}</span>` : ''}<span class="pe">${esc(p.effect)}</span>${p.wasted ? `<span class="bctag">+${p.level}: only +6 counts</span>` : ''}</button>`;
+  const main = v.perks.filter((p) => p.weight > 0), minor = v.perks.filter((p) => !(p.weight > 0));
+  const ex = v.explanation;
+  const list = (cls, items) => items.length ? `<ul class="why ${cls}">${items.map((s) => `<li>${esc(s)}</li>`).join('')}</ul>` : '';
   const html = `
   <div class="bcres">
     <div class="bctop">
-      <span class="bcconf ${esc(v.confidence.level)}" title="${esc(v.confidence.reasons.join(' '))}">${esc(v.confidence.level)} confidence</span>
-      <h3>${esc(v.name)}</h3><div class="sub">${esc(v.subtitle)}</div>
-      <div class="bcgoals">${v.goals.map((g) => `<div><b>${esc(g.label)}</b> · ${g.pct}%<div class="bar"><i style="width:${g.pct}%"></i></div></div>`).join('')}</div>
+      <div class="tt"><div><h3>${esc(v.name)}</h3><div class="sub">${esc(v.subtitle)}</div></div>
+        <span class="bcconf ${esc(v.confidence.level)}" title="${esc(v.confidence.reasons.join(' '))}">${esc(v.confidence.level)} confidence</span></div>
+      <div class="bcgoals">${v.goals.map((g) => `<div><span><b>${esc(g.label)}</b>${g.pct}%</span><div class="bar"><i style="width:${g.pct}%"></i></div></div>`).join('')}</div>
       <div class="acts">
-        <button class="btn" data-bc="again"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5"/></svg>Another option</button>
-        <button class="btn" data-bc="edit">Change my answers</button>
-        <button class="btn" data-bc="new">New build</button>
-        <button class="btn" data-bc="copy">Copy as text</button>
         ${owned && (miss.gear.length || miss.cells.length) ? `<button class="btn primary" data-bc="give">Give me what I'm missing (${miss.gear.length + miss.cells.length})</button>` : ''}
+        <button class="btn" data-bc="again"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5"/></svg>Another option</button>
+        <button class="btn" data-bc="edit">Change answers</button>
+        <button class="btn" data-bc="copy">Copy</button>
+        <button class="btn" data-bc="new">New build</button>
       </div>
     </div>
-    <div class="bccard"><h4>Weapon</h4>
-      <div class="bcitem"><div class="k">${esc(w.type)}${w.behemoth ? ' · ' + esc(w.behemoth) : ''}${w.exotic ? ' · Exotic' : ''}</div><div class="n">${esc(w.name)}${bcInf(w)}</div><div class="m">${el(w.element)}</div>
-        ${bcPerks(w.perks)}${w.effects.map((e) => `<div class="fx">${esc(e)}</div>`).join('')}
-        ${w.bond ? `<div class="bccell"><span class="slot">Bond</span><b>${esc(w.bond.name)}</b>${bcInf(w.bond)}<span style="color:var(--ash)">gives ${Object.entries(w.bond.perks).map(([n, x]) => esc(n) + ' +' + x).join(', ') || 'its effects'}</span></div>` : ''}
-        ${w.cells.map(bcCell).join('')}
-        ${w.parts.map((p) => `<div class="bccell"><span class="slot">${esc(p.kind)}</span><span><b>${esc(p.name)}</b> <span style="color:var(--ash)">${esc(p.effect)}</span></span></div>`).join('')}
+    <div class="bccard"><h4>Equip this <small>click a row for details</small></h4><div class="lgrid">${rows.join('')}</div></div>
+    <div class="bccard"><h4>Perks you get</h4><div class="pgrid">${main.map(tile).join('')}</div>
+      ${minor.length ? `<div class="pminor"><span>Also:</span>${minor.map((p) => `<span title="${esc(p.effect)}">${esc(p.name)} +${p.counts}</span>`).join('')}</div>` : ''}</div>
+    <div class="bccard bctabs">
+      <div class="seg" id="bcTabSeg"><span class="ind"></span><button data-t="play" class="on">How to play</button><button data-t="why">Why it works</button><button data-t="src">Checks and sources</button></div>
+      <div class="tpanel on" data-p="play">${bcPlay(v.usage)}</div>
+      <div class="tpanel" data-p="why"><p class="lead">${esc(ex.playstyle)}</p>${list('good', ex.strengths)}${list('link', ex.synergies)}${list('bad', ex.weaknesses)}</div>
+      <div class="tpanel" data-p="src">
+        <div class="bcchecks">${v.check.checks.map((c) => `<span>${esc(c)}</span>`).join('')}</div>
+        ${v.check.warnings.length ? list('bad', v.check.warnings) : ''}
+        <p class="lead"><b>${esc(v.confidence.level)} confidence.</b> ${esc(v.confidence.reasons.join(' '))}</p>
+        <div class="bcsrc">${v.sources.map((s) => `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title)}</a>`).join('')}</div>
+        <ul class="why note">${v.notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>
       </div>
-    </div>
-    <div class="bccard"><h4>Armour</h4><div class="bcgrid">${v.armour.map((a) => `
-      <div class="bcitem"><div class="k">${esc(a.slot)}${a.behemoth ? ' · ' + esc(a.behemoth) : ''}</div><div class="n">${esc(a.gameName || a.name)}${bcInf(a)}</div>
-        <div class="m">${el(a.element)}${a.weakness ? ` · weak to ${esc(a.weakness)}` : ''}</div>${bcPerks(a.perks)}${a.effects.map((e) => `<div class="fx">${esc(e)}</div>`).join('')}${bcCell(a.cell)}</div>`).join('')}</div>
-    </div>
-    <div class="bcgrid">
-      <div class="bccard"><h4>Lantern</h4><div class="bcitem"><div class="n">${esc(v.lantern.name)}</div>${v.lantern.hold ? `<div class="fx"><b>Hold:</b> ${esc(v.lantern.hold)}</div>` : ''}${v.lantern.instant ? `<div class="fx"><b>Tap:</b> ${esc(v.lantern.instant)}</div>` : ''}${bcCell(v.lantern.cell)}</div></div>
-      <div class="bccard"><h4>Omnicell</h4><div class="bcitem"><div class="n">${esc(v.omnicell.name)}</div><div class="m">${esc(v.omnicell.why)}</div><div class="fx"><b>Passive:</b> ${esc(v.omnicell.passive)}</div><div class="fx"><b>Active:</b> ${esc(v.omnicell.active)}</div></div></div>
-    </div>
-    <div class="bccard"><h4>Perks</h4><table class="bcperks">${v.perks.map((p) => `<tr class="${p.weight > 0 ? '' : 'dim'}"><td>${bcLv(p.counts)}${esc(p.name)}${p.wasted ? ` <span class="bctag" title="Only +6 counts">+${p.level}</span>` : ''}</td><td>${esc(p.effect)}</td><td class="g">${esc(p.goals.join(' · '))}</td></tr>`).join('')}</table></div>
-    <div class="bccard"><h4>Why this build</h4>
-      <p style="margin:0 0 10px;font-size:14px">${esc(v.explanation.playstyle)}</p>
-      ${v.explanation.strengths.length ? `<b style="font-size:13px">Strengths</b><ul class="bclist">${v.explanation.strengths.map((s) => `<li>${esc(s)}</li>`).join('')}</ul>` : ''}
-      ${v.explanation.synergies.length ? `<b style="font-size:13px;display:block;margin-top:10px">Synergies</b><ul class="bclist">${v.explanation.synergies.map((s) => `<li>${esc(s)}</li>`).join('')}</ul>` : ''}
-      ${v.explanation.weaknesses.length ? `<b style="font-size:13px;display:block;margin-top:10px">Weaknesses</b><ul class="bclist bad">${v.explanation.weaknesses.map((s) => `<li>${esc(s)}</li>`).join('')}</ul>` : ''}
-    </div>
-    <div class="bccard"><h4>How to play it</h4><div class="bcuse">${v.usage.map((u) => `<div><b>${esc(u.title)}</b>${esc(u.text)}</div>`).join('')}</div></div>
-    <div class="bccard"><h4>Checked</h4><div class="bcchecks">${v.check.checks.map((c) => `<span>${esc(c)}</span>`).join('')}</div>
-      ${v.check.warnings.length ? `<ul class="bclist bad" style="margin-top:8px">${v.check.warnings.map((s) => `<li>${esc(s)}</li>`).join('')}</ul>` : ''}</div>
-    <div class="bccard"><h4>Sources and confidence</h4>
-      <p style="margin:0 0 8px;font-size:13.5px"><b>${esc(v.confidence.level)} confidence.</b> ${esc(v.confidence.reasons.join(' '))}</p>
-      <div class="bcsrc">${v.sources.map((s) => `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title)}</a>`).join('')}</div>
-      <ul class="bclist" style="margin-top:10px;color:var(--ash)">${v.notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>
     </div>
   </div>`;
   $('#bcResult').innerHTML = html;
   bcStage('bcResult');
+  requestAnimationFrame(() => placeInd($('#bcTabSeg')));
 }
+$('#bcResult').addEventListener('click', (e) => {
+  const t = e.target.closest('#bcTabSeg button');
+  if (t) {
+    SFX.tick();
+    $$('#bcTabSeg button').forEach((b) => b.classList.toggle('on', b === t)); placeInd($('#bcTabSeg'));
+    $$('#bcResult .tpanel').forEach((p) => p.classList.toggle('on', p.dataset.p === t.dataset.t));
+    return;
+  }
+  const p = e.target.closest('.ptile');
+  if (p) { p.classList.toggle('open'); SFX.tick(); }
+});
+$('#bcResult').addEventListener('toggle', (e) => { if (e.target.matches && e.target.matches('details.lrow')) SFX.tick(); }, true);
 function bcText(v) {
   const L = [`${v.name} (${v.subtitle})`, '', `Weapon: ${v.weapon.name}${v.weapon.bond ? ' + bond ' + v.weapon.bond.name : ''}`];
   v.weapon.cells.forEach((c) => L.push(`  ${c.slot} cell: ${c.name || '-'}`));

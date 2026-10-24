@@ -1,5 +1,5 @@
 {
-  "version": "3.7.1",
+  "version": "3.7.2",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Build Creator: the questions now sit in one compact card (six steps, a progress bar, Back, and your answers as chips you can click to change), and the target question has a new Universal option: one build for every behemoth, with no element favoured and armour whose weaknesses are spread out."
+  "notes": "Build Creator: a cleaner build page. One \"Equip this\" list (a row per slot with its cells; click a row for details), perk tiles with level bars, and tabs for How to play (tips first, then your kit in one line each), Why it works, and Checks and sources."
 }

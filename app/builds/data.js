@@ -61,7 +61,10 @@ function kb() {
 function perkEffect(name, level) {
   const p = kb().perks[name];
   if (!p || level < 1) return '';
-  return p.effects[String(Math.min(6, level))] || p.description || '';
+  return sentences(p.effects[String(Math.min(6, level))] || p.description || '');
 }
+// the data runs some perks' two effects together ("+30% part damage After dodging..."): a full stop between them
+const STARTERS = 'After|On|While|When|Every|If|Immune|Prevents|Gain|Increases|Stacks|Enter|Ranged|Half|Interrupting|Your|Else|Once|Losing';
+function sentences(t) { return String(t).replace(new RegExp(`([a-z0-9%)])\\s+(${STARTERS})\\b`, 'g'), '$1. $2'); }
 
 module.exports = { kb, perkEffect };

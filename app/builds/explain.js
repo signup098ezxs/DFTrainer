@@ -129,10 +129,11 @@ function describe(ctx, result, owned) {
   if (has('Adrenaline')) usage.push({ title: 'Spend stamina', text: perkEffect('Adrenaline', totals.Adrenaline.level) });
   if (has('Ragehunter') || has('Pacifier')) usage.push({ title: 'Enraged phases', text: ['Ragehunter', 'Pacifier'].filter((n) => has(n)).map((n) => perkEffect(n, totals[n].level)).join(' ') });
   if (has('Savagery') && (has('Acidic') || has('Barbed'))) usage.push({ title: 'Wound, then hit', text: `Wound a part first, then focus it: ${perkEffect('Savagery', totals.Savagery.level)}` });
-  for (const p of weapon.parts) if (p.effect) usage.push({ title: `${p.kind}: ${p.name}`, text: p.effect });
-  for (const e of [...(w.effects || []), ...((bond && bond.effects) || [])]) usage.push({ title: 'Weapon effect', text: e });
-  usage.push({ title: `Omnicell: ${o.name}`, text: o.active });
-  if (l.hold) usage.push({ title: `Lantern: ${l.name}`, text: `Hold: ${l.hold}${l.instant ? ` Tap: ${l.instant}` : ''}` });
+  // the kit: what each piece does when you use it (kind "kit", shown apart from the play tips)
+  for (const p of weapon.parts) if (p.effect) usage.push({ kind: 'kit', title: `${p.kind}: ${p.name}`, text: p.effect });
+  for (const e of [...(w.effects || []), ...((bond && bond.effects) || [])]) usage.push({ kind: 'kit', title: /^Legendary Ability/.test(e) ? 'Legendary ability' : 'Weapon effect', text: e.replace(/^Legendary Ability:\s*/, '') });
+  usage.push({ kind: 'kit', title: `Omnicell: ${o.name}`, text: o.active });
+  if (l.hold) usage.push({ kind: 'kit', title: `Lantern: ${l.name}`, text: `Hold: ${l.hold}${l.instant ? ` Tap: ${l.instant}` : ''}` });
   if (target && weak && w.element === weak) usage.push({ title: 'Pick your hunts', text: `This build is set up for ${target} behemoths. Against other elements, a weapon of the element they are weak to does better.` });
   // ---- confidence, sources, assumptions
   const meta = closestMeta(b);
