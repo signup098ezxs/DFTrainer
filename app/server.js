@@ -288,7 +288,7 @@ setInterval(() => {
 }, 1000);
 
 // ---------------------------------------------------------------- in-game switches
-const TOGGLE_DEFAULTS = { damage: 1, refresh: false, refreshFn: '' };
+const TOGGLE_DEFAULTS = { damage: 1, refresh: false, refreshFn: '', lock: false, lockPart: 'Head', lockSmooth: 0.15 };
 // the behemoth overlay (anyone's panel, not just the owner's): the mod tracks behemoths only while it is on
 const overlayOn = () => !!(settings.overlay && settings.overlay.on);
 // the damage multiplier is the owner's: anyone else's client keeps the mod locked (x1)
@@ -297,12 +297,15 @@ function readToggles(p) {
   const t = p.modDir ? readJson(path.join(p.modDir, 'trainer-toggles.json'), null) : null;
   if (!isOwner()) return { ...TOGGLE_DEFAULTS };
   const all = { ...TOGGLE_DEFAULTS, ...(settings.toggles || {}), ...(t || {}) };
-  return { damage: all.damage, refresh: all.refresh, refreshFn: all.refreshFn };
+  return { damage: all.damage, refresh: all.refresh, refreshFn: all.refreshFn, lock: all.lock, lockPart: all.lockPart, lockSmooth: all.lockSmooth };
 }
 function writeToggles(p, t) {
   const clean = {
     damage: Math.min(1000, Math.max(1, Number(t.damage) || 1)),
     refresh: !!t.refresh, refreshFn: /^[A-Za-z_]\w{0,80}$/.test(String(t.refreshFn || '')) ? String(t.refreshFn) : '',
+    // part lock-on (Repeaters): which part, and how gently the aim follows it (seconds)
+    lock: !!t.lock, lockPart: /^[A-Za-z][A-Za-z ]{0,30}$/.test(String(t.lockPart || '')) ? String(t.lockPart) : 'Head',
+    lockSmooth: Math.min(0.5, Math.max(0.04, Number(t.lockSmooth) || 0.15)),
   };
   settings.toggles = clean; saveSettings();
   if (p.modDir && fs.existsSync(p.modDir)) {
@@ -334,6 +337,14 @@ function modProcesses(p) {
     else { try { if (now - fs.statSync(full).mtimeMs / 1000 > 3600) fs.unlinkSync(full); } catch {} }
   }
   return live;
+}
+// the part the Repeaters lock-on holds right now (your game's heartbeat), for the overlay; read at most 4 times a second
+let lockCache = '', lockAt = 0;
+function lockedPart(p) {
+  if (Date.now() - lockAt < 250) return lockCache;
+  lockAt = Date.now();
+  const g = isOwner() ? modProcesses(p).find((s) => s.role === 'game' && s.lock && s.lock.engaged) : null;
+  return (lockCache = g ? String(g.lock.part || '') : '');
 }
 // ask the mod to try a live inventory refresh (experimental; only when switched on)
 let refreshN = 0, refreshAt = 0;
@@ -726,6 +737,8 @@ async function buildState() {
     modInstalled: !!(p.modDir && fs.existsSync(path.join(p.modDir, 'Scripts', 'main.lua'))),
     modOn: !!(p.modsDir && modListed(p)), mode: modsMode(p),
     toggles: readToggles(p), processes: procs.map(({ time, ...s }) => s),
+    // the parts of the behemoth you are fighting (from the overlay's tracking), for the lock-on's part list
+    lockParts: isOwner() && overlayOn() ? ((overlayTrack(p) || {}).parts || []).map((x) => x.name) : [],
     overlay: { ...overlaySettings(), restoreBossbar: undefined, running: overlayAlive() },
     queue: queue.map((j) => ({ what: describe(j) })), history,
     deliveries: deliveries.filter((d) => d.status === 'saved').map((d) => ({ what: d.what, at: d.at })),
@@ -873,7 +886,8 @@ const routes = {
   'GET /api/overlay/state': async () => {
     const p = places(), o = overlaySettings();
     if (!o.on || !p.pkg) return { ok: true, on: false };
-    return { ok: true, on: true, running: await backendUp(), style: overlayStyle(), b: overlayTrack(p) };
+    const b = overlayTrack(p), lock = lockedPart(p);
+    return { ok: true, on: true, running: await backendUp(), style: overlayStyle(), b: b && lock ? { ...b, lock } : b };
   },
   'POST /api/overlay': async (b) => {
     const p = places(), o = overlaySettings(), was = o.on;

@@ -441,7 +441,11 @@ h2 { margin: 0; font: 600 21px/1.2 var(--display); letter-spacing: .01em; }
 .strip > div { padding: 14px 16px 12px; min-width: 0; }
 .strip > div + div { border-left: 1px solid var(--seam); }
 .strip .top { display: flex; align-items: center; gap: 14px; }
-#dmgCard { margin: 0 0 12px; }
+#dmgCard, #aimCard { margin: 0 0 12px; }
+#aimCard .setrow:first-of-type { margin-top: 10px; }
+#aimCard input[type=range] { width: 170px; }
+#lkKeys { margin: 8px 0 0; color: var(--ash); font-size: 12px; }
+#lkKeys kbd { font: 600 11px var(--display); padding: 1px 6px; border-radius: 5px; border: 1px solid var(--seam2); background: #13202a; color: var(--frost); }
 .strip h3 { margin: 0; font: 600 16px/1.2 var(--display); }
 .strip .sub { color: var(--ash); font-size: 12px; }
 .readout { margin-left: auto; font: 700 21px/1 var(--display); color: var(--frost); font-variant-numeric: tabular-nums; transition: color .3s, text-shadow .3s; }
@@ -734,6 +738,17 @@ input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border: 0; bord
               <div><h3>Damage</h3><div class="sub">Against behemoths. Owner only, works at once (needs the game mod)</div></div><span class="readout" id="dmgVal">x1</span></div>
             <div class="seg" id="dmgSeg"><span class="ind"></span></div>
             <div class="state" id="liveDmg"></div>
+          </div>
+        </div>
+        <div class="strip" id="aimCard" hidden>
+          <div>
+            <div class="top"><div class="glyph" id="gLock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="7"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/><circle cx="12" cy="12" r="1.5"/></svg></div>
+              <div><h3>Part lock-on</h3><div class="sub">Repeaters only. Keeps your aim on one part of the behemoth as it moves. Owner only (needs the game mod)</div></div>
+              <label class="sw sm"><input type="checkbox" id="lkOn" aria-label="Part lock-on"><span class="track"></span><span class="knob"></span></label></div>
+            <div class="setrow"><div class="lbl"><b>Part</b><small>Where your aim goes. The behemoth you are fighting lists its own parts here.</small></div><div class="ctl"><select id="lkPart"></select></div></div>
+            <div class="setrow"><div class="lbl"><b>Smoothness</b><small id="lkSmoothTxt">How gently your aim follows.</small></div><div class="ctl"><input type="range" id="lkSmooth" min="0.04" max="0.5" step="0.01" aria-label="Smoothness"></div></div>
+            <p id="lkKeys"><kbd>Middle mouse</kbd> or <kbd>F7</kbd> locks and lets go &nbsp;·&nbsp; <kbd>F8</kbd> next part</p>
+            <div class="state" id="liveLock"></div>
           </div>
         </div>
         <div class="list" id="rules"></div>
@@ -1136,7 +1151,7 @@ function renderLicense(l) {
       : l.state === 'invalid' ? 'The saved key is not valid. Paste the one you were given below, then confirm it.'
       : 'Paste the key you were given into the box (Ctrl+V), then confirm it.';
   }
-  $('#keysTab').hidden = $('#ownerLabel').hidden = $('#dmgCard').hidden = !l.owner;
+  $('#keysTab').hidden = $('#ownerLabel').hidden = $('#dmgCard').hidden = $('#aimCard').hidden = !l.owner;
   $('#pMod').hidden = !l.owner;
   if (!l.owner && activeTab() === 'keys') goTab('items', true);
   requestAnimationFrame(placeNav);
@@ -1634,6 +1649,11 @@ function syncToggles(t) {
   setReadout('#dmgVal', t.damage >= 1000 ? 'One hit' : 'x' + t.damage, t.damage > 1);
   $('#gDmg').classList.toggle('lit', t.damage > 1);
   $('#tRefresh').checked = !!t.refresh;
+  $('#lkOn').checked = !!t.lock;
+  $('#gLock').classList.toggle('lit', !!t.lock);
+  lkParts(t.lockPart);
+  if (document.activeElement !== $('#lkSmooth')) $('#lkSmooth').value = t.lockSmooth ?? 0.15;
+  lkSmoothText();
 }
 function setReadout(sel, text, lit) {
   const r = $(sel); if (r.textContent !== text) { r.textContent = text; r.classList.remove('bump'); void r.offsetWidth; r.classList.add('bump'); }
@@ -1657,7 +1677,40 @@ $('#dmgSeg').addEventListener('click', (e) => {
 });
 
 function liveState(id, kind, text) { const el = $(id); el.className = 'state ' + kind; el.textContent = text; }
+
+/* part lock-on (Repeaters): the part list is the behemoth's own when known (the overlay's and the mod's), plus the usual ones */
+const LK_PARTS = ['Head', 'Tail', 'Back', 'Left foreleg', 'Right foreleg', 'Left hindleg', 'Right hindleg'];
+let lkKnown = [];
+function lkParts(pick) {
+  const sel = $('#lkPart'), cur = pick || sel.value || 'Head';
+  const names = [...new Set([...lkKnown, ...LK_PARTS, cur])];
+  const html = names.map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  if (sel.dataset.h !== html) { sel.innerHTML = html; sel.dataset.h = html; }
+  if (document.activeElement !== sel) sel.value = cur;
+}
+function lkSmoothText() {
+  const r = $('#lkSmooth'), v = Number(r.value);
+  r.style.setProperty('--fill', (v - 0.04) / 0.46 * 100 + '%'); r.style.setProperty('--glow', 1);
+  $('#lkSmoothTxt').textContent = `${v <= 0.08 ? 'Snappy' : v <= 0.2 ? 'Balanced' : v <= 0.32 ? 'Smooth' : 'Very smooth'}: about ${Math.round(v * 3 * 1000)} ms to settle on the part.`;
+}
+function lockInfo(procs) {
+  const t = S.toggles || {};
+  const g = procs.find((p) => p.role === 'game'), lk = g && g.lock;
+  lkKnown = [...new Set([...(S.lockParts || []), ...((lk && lk.parts) ? lk.parts.split(',').filter(Boolean) : [])])];
+  lkParts();
+  if (!t.lock) return liveState('#liveLock', '', 'Off. Turn it on, take out your Repeaters and press the key.');
+  if (!g) return liveState('#liveLock', S.running ? 'warn' : '', S.running ? 'The mod is not answering in your game. Did you restart the game after set-up?' : 'Starts working when you play.');
+  if (lk && lk.engaged) return liveState('#liveLock', 'ok', `Locked on ${lk.part}.`);
+  if (lk && lk.want) return liveState('#liveLock', 'ok', `Looking for ${lk.part}...`);
+  const why = lk && lk.why;
+  liveState('#liveLock', why && why !== 'let go' ? 'warn' : '', why === 'Repeaters only' ? 'Let go: lock-on works with Repeaters only.' : why && why !== 'let go' && why !== 'turned off' ? `Let go: ${why}.` : 'Ready. Press the key with your Repeaters out.');
+}
+$('#lkOn').addEventListener('change', (e) => { e.target.checked ? SFX.switchOn() : SFX.switchOff(); $('#gLock').classList.toggle('lit', e.target.checked); setToggle({ lock: e.target.checked }); });
+$('#lkPart').addEventListener('change', (e) => { SFX.tick(); setToggle({ lockPart: e.target.value }); });
+$('#lkSmooth').addEventListener('input', lkSmoothText);
+$('#lkSmooth').addEventListener('change', (e) => { SFX.tick(); setToggle({ lockSmooth: Number(e.target.value) }); });
 function liveInfo(procs) {
+  lockInfo(procs);
   if (!procs.length) { liveState('#liveDmg', S.running ? 'warn' : '', S.running ? 'The mod is not answering. Did you restart the game after set-up?' : 'Starts working when you play.'); return; }
   const srv = procs.filter((p) => p.role === 'server'), beh = srv.reduce((n, p) => n + (p.behemoths || 0), 0);
   if (!srv.length) { liveState('#liveDmg', 'warn', 'Needs the mod on your servers too (set-up turns that on).'); return; }

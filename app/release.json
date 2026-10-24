@@ -1,5 +1,5 @@
 {
-  "version": "3.4.0",
+  "version": "3.5.0",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Behemoth overlay: shows the behemoth's element and what it is weak to (Skarn: Terra, weak to Shock), and its stagger meter when the game provides one. Boreus and the hunt-mode Skarn and Gnasher now show their real names."
+  "notes": "Part lock-on for Repeaters (owner only, Game rules): pick a part, press middle mouse or F7 and your aim follows that part smoothly as the behemoth moves; F8 picks the next part. Lets go when you switch weapon, the part is destroyed or the behemoth dies or leaves. The overlay shows which part is locked. Stagger is now read from the game's own stagger functions."
 }
