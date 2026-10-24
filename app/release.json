@@ -1,5 +1,5 @@
 {
-  "version": "3.6.0",
+  "version": "3.6.1",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "New Assist tab: Part lock-on (Repeaters) is now for everyone with a key, not just the owner. It works solo and in games with friends (Host with friends, Host Mode private, joining a friend, LAN) and switches itself off in games open to everyone (Play online, Allow randoms, Host Mode public). The tab shows which way the game is being played."
+  "notes": "Part lock-on: lighter and steadier. About half the game calls and a quarter of the memory churn per frame, no aim writes once it is on the part, no jump on the first frame of a lock, keeps the lock when the game swaps a part's actor, and lets go when the behemoth is defeated even with the overlay off."
 }

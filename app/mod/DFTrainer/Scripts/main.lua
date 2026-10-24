@@ -30,9 +30,12 @@ end
 local logged = {}
 local function logOnce(k, m) if not logged[k] then logged[k] = true log(m) end end
 
+-- o[k] and o:m() for pcall without a new closure each call (these run every frame while lock-on holds a part)
+local function getField(o, k) return o[k] end
+local function callM(o, m) return o[m](o) end
 local function valid(o)
     if not o then return false end
-    local ok, v = pcall(function() return o:IsValid() end)
+    local ok, v = pcall(callM, o, "IsValid")
     return ok and v and true or false
 end
 local function nameOf(o)
@@ -44,7 +47,7 @@ local function pathOf(o)
     return full and full:match("^%S+%s+(.+)$")
 end
 local function readNum(o, prop)
-    local ok, v = pcall(function() return o[prop] end)
+    local ok, v = pcall(getField, o, prop)
     if ok and type(v) == "number" then return v end
     return nil
 end
@@ -650,13 +653,19 @@ end
 -- Positions, the camera and the aim come from the game's own functions, called only on the game's thread: from a
 -- per-frame event of the game (the one that really fires each frame is picked at run time), or a hit as a fallback.
 local LK = { engaged = false, why = "", part = "", hooks = false, counts = {}, src = nil, srcAt = nil, lastFrame = 0,
-             pc = nil, pcAt = -100, weapon = nil, weaponAt = -100, weaponOk = false, beh = nil, comp = nil, actor = nil, method = nil,
-             parts = nil, changed = false }
+             pc = nil, pcAt = -100, pawn = nil, pcm = nil, pawnAt = -100, weaponAt = -100, weaponOk = false, weaponFn = true,
+             beh = nil, behKey = nil, set = nil, checkAt = -100, comp = nil, actor = nil, method = nil,
+             parts = nil, partsStr = "", changed = false }
 local LOCK_RANGE = 15000   -- 150 m
+local LOCK_CHECK = 0.25    -- seconds between checks of the behemoth (still there, alive) and the part's actor
+local LOCK_EPS = 0.01      -- degrees off (about 6 mm at 30 m, well under a pixel): left alone, no correction for nothing
+local ROT = { Pitch = 0, Yaw = 0, Roll = 0 }   -- one table for every SetControlRotation call
 
+local function xyz(v) return v.X, v.Y, v.Z end
+local function pyr(r) return r.Pitch, r.Yaw, r.Roll end
 local function vec(v)
     if v == nil then return nil end
-    local ok, x, y, z = pcall(function() return v.X, v.Y, v.Z end)
+    local ok, x, y, z = pcall(xyz, v)
     if ok and type(x) == "number" then return x, y, z end
     return nil
 end
@@ -668,7 +677,9 @@ local function lockStatus(engaged, why)
 end
 -- letting go always ends the lock: switching weapons, a part or behemoth gone... the key locks again
 local function release(why)
-    LK.beh, LK.comp, LK.actor, LK.parts, LK.want, LK.wy = nil, nil, nil, nil, false, nil
+    -- every game object it held is let go (nothing kept alive between locks)
+    LK.beh, LK.behKey, LK.set, LK.comp, LK.actor, LK.parts, LK.partsStr = nil, nil, nil, nil, nil, nil, ""
+    LK.pawn, LK.pcm, LK.pawnAt, LK.weaponAt, LK.want, LK.wy = nil, nil, -100, -100, false, nil
     lockStatus(false, why or "")
 end
 
@@ -684,17 +695,22 @@ end
 -- (EWeaponType: NONE, IHAMMER, GAXE, EBLADE, CBLADES, MSPEAR, DP, AC, BOW), the one that is not hidden.
 local weaponsLogged = false
 local function repeatersOut(pawn, now)
-    if now - LK.weaponAt < 0.15 then return LK.weaponOk end
+    -- the game's own answer every 0.15 s; the search through every weapon (fallback) every 0.4 s
+    if now - LK.weaponAt < (LK.weaponFn and 0.15 or 0.4) then return LK.weaponOk end
     LK.weaponAt = now
     -- the weapon in hand, from the game itself (GetCurrentWeapon / GetWeaponType)
-    local okW, cur = pcall(function() return pawn:GetCurrentWeapon() end)
+    local okW, cur = false, nil
+    if LK.weaponFn then
+        okW, cur = pcall(callM, pawn, "GetCurrentWeapon")
+        if not okW then LK.weaponFn = false logOnce("noweaponfn", "lock-on: no GetCurrentWeapon (" .. tostring(cur) .. "); looking through the weapons instead") end
+    end
     if okW and cur ~= nil and type(cur) ~= "number" and valid(cur) then
         local wt = readNum(cur, "WeaponType")
         if wt == nil then
-            local okT, t = pcall(function() return cur:GetWeaponType() end)
+            local okT, t = pcall(callM, cur, "GetWeaponType")
             if okT and type(t) == "number" then wt = t end
         end
-        local cls = ((nameOf(cur) or ""):match("^(%S+)") or ""):lower()
+        local cls = (wt == nil or not weaponsLogged) and ((nameOf(cur) or ""):match("^(%S+)") or ""):lower() or ""
         if not weaponsLogged then weaponsLogged = true log("lock-on: weapon in hand: " .. cls .. " type=" .. tostring(wt)) end
         if wt ~= nil or cls ~= "" then
             LK.weaponOk = wt == 6 or (wt == nil and (cls:find("_dp_", 1, true) ~= nil or cls:find("repeater", 1, true) ~= nil))
@@ -703,11 +719,11 @@ local function repeatersOut(pawn, now)
     end
     local ok, found = false, {}
     for _, w in ipairs(findAll({ "ArchonWeapon" })) do
-        local okO, owner = pcall(function() return w.Owner end)
+        local okO, owner = pcall(getField, w, "Owner")
         if okO and owner and valid(owner) and nameOf(owner) == nameOf(pawn) then
             local cls = ((nameOf(w) or ""):match("^(%S+)") or ""):lower()
             local wt = readNum(w, "WeaponType")
-            local okH, hidden = pcall(function() return w.bHidden end)
+            local okH, hidden = pcall(getField, w, "bHidden")
             hidden = okH and hidden == true
             found[#found + 1] = cls .. " type=" .. tostring(wt) .. (hidden and " hidden" or "")
             local dp = wt == 6 or (wt == nil and (cls:find("_dp_", 1, true) or cls:find("repeater", 1, true)))
@@ -720,7 +736,7 @@ local function repeatersOut(pawn, now)
 end
 
 local function locOf(o)
-    local okL, v = pcall(function() return o:K2_GetActorLocation() end)
+    local okL, v = pcall(callM, o, "K2_GetActorLocation")
     if okL then return vec(v) end
     return nil
 end
@@ -728,7 +744,7 @@ end
 -- bone), else its part actor's
 local function partPos(comp, actor)
     if LK.method ~= "actor" then
-        local ok, v = pcall(function() return comp:K2_GetComponentLocation() end)
+        local ok, v = pcall(callM, comp, "K2_GetComponentLocation")
         local x, y, z = nil, nil, nil
         if ok then x, y, z = vec(v) end
         if x then
@@ -781,41 +797,70 @@ local function pickBehemoth(cx, cy, cz, yaw, pitch)
 end
 
 local function normAngle(a) a = (a + 180) % 360 if a < 0 then a = a + 360 end return a - 180 end
+local function callM2(o, m, x) return o[m](o, x) end
+
+-- the part named LK.part on LK.beh (exact name, else the first that contains it: "Head" -> "Head left")
+local function choosePart()
+    LK.comp, LK.actor = nil, nil
+    local want = LK.part:lower()
+    for _, p in ipairs(LK.parts) do if p.name:lower() == want then LK.comp, LK.actor = p.comp, p.actor return end end
+    for _, p in ipairs(LK.parts) do if p.name:lower():find(want, 1, true) then LK.comp, LK.actor, LK.part = p.comp, p.actor, p.name return end end
+end
+-- a behemoth to lock onto, its parts and its health (all looked up once here, not per frame)
+local function acquire(cx, cy, cz, yaw, pitch)
+    LK.beh = pickBehemoth(cx, cy, cz, yaw, pitch)
+    if not LK.beh then return false end
+    LK.behKey = nameOf(LK.beh)
+    LK.parts = behemothParts(LK.beh)
+    local names = {}
+    for i, p in ipairs(LK.parts) do names[i] = p.name end
+    LK.partsStr = table.concat(names, ",")
+    local e = LK.behKey and Tk.list[LK.behKey]
+    LK.set = (e and e.set) or healthSetUnder(findAll({ "ArchonHealthAttributeSet" }), pathOf(LK.beh))
+    LK.checkAt = -100
+    choosePart()
+    return true
+end
 
 local function lockFrame(now, dt)
     local pc = localPC(now)
     if not pc then return release("no player") end
-    local okP, pawn = pcall(function() return pc.Pawn end)
-    if not (okP and valid(pawn)) then return release("no character") end
-    if not repeatersOut(pawn, now) then return release("Repeaters only") end
-    local okM, pcm = pcall(function() return pc.PlayerCameraManager end)
-    local cx, cy, cz
-    if okM and valid(pcm) then
-        local okC, v = pcall(function() return pcm:GetCameraLocation() end)
-        if okC then cx, cy, cz = vec(v) end
+    -- the character and the camera: looked up again every half second (respawn, a new character), not every frame
+    if not LK.pcm or now - LK.pawnAt > 0.5 then
+        LK.pawnAt = now
+        local okP, pawn = pcall(getField, pc, "Pawn")
+        LK.pawn = okP and valid(pawn) and pawn or nil
+        local okM, pcm = pcall(getField, pc, "PlayerCameraManager")
+        LK.pcm = okM and valid(pcm) and pcm or nil
     end
-    if not cx then return release("no camera") end
-    local okR, rot = pcall(function() return pc:GetControlRotation() end)
-    local pitch, yaw, roll
-    if okR and rot then pcall(function() pitch, yaw, roll = rot.Pitch, rot.Yaw, rot.Roll end) end
-    if type(yaw) ~= "number" then return release("no aim") end
-    if not LK.beh or not valid(LK.beh) then
-        LK.beh = pickBehemoth(cx, cy, cz, yaw, pitch)
-        if not LK.beh then return release("no behemoth") end
-        LK.parts = behemothParts(LK.beh)
-        LK.comp, LK.actor = nil, nil
-        local want = LK.part:lower()
-        for _, p in ipairs(LK.parts) do if p.name:lower() == want then LK.comp, LK.actor = p.comp, p.actor end end
-        if not LK.comp then   -- "Head" on a behemoth with "Head left" / "Head right": the first of those
-            for _, p in ipairs(LK.parts) do if p.name:lower():find(want, 1, true) then LK.comp, LK.actor, LK.part = p.comp, p.actor, p.name break end end
-        end
+    if not LK.pawn then return release("no character") end
+    if now - LK.weaponAt >= 0.15 and not valid(LK.pawn) then LK.pawnAt = -100 return release("no character") end
+    if not repeatersOut(LK.pawn, now) then return release("Repeaters only") end
+    if not LK.pcm then return release("no camera") end
+    local okC, cv = pcall(callM, LK.pcm, "GetCameraLocation")
+    local cx, cy, cz
+    if okC then cx, cy, cz = vec(cv) end
+    if not cx then LK.pcm = nil return release("no camera") end
+    local okR, rot = pcall(callM, pc, "GetControlRotation")
+    local okA, pitch, yaw, roll = false, nil, nil, nil
+    if okR and rot then okA, pitch, yaw, roll = pcall(pyr, rot) end
+    if not okA or type(yaw) ~= "number" or type(pitch) ~= "number" then return release("no aim") end
+    if not LK.beh then
+        if not acquire(cx, cy, cz, yaw, pitch) then return release("no behemoth") end
         if not LK.comp then return release(LK.part .. " not on this behemoth") end
     end
-    if not valid(LK.comp) or (LK.actor and not valid(LK.actor)) then return release(LK.part .. " destroyed") end
-    local e = Tk.list[nameOf(LK.beh) or ""]
-    if e and e.last and e.last <= 0 then return release("behemoth defeated") end
+    -- the behemoth (still there, still alive) and the part's actor (the game can replace it): four times a second
+    if now - LK.checkAt >= LOCK_CHECK then
+        LK.checkAt = now
+        if not valid(LK.beh) then return release("behemoth gone") end
+        local hp = LK.set and valid(LK.set) and readNum(LK.set, "CurrentHealth")
+        if not hp then local e = LK.behKey and Tk.list[LK.behKey] hp = e and e.last end
+        if hp and hp <= 0 then return release("behemoth defeated") end
+        if LK.actor and not valid(LK.actor) then LK.actor = linkedActor(LK.comp) end
+    end
+    if not valid(LK.comp) then return release(LK.part .. " destroyed") end
     local tx, ty, tz = partPos(LK.comp, LK.actor)
-    if not tx then return release("part lost") end
+    if not tx then return release(LK.method == "actor" and (LK.part .. " destroyed") or "part lost") end
     local dx, dy, dz = tx - cx, ty - cy, tz - cz
     local flat = math.sqrt(dx * dx + dy * dy)
     if flat + math.abs(dz) > LOCK_RANGE * 1.2 then return release("too far") end
@@ -824,7 +869,7 @@ local function lockFrame(now, dt)
     -- how fast the part is crossing your view (smoothed): aiming that far ahead takes out the trailing a smooth
     -- follow would otherwise have when the behemoth runs or swings, without adding any snap
     local tau = T.lockSmooth
-    local h = math.min(dt, 0.1)
+    local h = math.min(dt, 0.05)
     if LK.wy and LK.part == LK.ratePart then
         local ry, rp = normAngle(wantYaw - LK.wy) / h, (wantPitch - LK.wp) / h
         -- a jump no behemoth can make (a teleport, a part swap): not motion, so no lead from it
@@ -837,10 +882,13 @@ local function lockFrame(now, dt)
     local leadP = math.max(-15, math.min(15, LK.rp * tau))
     -- part of the way there each frame: the same feel at any frame rate (smoothness = time to close ~63%)
     local k = 1 - math.exp(-h / tau)
-    local newYaw = yaw + normAngle(wantYaw + leadY - yaw) * k
-    local newPitch = normAngle(pitch) + (wantPitch + leadP - normAngle(pitch)) * k
-    newPitch = math.max(-85, math.min(85, newPitch))
-    local okS, err = pcall(function() pc:SetControlRotation({ Pitch = newPitch, Yaw = newYaw, Roll = roll or 0 }) end)
+    local p0 = normAngle(pitch)
+    local errY, errP = normAngle(wantYaw + leadY - yaw), wantPitch + leadP - p0
+    if math.abs(errY) < LOCK_EPS and math.abs(errP) < LOCK_EPS then return lockStatus(true, "") end   -- on it already
+    local stepY = errY * k
+    local newPitch = math.max(-85, math.min(85, p0 + errP * k))
+    ROT.Pitch, ROT.Yaw, ROT.Roll = newPitch, normAngle(yaw + stepY), roll or 0
+    local okS, err = pcall(callM2, pc, "SetControlRotation", ROT)
     if not okS then logOnce("setrot", "lock-on: could not turn the aim: " .. tostring(err)) return release("aim blocked") end
     lockStatus(true, "")
 end
@@ -849,7 +897,7 @@ end
 -- (your controller's or character's own tick before the busier engine-wide ones), the others are unhooked
 LK.order, LK.ids = {}, {}
 local function onFrame(src)
-    if LK.src and src ~= LK.src then return end
+    if LK.src and (src ~= LK.src or not LK.want) then return end   -- not locked: nothing at all
     local now = os.clock()
     if not LK.src then
         LK.counts[src] = (LK.counts[src] or 0) + 1
@@ -870,7 +918,8 @@ local function onFrame(src)
     end
     if not (T.lock and LK.want) then return end
     local dt = now - LK.lastFrame
-    if dt < 0.006 then return end
+    if dt < 0.002 then return end   -- the same frame again (an event that fires several times per frame)
+    if LK.lastFrame == 0 or dt > 0.5 then dt = 1 / 60 end   -- the first frame of a lock: one frame's step, not a jump
     LK.lastFrame = now
     local ok, err = pcall(lockFrame, now, dt)
     if not ok then logOnce("lockframe:" .. tostring(err), "lock-on error: " .. tostring(err)) release("error") end
@@ -881,9 +930,11 @@ local function lockHooks()
     LK.hooks = true
     local tries = {}
     local pc = localPC(os.clock())
-    for _, o in ipairs({ pc, pc and (function() local ok, p = pcall(function() return pc.Pawn end) return ok and p or nil end)() }) do
+    local okP, pawn = false, nil
+    if pc then okP, pawn = pcall(getField, pc, "Pawn") end
+    for _, o in ipairs({ pc or false, okP and pawn or false }) do
         if o and valid(o) then
-            local okC, c = pcall(function() return o:GetClass() end)
+            local okC, c = pcall(callM, o, "GetClass")
             local full = okC and nameOf(c)
             local path = full and full:match("^%S+%s+(.+)$")
             if path and path:sub(1, 6) == "/Game/" then tries[#tries + 1] = path .. ":ReceiveTick" end
@@ -902,7 +953,7 @@ end
 local function lockJson()
     return string.format('"lock":{"mode":"%s","on":%s,"want":%s,"engaged":%s,"part":"%s","why":"%s","frames":"%s","weapon":%s,"parts":"%s"}',
         clean(T.lockMode), tostring(T.lock), tostring(LK.want == true), tostring(LK.engaged), clean(LK.part), clean(LK.why), clean(LK.src or ""),
-        tostring(LK.weaponOk), clean(table.concat((function() local t = {} for _, p in ipairs(LK.parts or {}) do t[#t + 1] = p.name end return t end)(), ",")))
+        tostring(LK.weaponOk), clean(LK.partsStr))
 end
 
 local function lockToggle()
@@ -913,7 +964,7 @@ local function lockToggle()
     end
     LK.want = not LK.want
     LK.part, LK.panelPart = T.lockPart, T.lockPart
-    if LK.want then lockHooks() lockStatus(false, "looking for " .. LK.part) else release("let go") end
+    if LK.want then LK.lastFrame = 0 lockHooks() lockStatus(false, "looking for " .. LK.part) else release("let go") end
     LK.changed = true
 end
 local function lockNextPart()
