@@ -21,6 +21,7 @@ const HERE = __dirname;
 const UI_FILE = path.join(HERE, 'ui', 'index.html');
 const MOD_SRC = path.join(HERE, 'mod', 'DFTrainer');
 const LIVE = require('./live.js');
+const { protectedIds } = require('./protect.js');
 // Installed by the launcher, each version lives in its own folder (app\<version>): settings live one level up, in the
 // install folder (DFT_ROOT), so updates keep them. Started by hand (node server.js), they stay next to this file.
 const ROOT = process.env.DFT_ROOT || null;
@@ -310,7 +311,7 @@ async function setup() {
 // ---------------------------------------------------------------- items
 // atleast: top stacks up to a count, never lower. maxweapons: every weapon type to level 20 (1.14.7 levels weapons
 // per type, not per item, so there is no "give at max level")
-const ITEM_ACTIONS = new Set(['addgear', 'set', 'atleast', 'maxweapons', 'addcosmetic']);
+const ITEM_ACTIONS = new Set(['addgear', 'set', 'atleast', 'maxweapons', 'addcosmetic', 'remove']);
 // moving from 1.6.2: gifts that were waiting were for 1.6.2 characters, and its package folder no longer applies
 if (settings.build !== GAME_BUILD) { settings.queue = []; if (settings.package && !isPackage(settings.package)) delete settings.package; settings.build = GAME_BUILD; saveSettings(); }
 let queue = settings.queue || [];
@@ -326,6 +327,7 @@ function validJob(b) {
   if (b.action === 'surgeall') b.action = 'maxweapons';    // 1.6.2's "Max all my gear": weapon levels in 1.14.7
   if (!ITEM_ACTIONS.has(b.action)) return 'Unknown action.';
   if (!/^[\w-]{1,64}$|^\*$/.test(String(b.character))) return 'Unknown character.';
+  if (b.action === 'remove' && b.character === '*') return 'Pick one character to remove items from.';
   if (b.action === 'maxweapons' || (b.action === 'addcosmetic' && b.list === 'all')) return null;
   if (b.action === 'set' || b.action === 'atleast') {
     const c = {};
@@ -333,7 +335,7 @@ function validJob(b) {
     if (!Object.keys(c).length) return 'Nothing to change.';
     b.counts = c;
   } else {
-    const l = (Array.isArray(b.list) ? b.list : []).map(String).filter((x) => /^[\w-]{1,80}$/.test(x)).slice(0, 2000);
+    const l = (Array.isArray(b.list) ? b.list : []).map(String).filter((x) => /^[\w-]{1,80}$/.test(x)).slice(0, b.action === 'remove' ? 10000 : 2000);
     if (!l.length) return 'Pick something first.';
     b.list = l;
   }
@@ -343,6 +345,7 @@ const describe = (j) => {
   if (j.label) return j.label;
   const n = j.action === 'set' || j.action === 'atleast' ? Object.keys(j.counts).length : Array.isArray(j.list) ? j.list.length : 0, s = n === 1 ? '' : 's';
   return { maxweapons: 'Max weapon levels', set: `Set ${n} amount${s}`, atleast: `Top up ${n} item${s}`, addgear: `Give ${n} item${s}`,
+    remove: `Remove ${n} item${s}`,
     addcosmetic: j.list === 'all' ? 'Unlock all cosmetics' : `Unlock ${n} cosmetic${s}` }[j.action] || j.action;
 };
 function jobIds(job) { return job.action === 'set' || job.action === 'atleast' ? Object.keys(job.counts) : Array.isArray(job.list) ? job.list : []; }
@@ -360,7 +363,7 @@ async function applyJob(p, job, live = false) {
       const res = await LIVE.give(p.pkg, job, ((mine && mine.characters) || []).map((c) => c.id));
       r = { ok: true, ...res };
     } catch (e) { r = { ok: false, error: e.message }; }
-  } else if (job.action === 'maxweapons' || job.action === 'atleast') {
+  } else if (job.action === 'maxweapons' || job.action === 'atleast' || job.action === 'remove') {
     // the package's items.js only sets counts and adds items: offline.js tops counts up and raises weapon levels
     const mine = await runTool(p, 'items.js', ['list']);
     r = mine && mine.ok ? await runOwn(p, 'offline.js', [p.pkg, JSON.stringify(job), JSON.stringify((mine.characters || []).map((c) => c.id))])
@@ -384,11 +387,20 @@ function giftOutcome(p, job, r) {
   if (job.action === 'atleast' || job.action === 'maxweapons') { o.topped = added.length; delete o.owned; }   // counts and levels, not "already own"
   return o;
 }
+function removeOutcome(p, r) {
+  const removed = r.removed || [], kept = r.kept || [];
+  if (removed.length) note('applied', 'Removed from your save', `${removed.length.toLocaleString('en-US')} item${removed.length === 1 ? '' : 's'}${kept.length ? `; kept ${kept.length} in use` : ''}.`);
+  const message = removed.length ? undefined : kept.length ? `Nothing removed: ${listNames(p, kept, 3)} ${kept.length === 1 ? 'is' : 'are'} in use.` : 'You do not own any of those.';
+  if (message) note('ok', 'Nothing removed', message);
+  return { ok: true, removed: removed.length, keptNames: kept.length ? listNames(p, kept, 3) : undefined, nothingNew: !removed.length, message };
+}
 function enqueue(job) { queue.push(job); settings.queue = queue; saveSettings(); }
 
 async function giveLive(p, job) {
   // weapon levels live in the backend's memory with the rest of the save while the game runs: they wait for it to close
   if (job.action === 'maxweapons') { enqueue(job); return { ok: true, queued: true, note: 'Weapon levels are raised the moment you close the game.' }; }
+  // removing while the game runs could pull something out from under it: removals wait for it to close too
+  if (job.action === 'remove') { enqueue(job); return { ok: true, queued: true, note: 'They are removed the moment you close the game.' }; }
   const r = await applyJob(p, job, true);
   if (!r.ok) return r;
   const later = null;
@@ -419,6 +431,7 @@ async function drainQueue() {
       if (!r.ok && /still running|close the game/i.test(r.error || '')) break;   // started again meanwhile
       queue.shift(); settings.queue = queue; saveSettings();
       if (!r.ok) note('error', 'Could not apply', r.error || describe(job));
+      else if (job.action === 'remove') removeOutcome(p, r);
       else if (r.raised && r.raised.length) note('applied', 'Weapon levels raised', `${r.raised.map((w) => WEAPON_NAMES[w] || w).join(', ')}: level 20.`);
       else if (r.added && r.added.length) note('applied', 'Added to your save', listNames(p, r.added));
       else if (job.action === 'set' || job.list === 'all') note('applied', 'Added to your save', jobSummary(p, job));
@@ -660,7 +673,16 @@ const routes = {
   'GET /api/save': async () => {
     const p = places(); if (!p.pkg) return { ok: false, error: 'Package not found.' };
     const r = await runTool(p, 'items.js', ['list']);
-    if (r && r.ok) delete r.gearCatalog;
+    if (r && r.ok) {
+      delete r.gearCatalog;
+      // what Remove items keeps (in use); the save is only read here
+      const st = readJson(path.join(p.dataDir, 'state.json'), null);
+      const players = Object.values((st && st.players) || {});
+      for (const c of r.characters || []) {
+        const pl = players.find((x) => (x.characters || []).some((y) => y && y.id === c.id));
+        c.inUse = pl ? [...protectedIds(pl, c.id)].filter((id) => catalog(p).storage.has(id)) : [];
+      }
+    }
     return r;
   },
   'GET /api/feed': async () => feed,
@@ -681,6 +703,7 @@ const routes = {
     const r = await applyJob(p, job);
     if (!r.ok) return r;
     if (job.action === 'set' || (job.action === 'addcosmetic' && job.list === 'all')) { note('applied', 'Added to your save', jobSummary(p, job)); return { ok: true }; }
+    if (job.action === 'remove') return removeOutcome(p, r);
     const o = giftOutcome(p, job, r);
     if (r.added && r.added.length) note('applied', 'Added to your save', listNames(p, r.added));
     if (r.raised && r.raised.length) note('applied', 'Weapon levels raised', `${o.raisedNames}: level 20.`);

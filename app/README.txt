@@ -14,6 +14,7 @@ WHAT IT DOES
     Any of the 3,500+ weapons, armour, lanterns, parts, omnicells, gliders, pets, skins and other cosmetics in the
     1.14.7 catalog. Every cell (Cells view), Max weapon levels (every weapon type to level 20), Unlock all cosmetics,
     and any amount of Rams, Merits, tokens, keys and cell cores.
+    Remove items: take unused gear and cosmetics away in bulk (a smaller inventory stutters less in game).
   Game rules
     1.14.7's rules: XP speeds, reward amounts, free crafting, free platinum, extra loadout slots (launcher's page).
   Live feed

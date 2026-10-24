@@ -1,5 +1,5 @@
 {
-  "version": "3.0.1",
+  "version": "3.1.0",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Move speed is removed from the Cheats page. If you had raised it, your normal speed comes back."
+  "notes": "New: Give items > Remove items takes gear and cosmetics away in bulk, by category or one by one. A big inventory makes 1.14.7 stutter and set you back, because every change in game makes it reload all of it. Anything you are using is always kept, and your save is backed up first."
 }

@@ -5,6 +5,8 @@
 // itself (data\state.json), the way items.js changes it:
 //   atleast     top counted items (cells, materials) up to a number, never lowering one
 //   maxweapons  every weapon type to level 20 (players.<you>.progress.tracks.ExperienceTrack_Weapon_<type>)
+//   remove      take gear and cosmetic unlocks away (a big inventory makes the game stutter), never anything in use
+//               (protect.js)
 // Only your own characters (the ids come from items.js list), only while the local backend is not running (it keeps
 // the save in memory and would write over the change), the save is backed up first (backup\inventory, the last 10
 // kept, next to items.js's own backups), and it is written to a temporary file and read back before it replaces it.
@@ -14,6 +16,7 @@
 'use strict';
 const fs = require('fs'), net = require('net'), path = require('path');
 const { plan, catalogs } = require('./live.js');
+const { protectedIds } = require('./protect.js');
 
 const out = (o) => { process.stdout.write(JSON.stringify(o)); };
 const fail = (error) => { out({ ok: false, error }); process.exit(0); };
@@ -63,7 +66,7 @@ function writeState(file, state) {
   const targets = (me.characters || []).filter((c) => c && mine.has(c.id) && (job.character === '*' || c.id === job.character));
   if (!targets.length) fail('Character not found.');
 
-  const result = { ok: true, added: [], already: [], raised: [], unknown: [] };
+  const result = { ok: true, added: [], already: [], raised: [], unknown: [], removed: [], kept: [] };
   const push = (k, id) => { if (!result[k].includes(id)) result[k].push(id); };
   let changed = false;
   if (job.action === 'maxweapons') {
@@ -74,6 +77,21 @@ function writeState(file, state) {
       const t = me.progress.tracks[id] || { progress: 0 };
       if ((Number(t.progress) || 0) < LEVEL20_XP) { t.progress = LEVEL20_XP; me.progress.tracks[id] = t; changed = true; push('raised', w); }
       else push('already', w);
+    }
+  } else if (job.action === 'remove') {
+    const cat = catalogs(pkg), want = new Set((job.list || []).filter((id) => cat.picker.has(id)));
+    (job.list || []).filter((id) => !cat.picker.has(id)).forEach((id) => push('unknown', id));
+    me.inventory = me.inventory || {};
+    for (const c of targets) {
+      const inv = me.inventory[c.id]; if (!inv) continue;
+      const keep = protectedIds(me, c.id);
+      const drop = (i) => {
+        if (!i || !want.has(i.catalogId)) return false;
+        if (keep.has(i.catalogId) || (i.instanceId && keep.has(i.instanceId))) { push('kept', i.catalogId); return false; }
+        push('removed', i.catalogId); changed = true; return true;
+      };
+      if (Array.isArray(inv.stackedItems)) inv.stackedItems = inv.stackedItems.filter((i) => !drop(i));
+      if (Array.isArray(inv.instancedItems)) inv.instancedItems = inv.instancedItems.filter((i) => !drop(i));
     }
   } else {
     const cat = catalogs(pkg);
