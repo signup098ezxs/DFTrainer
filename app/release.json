@@ -1,5 +1,5 @@
 {
-  "version": "3.3.2",
+  "version": "3.3.3",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Fixed: the behemoth overlay's tracking could crash the game when a hunt started (it read game data it should not have). It now reads only the few values it needs, and only on the hunt server. The overlay shows up to 12 parts."
+  "notes": "Behemoth overlay: part health is followed more reliably. A part whose game object is replaced mid-fight is found again (it no longer shows a stale value or a false \"Broken\"), and parts keep the same order and names."
 }

@@ -306,6 +306,7 @@ local function clean(s) return (tostring(s or ""):gsub('[^%w_ .,:/>-]', '')) end
 -- (health attribute sets), since calling game functions from this Lua does not give usable results here.
 local TRACK_SCAN   = 1.0     -- seconds between searches for behemoths while tracking
 local TRACK_PARTS  = 3.0     -- seconds between part searches for a behemoth that has none linked yet
+local TRACK_REBIND = 10.0    -- seconds between part searches once found (a part actor can be replaced in a fight)
 local TRACK_LINGER = 4.0     -- seconds a dead behemoth stays on the overlay
 local TRACK_BEAT   = 1.0     -- seconds: rewrite the file this often even when nothing changed
 local TrackFile = Base and (Base .. "/track/" .. ProcId .. ".json")
@@ -348,7 +349,11 @@ local function partReader(actor, sets)
     local st = ap and healthSetUnder(sets, ap)
     if not st then return nil end
     logOnce("parthp:set", "overlay: part health read from its ArchonHealthAttributeSet")
-    return function() return readNum(st, "CurrentHealth"), readNum(st, "MaxHealth") end
+    -- nil once the set is gone (a part actor replaced or destroyed): never a stale 0 that would read as "Broken"
+    return function()
+        if not valid(st) then return nil end
+        return readNum(st, "CurrentHealth"), readNum(st, "MaxHealth")
+    end, st
 end
 local function linkedActor(comp)
     for _, n in ipairs(PART_LINKS) do
@@ -366,23 +371,36 @@ local function findParts(e, sets)
         if under(pathOf(comp), e.path) then
             local actor = linkedActor(comp)
             if actor then
-                local read = partReader(actor, sets)
-                local name = prettyPart(lastName(comp))
-                local id = nameOf(actor) or name
+                local read, st = partReader(actor, sets)
+                local raw = lastName(comp) or ""
+                local id = nameOf(actor) or raw
                 if read and not seen[id] then
                     seen[id] = true
-                    parts[#parts + 1] = { name = name, read = read }
+                    parts[#parts + 1] = { raw = raw, name = prettyPart(raw), read = read, set = st, actor = actor }
                 end
             end
         end
     end
-    table.sort(parts, function(a, b) return a.name < b.name end)
+    -- always the same order and numbering for the same behemoth (by the component's own name, digits included)
+    table.sort(parts, function(a, b) if a.name ~= b.name then return a.name < b.name end return a.raw < b.raw end)
     local count, nth = {}, {}
     for _, p in ipairs(parts) do count[p.name] = (count[p.name] or 0) + 1 end
     for _, p in ipairs(parts) do     -- two "Leg" parts: "Leg 1", "Leg 2"
         if count[p.name] > 1 then local base = p.name nth[base] = (nth[base] or 0) + 1 p.name = base .. " " .. nth[base] end
     end
     return parts
+end
+
+-- once per kind of behemoth: what each part is bound to, so a wrong value can be traced in UE4SS.log
+local partsLogged = {}
+local function logParts(e)
+    if partsLogged[e.cls] then return end
+    partsLogged[e.cls] = true
+    for _, p in ipairs(e.parts) do
+        local c, m = p.read()
+        log(string.format("overlay:   %s <- %s / %s / %s  %s/%s", p.name, p.raw, (nameOf(p.actor) or "?"):match("([^%.%s]+)$") or "?",
+            (nameOf(p.set) or "?"):match("([^%.%s]+)$") or "?", tostring(c), tostring(m)))
+    end
 end
 
 local function trackScan(now)
@@ -406,13 +424,19 @@ local function trackScan(now)
             end
             if e then
                 found[key] = true
-                if S.role == "server" and #e.parts == 0 and now - e.partsAt >= TRACK_PARTS then   -- parts exist on hunt servers only
+                local again = (#e.parts == 0 and now - e.partsAt >= TRACK_PARTS) or now - e.partsAt >= TRACK_REBIND or e.partsLost
+                if S.role == "server" and again then   -- parts exist on hunt servers only
                     e.partsAt = now
                     sets = sets or findAll({ "ArchonHealthAttributeSet" })
                     local ok, ps = pcall(findParts, e, sets)
+                    e.partsLost = false
                     if ok then
+                        local before = #e.parts
                         e.parts = ps
-                        if #ps > 0 then log(string.format("overlay: %s has %d part(s) (%s)", e.cls, #ps, S.role)) end
+                        if #ps > 0 and before == 0 then
+                            log(string.format("overlay: %s has %d part(s) (%s)", e.cls, #ps, S.role))
+                            pcall(logParts, e)
+                        end
                     else logOnce("parts:" .. tostring(ps), "overlay: part search failed: " .. tostring(ps)) end
                 end
             end
@@ -426,6 +450,7 @@ local function trackJson(e)
     local ps = {}
     for _, p in ipairs(e.parts) do
         local c, m = p.read()
+        if c == nil then e.partsLost = true end
         if c and m and m > 0 then ps[#ps + 1] = string.format('["%s",%.0f,%.0f]', clean(p.name), math.max(c, 0), m) end
     end
     return string.format('{"key":"%s","cls":"%s","cur":%.0f,"max":%.0f,"at":%d,"n":%d,"dead":%s,"parts":[%s]}',
@@ -447,10 +472,14 @@ local function trackTick(now)
             local hp = readNum(e.set, "CurrentHealth")
             local hit = hp and e.last and hp < e.last - 0.01
             if hp then e.last = hp end
-            for i, p in ipairs(e.parts) do
-                local c = p.read()
-                if c and e.partLast[i] and c < e.partLast[i] - 0.01 then hit = true end
-                e.partLast[i] = c
+            for _, p in ipairs(e.parts) do
+                local c, m = p.read()
+                local was = e.partLast[p.name]
+                if c and was and c < was - 0.01 then hit = true end
+                if c and was and ((was > 0 and c <= 0) or (was <= 0 and c > 0)) then
+                    log(string.format("overlay: %s %s %s (%.0f/%s)", e.cls, p.name, c <= 0 and "broke" or "back", c, tostring(m)))
+                end
+                e.partLast[p.name] = c
             end
             if hit then Tk.n = Tk.n + 1 e.at, e.atTime, e.n = now, os.time(), Tk.n end
             if hp and hp <= 0 and not e.deadAt then e.deadAt = now end
@@ -520,4 +549,4 @@ local hooked, hookErr = pcall(function()
 end)
 log(hooked and "hit hook ready" or ("hit hook not available (" .. tostring(hookErr) .. "); the timer still runs"))
 
-log("loaded (v4: damage multiplier, overlay tracking, instant refresh)")
+log("loaded (v4.1: damage multiplier, overlay tracking, instant refresh)")
