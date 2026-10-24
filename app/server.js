@@ -116,10 +116,13 @@ function catalog(p) {
     const named = g[1] && g[1] !== g[0];
     if (named) names.set(g[0], g[1]);
     storage.set(g[0], g[3] === 'i' ? 'i' : 's');
-    return [g[0], named ? g[1] : g[0], g[2], GEAR_KINDS.has(g[2]) ? 0 : 1, named ? 0 : 1];   // id, name, type, cosmetic, unnamed
+    // the picker files hunt arrivals (the animation as you land on a hunt, EM_INTRO_*) under Emotes: their own kind here
+    const type = g[2] === 'Emotes' && /^EM_INTRO_/.test(g[0]) ? 'Hunt arrivals' : g[2];
+    return [g[0], named ? g[1] : g[0], type, GEAR_KINDS.has(g[2]) ? 0 : 1, named ? 0 : 1];   // id, name, type, cosmetic, unnamed
   });
   for (const grp of readJson(path.join(p.pkg, 'items.json'), {}).groups || []) for (const i of grp.items || []) names.set(i.id, i.name);
-  CATALOG = { gear, names, storage, groupOf, types: picker.types || [] }; CATALOG_KEY = key;
+  const types = (picker.types || []).flatMap((t) => (t === 'Emotes' ? ['Emotes', 'Hunt arrivals'] : [t]));
+  CATALOG = { gear, names, storage, groupOf, types }; CATALOG_KEY = key;
   return CATALOG;
 }
 function nameOf(p, id) { return catalog(p).names.get(id) || cellName(id) || id; }

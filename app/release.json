@@ -1,5 +1,5 @@
 {
-  "version": "3.2.1",
+  "version": "3.2.2",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Fixed: removing (or giving) a very long list of items failed with \"spawn ENAMETOOLONG\". Remove items now always keeps everything a new character starts with (the beginner weapons of every type, starter armour, lantern, flask, glider, banner, emotes and so on), so removing everything leaves you ready to play. Those show as Starter."
+  "notes": "Hunt arrivals (the animation as you land on a hunt) now have their own category in Give items and Remove items, instead of being mixed into Emotes."
 }
