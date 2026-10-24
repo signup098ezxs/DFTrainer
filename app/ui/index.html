@@ -1067,6 +1067,7 @@ function onState(s) {
 
 function onNote(n, fresh) {
   if (feedSeen.has(n.id)) return; feedSeen.add(n.id);
+  if (feedSeen.size > 400) for (const id of feedSeen) { feedSeen.delete(id); if (feedSeen.size <= 200) break; }   // the oldest go (the panel keeps 60)
   const [k] = KIND[n.kind] || KIND.ok;
   const el = document.createElement('div'); el.className = 'ev' + (fresh ? ' fresh' : ''); el.style.setProperty('--k', k);
   el.innerHTML = `<div class="t"><b>${esc(n.title)}</b><time>${new Date(n.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</time></div>${n.text ? `<div>${esc(n.text)}</div>` : ''}`;

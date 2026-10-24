@@ -21,7 +21,15 @@ const DURATIONS = { '1d': 1, '7d': 7, '30d': 30, '90d': 90, '365d': 365, life: 0
 const readJson = (f, d) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch { return d; } };
 const writeJson = (f, v) => { try { fs.writeFileSync(f + '.tmp', JSON.stringify(v, null, 2)); fs.renameSync(f + '.tmp', f); } catch {} };
 
+// the panel asks for the key's status on every request (the overlay: ten times a second): a key is checked once
+let decoded = { text: null, r: null };
 function decode(text) {
+  if (decoded.text === text && decoded.r) return decoded.r;
+  const r = decodeKey(text);
+  decoded = { text, r };
+  return r;
+}
+function decodeKey(text) {
   let s = String(text || '').replace(/\s+/g, '');
   if (s.toUpperCase().startsWith(PREFIX)) s = s.slice(PREFIX.length);
   if (!/^[A-Za-z0-9_-]{80,400}$/.test(s)) return { ok: false, error: 'That does not look like a Lantern key.' };

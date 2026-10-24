@@ -375,9 +375,9 @@ local function linkedActor(comp)
     end
     return nil
 end
-local function findParts(e, sets)
+local function findParts(e, sets, comps)
     local parts, seen = {}, {}
-    for _, comp in ipairs(findAll({ "MonsterPartComponent" })) do
+    for _, comp in ipairs(comps) do
         if under(pathOf(comp), e.path) then
             local actor = linkedActor(comp)
             if actor then
@@ -417,7 +417,7 @@ local function trackScan(now)
     Tk.lastScan = now
     local found = {}
     local bl = findAll({ "ArchonBehemoth" })
-    local sets = nil
+    local sets, comps = nil, nil
     for _, b in ipairs(bl) do
         local key = nameOf(b)
         if key then
@@ -434,11 +434,13 @@ local function trackScan(now)
             end
             if e then
                 found[key] = true
-                local again = (#e.parts == 0 and now - e.partsAt >= TRACK_PARTS) or now - e.partsAt >= TRACK_REBIND or e.partsLost
+                -- the regular re-check is for the behemoth being fought; the others only until their parts are found
+                local again = (#e.parts == 0 and now - e.partsAt >= TRACK_PARTS) or (e.at and now - e.partsAt >= TRACK_REBIND) or e.partsLost
                 if S.role == "server" and again then   -- parts exist on hunt servers only
                     e.partsAt = now
                     sets = sets or findAll({ "ArchonHealthAttributeSet" })
-                    local ok, ps = pcall(findParts, e, sets)
+                    comps = comps or findAll({ "MonsterPartComponent" })   -- one search per scan, shared by every behemoth
+                    local ok, ps = pcall(findParts, e, sets, comps)
                     e.partsLost = false
                     if ok then
                         local before = #e.parts

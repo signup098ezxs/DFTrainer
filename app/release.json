@@ -1,5 +1,5 @@
 {
-  "version": "3.3.4",
+  "version": "3.3.5",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Behemoth overlay: part health is followed more reliably (a part replaced mid-fight is found again: no stale value or false \"Broken\"; parts keep the same order). The game mod now keeps its own log for each game and hunt server, so problems can be traced afterwards."
+  "notes": "Performance and memory pass. The behemoth overlay draws a frame about 25 times faster and no longer allocates memory per frame, and redraws only when something changes. The panel checks the game's backend about 90% less often, reuses your character list instead of starting a helper process each time, and keeps one copy of the item catalog. No features changed."
 }

@@ -12,7 +12,6 @@ import (
 	_ "embed"
 	"fmt"
 	"image"
-	"image/draw"
 	"math"
 	"strings"
 	"sync"
@@ -232,13 +231,17 @@ func (c *canvas) blend(x, y int, col rgbf, a float64) {
 	if a > 1 {
 		a = 1
 	}
-	i := c.img.PixOffset(x, y)
+	ai := uint32(a*255 + 0.5)
+	if ai == 0 {
+		return
+	}
+	ia := 255 - ai
+	i := y*c.img.Stride + x*4
 	p := c.img.Pix[i : i+4 : i+4]
-	ia := 1 - a
-	p[0] = uint8(math.Min(255, col.r*a*255+float64(p[0])*ia+0.5))
-	p[1] = uint8(math.Min(255, col.g*a*255+float64(p[1])*ia+0.5))
-	p[2] = uint8(math.Min(255, col.b*a*255+float64(p[2])*ia+0.5))
-	p[3] = uint8(math.Min(255, a*255+float64(p[3])*ia+0.5))
+	p[0] = uint8((uint32(col.r*255+0.5)*ai + uint32(p[0])*ia + 127) / 255)
+	p[1] = uint8((uint32(col.g*255+0.5)*ai + uint32(p[1])*ia + 127) / 255)
+	p[2] = uint8((uint32(col.b*255+0.5)*ai + uint32(p[2])*ia + 127) / 255)
+	p[3] = uint8((255*ai + uint32(p[3])*ia + 127) / 255)
 }
 
 // sdRound: signed distance from (px,py) to a rounded rectangle (negative inside)
@@ -257,12 +260,21 @@ func (c *canvas) rrect(x, y, w, h, r float64, colAt func(t float64) rgbf, a floa
 	r = math.Min(r, math.Min(w, h)/2)
 	x0, y0 := int(math.Floor(x-1)), int(math.Floor(y-1))
 	x1, y1 := int(math.Ceil(x+w+1)), int(math.Ceil(y+h+1))
+	// pixels at least half a pixel inside the straight parts are fully covered: no distance maths for them
+	rm := math.Max(r, 0.5)
 	for py := y0; py <= y1; py++ {
+		fy := float64(py) + 0.5
+		rowA := fy >= y+rm && fy <= y+h-rm   // between the corners vertically
+		rowB := fy >= y+0.5 && fy <= y+h-0.5 // inside the top and bottom edges
 		for px := x0; px <= x1; px++ {
-			d := sdRound(float64(px)+0.5, float64(py)+0.5, x, y, w, h, r)
-			cov := math.Max(0, math.Min(1, 0.5-d))
-			if cov <= 0 {
-				continue
+			fx := float64(px) + 0.5
+			cov := 1.0
+			if !((rowA && fx >= x+0.5 && fx <= x+w-0.5) || (rowB && fx >= x+rm && fx <= x+w-rm)) {
+				d := sdRound(fx, fy, x, y, w, h, r)
+				cov = math.Max(0, math.Min(1, 0.5-d))
+				if cov <= 0 {
+					continue
+				}
 			}
 			t := (float64(px) + 0.5 - x) / w
 			aa := a
@@ -344,32 +356,69 @@ func fit(f font.Face, s string, w float64) string {
 	return "…"
 }
 
+// rendered text (coverage masks), kept between frames: names, labels and most numbers repeat frame after frame
+type textMask struct {
+	px     []uint8
+	w, h   int
+	dx, dy int
+}
+
+var (
+	textMu    sync.Mutex
+	textCache = map[textKey]*textMask{}
+)
+
+type textKey struct {
+	f font.Face
+	s string
+}
+
+func maskOf(f font.Face, s string) *textMask {
+	k := textKey{f, s}
+	textMu.Lock()
+	defer textMu.Unlock()
+	if m, ok := textCache[k]; ok {
+		return m
+	}
+	b, _ := font.BoundString(f, s)
+	bw, bh := (b.Max.X-b.Min.X).Ceil()+2, (b.Max.Y-b.Min.Y).Ceil()+2
+	if bw <= 0 || bh <= 0 {
+		return nil
+	}
+	mask := image.NewAlpha(image.Rect(0, 0, bw, bh))
+	d := font.Drawer{Dst: mask, Src: image.Opaque, Face: f, Dot: fixed.Point26_6{X: -b.Min.X + 64, Y: -b.Min.Y + 64}}
+	d.DrawString(s)
+	if len(textCache) >= 256 { // a long fight goes through many numbers: start over now and then
+		textCache = map[textKey]*textMask{}
+	}
+	m := &textMask{px: mask.Pix, w: bw, h: bh, dx: b.Min.X.Floor() - 1, dy: b.Min.Y.Floor() - 1}
+	textCache[k] = m
+	return m
+}
+
 // text at baseline y; a soft dark shadow under it keeps it readable over bright scenes
 func (c *canvas) text(f font.Face, s string, x, y float64, col rgbf, a float64) {
 	if f == nil || s == "" {
 		return
 	}
-	b, _ := font.BoundString(f, s)
-	bw, bh := (b.Max.X-b.Min.X).Ceil()+2, (b.Max.Y-b.Min.Y).Ceil()+2
-	if bw <= 0 || bh <= 0 {
+	m := maskOf(f, s)
+	if m == nil {
 		return
 	}
-	mask := image.NewAlpha(image.Rect(0, 0, bw, bh))
-	d := font.Drawer{Dst: mask, Src: image.Opaque, Face: f, Dot: fixed.Point26_6{X: -b.Min.X + 64, Y: -b.Min.Y + 64}}
-	d.DrawString(s)
-	ox := int(math.Round(x)) + b.Min.X.Floor() - 1
-	oy := int(math.Round(y)) + b.Min.Y.Floor() - 1
+	ox := int(math.Round(x)) + m.dx
+	oy := int(math.Round(y)) + m.dy
 	for pass := 0; pass < 2; pass++ {
-		for j := 0; j < bh; j++ {
-			for i := 0; i < bw; i++ {
-				m := float64(mask.AlphaAt(i, j).A) / 255
-				if m == 0 {
+		for j := 0; j < m.h; j++ {
+			row := m.px[j*m.w : (j+1)*m.w]
+			for i, v := range row {
+				if v == 0 {
 					continue
 				}
+				cv := float64(v) / 255
 				if pass == 0 {
-					c.blend(ox+i+1, oy+j+1, rgbf{0, 0, 0}, m*a*0.55)
+					c.blend(ox+i+1, oy+j+1, rgbf{0, 0, 0}, cv*a*0.55)
 				} else {
-					c.blend(ox+i, oy+j, col, m*a)
+					c.blend(ox+i, oy+j, col, cv*a)
 				}
 			}
 		}
@@ -421,17 +470,35 @@ func ovLayout(m *ovModel, st ovStyle, u float64) (cardW, cardH, margin float64) 
 	return
 }
 
-// ovDraw renders the model at scale u into a new image (card plus a margin for its shadow)
-func ovDraw(m *ovModel, st ovStyle, u float64) *image.RGBA {
+// ovRenderer keeps what does not change from frame to frame: the card's background (shadow, glass, hairline, glint)
+// for its size and colours, and the two images it draws into, so an animation frame allocates nothing.
+type ovRenderer struct {
+	bgKey     string
+	bg        []uint8
+	card, out *image.RGBA
+}
+
+var ovDefault = &ovRenderer{}
+
+// ovDraw renders the model at scale u (card plus a margin for its shadow). The image is reused by the next call.
+func ovDraw(m *ovModel, st ovStyle, u float64) *image.RGBA { return ovDefault.draw(m, st, u) }
+
+func reuse(img *image.RGBA, w, h int) *image.RGBA {
+	if img == nil || img.Bounds().Dx() != w || img.Bounds().Dy() != h {
+		return image.NewRGBA(image.Rect(0, 0, w, h))
+	}
+	return img
+}
+
+func (r *ovRenderer) draw(m *ovModel, st ovStyle, u float64) *image.RGBA {
 	cw, ch, mg := ovLayout(m, st, u)
 	W, H := int(cw+2*mg), int(ch+2*mg+8*u)
-	img := image.NewRGBA(image.Rect(0, 0, W, H))
-	draw.Draw(img, img.Bounds(), image.Transparent, image.Point{}, draw.Src)
+	r.out = reuse(r.out, W, H)
+	clear(r.out.Pix)
 	if m.alpha <= 0 {
-		return img
+		return r.out
 	}
 	ease := m.alpha * m.alpha * (3 - 2*m.alpha)
-	c := &canvas{img: img, w: W, h: H, fa: ease}
 	acc := hexColor(st.Accent, rgbf{0.24, 0.92, 1})
 	light := hexColor(st.Light, mix(acc, rgbf{1, 1, 1}, 0.25))
 	deep := hexColor(st.Deep, mix(acc, rgbf{0, 0, 0}, 0.6))
@@ -439,17 +506,28 @@ func ovDraw(m *ovModel, st ovStyle, u float64) *image.RGBA {
 	if op <= 0 {
 		op = 0.85
 	}
-	x0, y0 := mg, mg+(1-ease)*-8*u+8*u // slides down into place as it fades in
-
-	// shadow, glass, hairline, and the preset's glint along the top edge
-	for i := 4; i >= 1; i-- {
-		g := float64(i) * 3 * u
-		c.rrect(x0-g, y0-g+3*u, cw+2*g, ch+2*g, 10*u+g, flat(rgbf{0, 0, 0}), 0.07*op, nil)
+	// the card is drawn whole, in place, then faded and slid in as one piece
+	x0, y0 := mg, mg+8*u
+	key := fmt.Sprintf("%d %d %.3f %s %s %s %.3f", W, H, u, st.Accent, st.Light, st.Deep, op)
+	if key != r.bgKey {
+		r.card = reuse(r.card, W, H)
+		clear(r.card.Pix)
+		c := &canvas{img: r.card, w: W, h: H, fa: 1}
+		for i := 4; i >= 1; i-- {
+			g := float64(i) * 3 * u
+			c.rrect(x0-g, y0-g+3*u, cw+2*g, ch+2*g, 10*u+g, flat(rgbf{0, 0, 0}), 0.07*op, nil)
+		}
+		c.rrect(x0, y0, cw, ch, 10*u, flat(ovGlass), op, nil)
+		c.rrect(x0, y0, cw, ch*0.55, 10*u, flat(deep), 0.10*op, nil)
+		c.ring(x0, y0, cw, ch, 10*u, acc, 0.30)
+		c.rrect(x0+14*u, y0, cw-28*u, 1.2*u, 0.6*u, flat(light), 0.85, func(t float64) float64 { return math.Sin(t * math.Pi) })
+		r.bg = append(r.bg[:0], r.card.Pix...)
+		r.bgKey = key
 	}
-	c.rrect(x0, y0, cw, ch, 10*u, flat(ovGlass), op, nil)
-	c.rrect(x0, y0, cw, ch*0.55, 10*u, flat(deep), 0.10*op, nil)
-	c.ring(x0, y0, cw, ch, 10*u, acc, 0.30)
-	c.rrect(x0+14*u, y0, cw-28*u, 1.2*u, 0.6*u, flat(light), 0.85, func(t float64) float64 { return math.Sin(t * math.Pi) })
+	r.card = reuse(r.card, W, H)
+	copy(r.card.Pix, r.bg)
+	c := &canvas{img: r.card, w: W, h: H, fa: 1}
+	defer r.compose(ease, int(math.Round((1-ease)*-8*u)))
 
 	pad := 12 * u
 	ix, iw := x0+pad, cw-2*pad
@@ -524,7 +602,31 @@ func ovDraw(m *ovModel, st ovStyle, u float64) *image.RGBA {
 			}
 		}
 	}
-	return img
+	return r.out
+}
+
+// compose puts the card into the output, faded by ease and moved dy pixels (premultiplied: every channel scales)
+func (r *ovRenderer) compose(ease float64, dy int) {
+	W, H := r.out.Bounds().Dx(), r.out.Bounds().Dy()
+	k := uint32(ease*256 + 0.5)
+	if k > 256 {
+		k = 256
+	}
+	for y := 0; y < H; y++ {
+		sy := y - dy
+		if sy < 0 || sy >= H {
+			continue
+		}
+		src := r.card.Pix[sy*r.card.Stride : sy*r.card.Stride+W*4]
+		dst := r.out.Pix[y*r.out.Stride : y*r.out.Stride+W*4]
+		if k == 256 {
+			copy(dst, src)
+			continue
+		}
+		for i, v := range src {
+			dst[i] = uint8(uint32(v) * k >> 8)
+		}
+	}
 }
 
 // ovPlace: where the card's window goes inside the game's client area (gw x gh), for the chosen position

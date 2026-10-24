@@ -106,8 +106,11 @@ function catalog(p) {
   if (CATALOG && CATALOG_KEY === key) return CATALOG;
   const names = new Map(), storage = new Map(), groupOf = new Map();
   const full = readJson(files[1], {}).items || [];
+  const behemoths = new Map();   // TOKEN_KILL_COUNT_LERAWR_BETA "Kill Token: Rogue Embermane" -> LERAWR_BETA: Rogue Embermane
   for (const i of full) {
     if (i.name && i.name !== i.id) names.set(i.id, i.name);
+    const k = /^TOKEN_KILL_COUNT_([A-Z0-9_]+)$/.exec(i.id || '');
+    if (k && i.name) behemoths.set(k[1], i.name.replace(/^Kill Token:\s*/i, '').trim());
     storage.set(i.id, i.storage === 'instance' ? 'i' : 's');
     groupOf.set(i.id, i.group);
   }
@@ -122,7 +125,11 @@ function catalog(p) {
   });
   for (const grp of readJson(path.join(p.pkg, 'items.json'), {}).groups || []) for (const i of grp.items || []) names.set(i.id, i.name);
   const types = (picker.types || []).flatMap((t) => (t === 'Emotes' ? ['Emotes', 'Hunt arrivals'] : [t]));
-  CATALOG = { gear, names, storage, groupOf, types }; CATALOG_KEY = key;
+  // what live.js needs for a gift while you play, from this same catalog (no second copy of it)
+  let live = null;   // built on the first gift while you play
+  CATALOG = { gear, names, storage, groupOf, types, behemoths,
+    get live() { return live || (live = { storage, picker: new Set(gear.map((g) => g[0])), cosmetics: gear.filter((g) => g[3]).map((g) => g[0]) }); } };
+  CATALOG_KEY = key;
   return CATALOG;
 }
 function nameOf(p, id) { return catalog(p).names.get(id) || cellName(id) || id; }
@@ -161,7 +168,16 @@ const listNames = (p, ids, max = 2) => {
 };
 
 // ---------------------------------------------------------------- helpers
-function backendUp() {
+// Is the game's backend up? Asked by the state ticks, the overlay (ten times a second) and every gift: one answer is
+// shared for up to a second (maxAge 0 asks fresh), so the backend is not knocked on a dozen times a second.
+let upCache = { at: 0, v: false, p: null };
+function backendUp(maxAge = 1000) {
+  if (upCache.p) return upCache.p;
+  if (maxAge > 0 && Date.now() - upCache.at < maxAge) return Promise.resolve(upCache.v);
+  upCache.p = backendProbe().then((v) => { upCache = { at: Date.now(), v, p: null }; return v; });
+  return upCache.p;
+}
+function backendProbe() {
   return new Promise((resolve) => {
     const s = net.connect({ host: '127.0.0.1', port: BACKEND_PORT });
     const done = (v) => { s.destroy(); resolve(v); };
@@ -169,6 +185,17 @@ function backendUp() {
     s.on('connect', () => done(true));
     s.on('error', () => done(false));
   });
+}
+// "items.js list" only reads the save (and the picker): the answer is kept until either file changes, instead of a new
+// Node process (about 40 MB for a moment) for every look at your characters
+let listCache = { key: '', r: null };
+function statKey(f) { try { const st = fs.statSync(f); return st.size + ':' + st.mtimeMs; } catch { return '-'; } }
+async function listChars(p) {
+  const key = statKey(path.join(p.dataDir, 'state.json')) + '|' + statKey(path.join(p.pkg, 'tools', 'gear-1147.json')) + '|' + p.pkg;
+  if (listCache.key === key && listCache.r) return listCache.r;
+  const r = await runTool(p, 'items.js', ['list']);
+  if (r && r.ok) { delete r.gearCatalog; listCache = { key, r }; }
+  return r;
 }
 function runTool(p, script, args, { timeout = 60000 } = {}) {
   return new Promise((resolve) => {
@@ -283,6 +310,8 @@ function writeToggles(p, t) {
     // not the owner: the mod gets x1 and "locked"
     const out = { ...(isOwner() ? { ...clean, locked: false } : { ...TOGGLE_DEFAULTS, locked: true }), track: overlayOn() };
     fs.mkdirSync(path.join(p.modDir, 'track'), { recursive: true });
+    // each copy of the game that ever ran left a track file: those over an hour old are done with
+    try { const td = path.join(p.modDir, 'track'); for (const f of fs.readdirSync(td)) { const full = path.join(td, f); if (Date.now() - fs.statSync(full).mtimeMs > 3600000) fs.unlinkSync(full); } } catch {}
     // the mod's own logs (logs\<date>-<process>.log, one per copy of the game): a week is kept
     const logs = path.join(p.modDir, 'logs');
     fs.mkdirSync(logs, { recursive: true });
@@ -320,7 +349,7 @@ async function setup() {
   const p = places(), steps = [];
   if (!p.pkg) return { ok: false, error: 'Dauntless Forever 1.14.7 was not found. Set its folder first.' };
   if (!p.gameDir) return { ok: false, error: 'The game folder is not known yet. Run Set up in the launcher first.' };
-  if (await backendUp()) return { ok: false, error: 'Close the game first (Stop in the launcher), then set up the trainer.' };
+  if (await backendUp(0)) return { ok: false, error: 'Close the game first (Stop in the launcher), then set up the trainer.' };
   if (!fs.existsSync(p.ue4ssDll)) {
     const r = await runTool(p, 'ue4ss.cjs', ['install'], { timeout: 300000 });
     if (!r.ok) return { ok: false, error: r.error || 'Could not install UE4SS.' };
@@ -390,13 +419,13 @@ async function applyJob(p, job, live = false) {
   let r;
   if (live) {
     try {
-      const mine = await runTool(p, 'items.js', ['list']);   // read-only: which characters are yours
-      const res = await LIVE.give(p.pkg, job, ((mine && mine.characters) || []).map((c) => c.id));
+      const mine = await listChars(p);   // read-only: which characters are yours
+      const res = await LIVE.give(p.pkg, job, ((mine && mine.characters) || []).map((c) => c.id), catalog(p).live);
       r = { ok: true, ...res };
     } catch (e) { r = { ok: false, error: e.message }; }
   } else if (job.action === 'maxweapons' || job.action === 'atleast' || job.action === 'remove') {
     // the package's items.js only sets counts and adds items: offline.js tops counts up and raises weapon levels
-    const mine = await runTool(p, 'items.js', ['list']);
+    const mine = await listChars(p);
     r = mine && mine.ok ? await runOwn(p, 'offline.js', [p.pkg, JSON.stringify(job), JSON.stringify((mine.characters || []).map((c) => c.id))])
       : (mine || { ok: false, error: 'Could not read your characters.' });
   } else r = await runItemsTool(p, job);
@@ -455,7 +484,7 @@ async function drainQueue() {
   draining = true;
   try {
     const p = places();
-    if (!p.pkg || await backendUp()) return;
+    if (!p.pkg || await backendUp(0)) return;
     while (queue.length) {
       const job = queue[0];
       const r = await applyJob(p, job);
@@ -598,15 +627,8 @@ const OVERLAY_SIZE = { s: 0.85, m: 1, l: 1.2 };
 const THEME_COLORS = { aether: ['#3cebff', '#4ff3ff', '#0b5f6d'], ember: ['#ff8a3d', '#ffa866', '#7a3410'], verdant: ['#4ff096', '#7cf5b0', '#0d5e35'],
   amethyst: ['#b284ff', '#c7a6ff', '#47297d'], crimson: ['#ff5c78', '#ff8399', '#7a1526'], gold: ['#ffc84a', '#ffd978', '#7a560a'] };
 function overlaySettings() { return { ...OVERLAY_DEFAULTS, ...(settings.overlay || {}) }; }
-let BEH_NAMES = null;
 function behemothName(p, cls) {
-  if (!BEH_NAMES) {
-    BEH_NAMES = new Map();
-    for (const i of readJson(path.join(p.pkg, 'tools', 'catalog-1147.json'), {}).items || []) {
-      const m = /^TOKEN_KILL_COUNT_([A-Z0-9_]+)$/.exec(i.id || '');
-      if (m && i.name) BEH_NAMES.set(m[1], i.name.replace(/^Kill Token:\s*/i, '').trim());
-    }
-  }
+  const BEH_NAMES = catalog(p).behemoths;
   // "lerawr_beta_bp_C" -> LERAWR_BETA; no variant -> LERAWR_NORMAL
   const id = String(cls || '').replace(/_C$/i, '').replace(/_bp$/i, '').replace(/^BP_/i, '').toUpperCase();
   const variant = /_(ALPHA|BETA|NORMAL)$/.test(id) ? id : id + '_NORMAL';
@@ -784,9 +806,9 @@ const routes = {
   },
   'GET /api/save': async () => {
     const p = places(); if (!p.pkg) return { ok: false, error: 'Package not found.' };
-    const r = await runTool(p, 'items.js', ['list']);
+    const l = await listChars(p);
+    const r = l && l.ok ? JSON.parse(JSON.stringify(l)) : l;   // a copy: inUse is added per answer
     if (r && r.ok) {
-      delete r.gearCatalog;
       // what Remove items keeps (in use); the save is only read here
       const st = readJson(path.join(p.dataDir, 'state.json'), null);
       const players = Object.values((st && st.players) || {});
@@ -811,7 +833,7 @@ const routes = {
     const p = places(); if (!p.pkg) return { ok: false, error: 'Package not found.' };
     const bad = validJob(b); if (bad) return { ok: false, error: bad };
     const job = { action: b.action, character: String(b.character), list: b.list, counts: b.counts, label: String(b.label || '').slice(0, 120) || undefined };
-    if (await backendUp()) return giveLive(p, job);
+    if (await backendUp(0)) return giveLive(p, job);
     if (queue.length) { enqueue(job); return { ok: true, queued: true }; }
     const r = await applyJob(p, job);
     if (!r.ok) return r;

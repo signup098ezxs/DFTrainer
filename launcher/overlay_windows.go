@@ -10,7 +10,9 @@ package main
 // overlay is turned off or the panel stops answering.
 
 import (
+	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
 	"runtime"
 	"strings"
@@ -104,17 +106,25 @@ func (f *ovFeed) poll(base, token string) {
 		return
 	}
 	req.Header.Set("X-Trainer-Token", token)
+	var lastBody []byte
 	for {
 		var r ovReply
+		var body []byte
 		resp, err := cl.Do(req)
 		if err == nil {
-			err = json.NewDecoder(resp.Body).Decode(&r)
+			body, err = io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 			resp.Body.Close()
+			if err == nil {
+				err = json.Unmarshal(body, &r)
+			}
 		}
 		f.mu.Lock()
 		if err == nil && r.OK {
-			f.last, f.okAt, f.failed = r, time.Now(), 0
-			f.seq++
+			f.okAt, f.failed = time.Now(), 0
+			if !bytes.Equal(body, lastBody) { // only a change makes a new frame (the same answer ten times a second does not)
+				f.last, lastBody = r, body
+				f.seq++
+			}
 		} else {
 			f.failed++
 		}

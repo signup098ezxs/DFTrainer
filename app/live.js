@@ -105,8 +105,8 @@ function plan(job, inv, cat) {
 }
 
 // job: { action, character, list|counts }; characters: your character ids (for "*")
-async function give(pkg, job, characters) {
-  const cat = catalogs(pkg);
+// cat: the panel passes its own catalog (the same storage, picker and cosmetics), so none is read twice
+async function give(pkg, job, characters, cat = catalogs(pkg)) {
   const targets = job.character === '*' ? characters : [job.character];
   if (!targets.length) throw new Error('No characters yet.');
   const result = { added: [], already: [], unknown: [], perCharacter: {} };
