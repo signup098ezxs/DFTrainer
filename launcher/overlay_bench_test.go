@@ -5,7 +5,7 @@ import "testing"
 func benchModel() (*ovModel, ovStyle) {
 	st := ovStyle{Accent: "#3cebff", Light: "#4ff3ff", Deep: "#0b5f6d", Scale: 1, Opacity: 0.85, Parts: true, Numbers: true}
 	b := &ovBeh{Key: "k", Name: "Rogue Embermane", Cur: 11200, Max: 15654, Parts: []ovPart{
-		{"Head", 900, 2400}, {"Left foreleg", 1800, 1800}, {"Right foreleg", 1700, 1800}, {"Tail", 0, 1500}, {"Back", 2000, 2000}, {"Left hind leg", 1500, 1800}}}
+		{Name: "Head", Cur: 900, Max: 2400}, {Name: "Left foreleg", Cur: 1800, Max: 1800}, {Name: "Right foreleg", Cur: 1700, Max: 1800}, {Name: "Tail", Cur: 0, Max: 1500}, {Name: "Back", Cur: 2000, Max: 2000}, {Name: "Left hind leg", Cur: 1500, Max: 1800}}}
 	m := &ovModel{}
 	m.update(b, 0)
 	for i := 0; i < 120; i++ {

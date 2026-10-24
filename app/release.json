@@ -1,5 +1,5 @@
 {
-  "version": "3.3.5",
+  "version": "3.3.6",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Performance and memory pass. The behemoth overlay draws a frame about 25 times faster and no longer allocates memory per frame, and redraws only when something changes. The panel checks the game's backend about 90% less often, reuses your character list instead of starting a helper process each time, and keeps one copy of the item catalog. No features changed."
+  "notes": "Behemoth overlay: part health now always comes from the hunt server (your game was mistaken for a server and its copy sometimes shown), the Body pseudo-part (millions of health) is hidden, and breaks are shown properly: the game refills a broken part at once, so \"Broken\" now stays readable for a moment and a break count appears by the part's name."
 }

@@ -134,9 +134,26 @@ end
 local S = { role = "server", behemoths = {}, owners = {} }
 local lastRescan = -100
 
+-- your game is the only copy with a local player (your screen and keyboard); server copies only have remote
+-- controllers. IsLocalController alone does not answer in every copy (3.3.x took your game for a server and let it
+-- look for parts), so the local player objects decide too, as in the first versions of this mod.
 local function isLocal(pc)
     local ok, res = pcall(function() return pc:IsLocalController() end)
-    return ok and res == true
+    if ok and res == true then return true end
+    local okP, pl = pcall(function() return pc.Player end)
+    if not (okP and valid(pl)) then return false end
+    local n = (nameOf(pl) or ""):lower()
+    return n:find("localplayer", 1, true) ~= nil or n:find("local_player", 1, true) ~= nil
+end
+local function hasLocalPlayer()
+    for _, cls in ipairs({ "ArchonLocalPlayer", "LocalPlayer" }) do
+        local ok, list = pcall(FindAllOf, cls)
+        for _, lp in ipairs(ok and list or {}) do
+            local n = nameOf(lp) or ""
+            if valid(lp) and not n:find("Default__", 1, true) then return true end
+        end
+    end
+    return false
 end
 
 -- behemoths and their health sets; players only when instant refresh needs their inventories
@@ -153,7 +170,10 @@ local function rescan(now)
             end
         end
     end
-    S.role = isGame and "game" or "server"
+    if not isGame and S.role ~= "game" then isGame = hasLocalPlayer() end
+    -- once your game, always your game (a server copy never gets a local player)
+    S.role = (isGame or S.role == "game") and "game" or "server"
+    S.roleKnown = true
     S.owners = owners
 
     local behemoths = {}
@@ -428,7 +448,7 @@ local function trackScan(now)
                 local st = path and healthSetUnder(sets, path)
                 if st then
                     e = { key = key, b = b, path = path, set = st, cls = (key:match("^(%S+)") or ""), last = nil, at = nil,
-                          parts = {}, partsAt = -100, partLast = {} }
+                          parts = {}, partsAt = -100, partLast = {}, breaks = {} }
                     Tk.list[key] = e
                 end
             end
@@ -436,7 +456,7 @@ local function trackScan(now)
                 found[key] = true
                 -- the regular re-check is for the behemoth being fought; the others only until their parts are found
                 local again = (#e.parts == 0 and now - e.partsAt >= TRACK_PARTS) or (e.at and now - e.partsAt >= TRACK_REBIND) or e.partsLost
-                if S.role == "server" and again then   -- parts exist on hunt servers only
+                if S.roleKnown and S.role == "server" and again then   -- parts are read on hunt servers only
                     e.partsAt = now
                     sets = sets or findAll({ "ArchonHealthAttributeSet" })
                     comps = comps or findAll({ "MonsterPartComponent" })   -- one search per scan, shared by every behemoth
@@ -463,7 +483,10 @@ local function trackJson(e)
     for _, p in ipairs(e.parts) do
         local c, m = p.read()
         if c == nil then e.partsLost = true end
-        if c and m and m > 0 then ps[#ps + 1] = string.format('["%s",%.0f,%.0f]', clean(p.name), math.max(c, 0), m) end
+        -- "Body" has millions of health (far more than the behemoth): not a part you can break, so it is not shown
+        if c and m and m > 0 and not (mx > 0 and m > mx) then
+            ps[#ps + 1] = string.format('["%s",%.0f,%.0f,%d]', clean(p.name), math.max(c, 0), m, e.breaks[p.name] or 0)
+        end
     end
     return string.format('{"key":"%s","cls":"%s","cur":%.0f,"max":%.0f,"at":%d,"n":%d,"dead":%s,"parts":[%s]}',
         clean(e.key), clean(e.cls), math.max(hp, 0), mx, e.atTime or 0, e.n or 0, tostring(hp <= 0), table.concat(ps, ","))
@@ -488,6 +511,8 @@ local function trackTick(now)
                 local c, m = p.read()
                 local was = e.partLast[p.name]
                 if c and was and c < was - 0.01 then hit = true end
+                -- a break: the game often refills that part right away (it can break again), so breaks are counted
+                if c and was and was > 0 and c <= 0 then e.breaks[p.name] = (e.breaks[p.name] or 0) + 1 end
                 if c and was and ((was > 0 and c <= 0) or (was <= 0 and c > 0)) then
                     log(string.format("overlay: %s %s %s (%.0f/%s)", e.cls, p.name, c <= 0 and "broke" or "back", c, tostring(m)))
                 end
@@ -561,4 +586,4 @@ local hooked, hookErr = pcall(function()
 end)
 log(hooked and "hit hook ready" or ("hit hook not available (" .. tostring(hookErr) .. "); the timer still runs"))
 
-log("loaded (v4.1: damage multiplier, overlay tracking, instant refresh)")
+log("loaded (v4.2: damage multiplier, overlay tracking, instant refresh)")

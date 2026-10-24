@@ -647,8 +647,9 @@ function overlayTrack(p) {
       if (!f.endsWith('.json')) continue;
       const t = readJson(path.join(dir, f), null);
       if (!t || !t.b || now - (t.time || 0) > 4) continue;
-      const score = [t.b.at || 0, (t.b.parts || []).length, t.role === 'server' ? 1 : 0, t.b.n || 0];
-      // the latest hit first; for the same moment, the copy that has the parts (a hunt server)
+      const score = [t.role === 'server' ? 1 : 0, t.b.at || 0, (t.b.parts || []).length, t.b.n || 0];
+      // a hunt server first (it owns the fight: health and parts as they really are), your game only without one;
+      // then the latest hit
       if (!best || later(score, best.score)) best = { t, score };
     }
   } catch {}
@@ -656,7 +657,7 @@ function overlayTrack(p) {
   if (!best) return (ovCache = null);
   const b = best.t.b;
   return (ovCache = { key: b.key, name: behemothName(p, b.cls), cur: b.cur, max: b.max, dead: !!b.dead,
-    parts: (b.parts || []).map(([n, c, m]) => ({ name: String(n), cur: c, max: m })) });
+    parts: (b.parts || []).map(([n, c, m, k]) => ({ name: String(n), cur: c, max: m, breaks: k || 0 })) });
 }
 function overlayStyle() {
   const o = overlaySettings(), c = THEME_COLORS[(settings.prefs || {}).theme] || THEME_COLORS.aether;

@@ -13,7 +13,7 @@ func TestOverlayFrames(t *testing.T) {
 	dir := os.Getenv("OVERLAY_PNG_DIR")
 	st := ovStyle{Accent: "#3cebff", Light: "#4ff3ff", Deep: "#0b5f6d", Scale: 1, Opacity: 0.85, Parts: true, Numbers: true}
 	b := &ovBeh{Key: "k1", Name: "Rogue Embermane", Cur: 15654, Max: 15654, Parts: []ovPart{
-		{"Head", 2400, 2400}, {"Left foreleg", 1800, 1800}, {"Right foreleg", 1800, 1800}, {"Tail", 1500, 1500}, {"Back", 2000, 2000}}}
+		{Name: "Head", Cur: 2400, Max: 2400}, {Name: "Left foreleg", Cur: 1800, Max: 1800}, {Name: "Right foreleg", Cur: 1800, Max: 1800}, {Name: "Tail", Cur: 1500, Max: 1500}, {Name: "Back", Cur: 2000, Max: 2000}}}
 	m := &ovModel{}
 	now := 0.0
 	run := func(sec float64) {
@@ -40,11 +40,22 @@ func TestOverlayFrames(t *testing.T) {
 	run(1)
 	save("2-full", 1)
 	b.Cur, b.Parts[0].Cur, b.Parts[3].Cur = 11200, 900, 0
+	b.Parts[3].Breaks = 1
 	m.update(b, now)
 	run(0.12)
 	save("3-hit", 1)
 	run(1.5)
 	save("4-after", 1)
+	// the game refills a broken part at once: "Broken" stays a moment, then a break count shows by the name
+	b.Parts[3].Cur, b.Parts[1].Cur, b.Parts[1].Breaks = 1500, 1800, 1
+	m.update(b, now)
+	run(0.5)
+	if !(m.parts[1].brokeAt > 0) {
+		t.Fatal("a refilled break was not noticed")
+	}
+	save("4b-broken-held", 1)
+	run(3)
+	save("4c-break-count", 1)
 	if m.disp < 0.70 || m.disp > 0.73 {
 		t.Fatalf("health bar settled at %.3f", m.disp)
 	}

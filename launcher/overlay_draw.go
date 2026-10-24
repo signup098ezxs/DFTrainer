@@ -33,6 +33,8 @@ type ovPart struct {
 	Name string  `json:"name"`
 	Cur  float64 `json:"cur"`
 	Max  float64 `json:"max"`
+	// times this part has broken this fight: the game often refills a broken part at once (it can break again)
+	Breaks int `json:"breaks"`
 }
 type ovBeh struct {
 	Key   string   `json:"key"`
@@ -62,6 +64,8 @@ type ovPartAnim struct {
 	cur, max               float64
 	target, disp, ghost    float64
 	ghostHold, flash, born float64
+	breaks                 int
+	brokeAt                float64 // when it last broke: "Broken" stays readable for a moment even if it refills
 }
 
 type ovModel struct {
@@ -106,7 +110,7 @@ func (m *ovModel) setParts(ps []ovPart, now float64, fresh bool) {
 		f := frac(p.Cur, p.Max)
 		a := old[p.Name]
 		if a == nil {
-			a = &ovPartAnim{name: p.Name, born: now}
+			a = &ovPartAnim{name: p.Name, born: now, breaks: p.Breaks} // breaks from before it was shown: counted, not flashed
 			if fresh {
 				a.born = now - 1 // shown with the card: they sweep in with it
 			} else {
@@ -118,6 +122,10 @@ func (m *ovModel) setParts(ps []ovPart, now float64, fresh bool) {
 		if f > a.ghost {
 			a.ghost = f
 		}
+		if p.Breaks > a.breaks {
+			a.brokeAt = now
+		}
+		a.breaks = p.Breaks
 		a.cur, a.max, a.target = p.Cur, p.Max, f
 		out = append(out, a)
 	}
@@ -581,13 +589,26 @@ func (r *ovRenderer) draw(m *ovModel, st ovStyle, u float64) *image.RGBA {
 			px := ix + float64(i%2)*(colW+gap)
 			py := y + float64(i/2)*21*u
 			pa := math.Min(1, math.Max(0, (m.now-p.born)/0.3)) // a part found mid-fight fades in
-			broken := p.target <= 0 && p.max > 0
+			broken := (p.target <= 0 && p.max > 0) || (p.brokeAt > 0 && m.now-p.brokeAt < 2.5)
 			val, valCol, valA, nameA := percent(p.disp), ovAsh, 0.9, 0.86*pa
 			if broken {
 				val, valCol, valA, nameA = "Broken", ovCoral, 0.95, 0.5*pa
 			}
 			vw := textWidth(fv, val)
-			c.text(f, fit(f, p.name, colW-vw-6*u), px, py+9*u, ovInk, nameA)
+			// broken before and grown back: a small coral count after the name ("x1")
+			tag := ""
+			if p.breaks > 0 && !broken {
+				tag = fmt.Sprintf("×%d", p.breaks)
+			}
+			tw := 0.0
+			if tag != "" {
+				tw = textWidth(fv, tag) + 5*u
+			}
+			name := fit(f, p.name, colW-vw-6*u-tw)
+			c.text(f, name, px, py+9*u, ovInk, nameA)
+			if tag != "" {
+				c.text(fv, tag, px+textWidth(f, name)+5*u, py+9*u, ovCoral, 0.85*pa)
+			}
 			c.text(fv, val, px+colW-vw, py+9*u, valCol, valA)
 			by, hb := py+12*u, 4*u
 			c.rrect(px, by, colW, hb, hb/2, flat(rgbf{1, 1, 1}), 0.10, nil)

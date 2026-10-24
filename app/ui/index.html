@@ -343,6 +343,7 @@ nav > button.settab.on svg { transform: rotate(60deg); }
 .ovparts .p .r { display: flex; justify-content: space-between; gap: 4px; }
 .ovparts .p .r em { font-style: normal; font-weight: 700; color: #9eb5bf; }
 .ovparts .p.broken { color: rgba(240,247,250,.5); }
+.ovparts .p .k { margin-left: 4px; font-weight: 700; color: #ff8c9c; }
 .ovparts .p.broken .r em { color: #ff8c9c; }
 .ovparts .p .b { position: relative; height: calc(3px * var(--u)); margin-top: calc(2px * var(--u)); border-radius: 99px; background: rgba(255,255,255,.1); }
 .ovparts .p .b i { position: absolute; inset: 0 auto 0 0; border-radius: 99px; background: #e8edf2; transition: width .2s ease-out; }
@@ -1535,19 +1536,23 @@ function ovPreviewPaint(hit) {
   $('#ovpFill').style.width = f + '%'; $('#ovpGhost').style.width = f + '%';
   if (hit) { const el = $('#ovpFill'); el.classList.remove('hit'); void el.offsetWidth; el.classList.add('hit'); }
   $('#ovpNums').textContent = `${fmtN(OVP.cur)} / ${fmtN(OVP.max)}`;
-  setHTML('#ovpParts', OVP.parts.map((p) => `<div class="p${p.c <= 0 ? ' broken' : ''}"><div class="r"><span>${esc(p.n)}</span><em>${p.c <= 0 ? 'Broken' : pctOf(p.c, p.m)}</em></div><div class="b"><i style="width:${p.c / p.m * 100}%"></i></div></div>`).join(''));
+  setHTML('#ovpParts', OVP.parts.map((p) => `<div class="p${p.c <= 0 ? ' broken' : ''}"><div class="r"><span>${esc(p.n)}${p.k && p.c > 0 ? `<b class="k">×${p.k}</b>` : ''}</span><em>${p.c <= 0 ? 'Broken' : pctOf(p.c, p.m)}</em></div><div class="b"><i style="width:${p.c / p.m * 100}%"></i></div></div>`).join(''));
 }
 function ovPreviewTick() {
   const c = $('#ovPrev');
   if (OVP.cur <= 0) {   // defeated: fade out, a fresh one sweeps in
     c.classList.add('gone');
-    setTimeout(() => { OVP.cur = OVP.max; OVP.parts.forEach((p) => { p.c = p.m; }); ovPreviewPaint(); c.classList.remove('gone'); }, 900);
+    setTimeout(() => { OVP.cur = OVP.max; OVP.parts.forEach((p) => { p.c = p.m; p.k = 0; }); ovPreviewPaint(); c.classList.remove('gone'); }, 900);
     return;
   }
   const dmg = 500 + Math.random() * 1400;
   OVP.cur = Math.max(0, OVP.cur - dmg);
   const part = OVP.parts[Math.floor(Math.random() * OVP.parts.length)];
-  part.c = Math.max(0, part.c - dmg * 0.6);
+  if (part.c > 0) {
+    part.c = Math.max(0, part.c - dmg * 0.6);
+    // like the game: a broken part fills up again (it can break again), and the overlay counts its breaks
+    if (part.c <= 0) { part.k = (part.k || 0) + 1; setTimeout(() => { part.c = part.m; ovPreviewPaint(); }, 2500); }
+  }
   ovPreviewPaint(true);
 }
 function ovPreviewRun() {
