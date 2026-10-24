@@ -1,5 +1,5 @@
 {
-  "version": "3.3.1",
+  "version": "3.3.2",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Fixed: 3.3.0 could get stuck on the opening screens (a typo in the new Settings text stopped the page). The behemoth overlay from 3.3.0 is in Settings."
+  "notes": "Fixed: the behemoth overlay's tracking could crash the game when a hunt started (it read game data it should not have). It now reads only the few values it needs, and only on the hunt server. The overlay shows up to 12 parts."
 }

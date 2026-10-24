@@ -54,7 +54,7 @@ type ovStyle struct {
 	Numbers bool    `json:"numbers"`
 }
 
-const ovMaxParts = 10
+const ovMaxParts = 12
 
 // ------------------------------------------------------------------ animation model
 

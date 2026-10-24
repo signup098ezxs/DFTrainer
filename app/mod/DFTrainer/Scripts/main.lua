@@ -315,31 +315,6 @@ local function lastName(o)
     local p = pathOf(o)
     return p and p:match("([^%.:]+)$") or nil
 end
-local function classChain(o)
-    local out = {}
-    local ok, c = pcall(function() return o:GetClass() end)
-    for _ = 1, 30 do
-        if not (ok and c and valid(c)) then break end
-        out[#out + 1] = (nameOf(c) or ""):match("([^%.%s/]+)$") or ""
-        local okS, sup = pcall(function() return c:GetSuperStruct() end)
-        ok, c = okS, sup
-    end
-    return table.concat(out, ",")
-end
-local function propList(o)
-    local names = {}
-    local ok, c = pcall(function() return o:GetClass() end)
-    for _ = 1, 10 do
-        if not (ok and c and valid(c)) then break end
-        pcall(function() c:ForEachProperty(function(p)
-            local okN, n = pcall(function() return p:GetFName():ToString() end)
-            if okN and n then names[#names + 1] = n end
-        end) end)
-        local okS, sup = pcall(function() return c:GetSuperStruct() end)
-        ok, c = okS, sup
-    end
-    return names
-end
 -- "LeftLegPartComponent" -> "Left leg", "head_part" -> "Head" (the same tidying as the Boss Health Bar)
 local function prettyPart(raw)
     local t = tostring(raw or "")
@@ -353,8 +328,11 @@ local function prettyPart(raw)
     return (t:gsub("^%l", string.upper))
 end
 
--- how a part actor holds its health: an attribute set under it (like behemoths), or health properties on the actor
-local partLinkProp, partHpWay = nil, {}
+-- A part's health is an ArchonHealthAttributeSet under its part actor (like a behemoth's), and a MonsterPartComponent
+-- points at its part actor through its MonsterPartActor property (both seen in 1.14.7's hunt servers). Only those
+-- named properties are read: walking every property of a game object and reading each one can crash the game (a
+-- 3.3.0 test crashed the player's game that way, where part actors do not exist and the walk never stopped).
+local PART_LINKS = { "MonsterPartActor", "PartActor" }
 local function healthSetUnder(sets, path)
     local best, bestMax = nil, 0
     for _, st in ipairs(sets) do
@@ -368,45 +346,15 @@ end
 local function partReader(actor, sets)
     local ap = pathOf(actor)
     local st = ap and healthSetUnder(sets, ap)
-    if st then
-        logOnce("parthp:set", "overlay: part health read from its ArchonHealthAttributeSet")
-        return function() return readNum(st, "CurrentHealth"), readNum(st, "MaxHealth") end, st
-    end
-    local cls = (nameOf(actor) or ""):match("^(%S+)") or "?"
-    local way = partHpWay[cls]
-    if way == nil then
-        local cur, max
-        for _, n in ipairs(propList(actor)) do
-            local l = n:lower()
-            if l:find("health", 1, true) and readNum(actor, n) and not (l:find("regen") or l:find("rate") or l:find("percent")
-                or l:find("threshold") or l:find("scale") or l:find("multiplier") or l:find("bonus")) then
-                if l:find("max", 1, true) then max = max or n
-                elseif l == "health" or l:find("current", 1, true) or l:find("cur", 1, true) then cur = cur or n end
-            end
-        end
-        way = cur and { cur, max } or false
-        partHpWay[cls] = way
-        log("overlay: part class " .. cls .. ": health " .. (way and (way[1] .. " / " .. tostring(way[2])) or "not found"))
-    end
-    if not way then return nil end
-    local top = 0
-    return function()
-        local c = readNum(actor, way[1])
-        local m = way[2] and readNum(actor, way[2]) or nil
-        if c and c > top then top = c end
-        return c, (m and m > 0) and m or top
-    end, actor
+    if not st then return nil end
+    logOnce("parthp:set", "overlay: part health read from its ArchonHealthAttributeSet")
+    return function() return readNum(st, "CurrentHealth"), readNum(st, "MaxHealth") end
 end
 local function linkedActor(comp)
-    if partLinkProp then
-        local ok, a = pcall(function() return comp[partLinkProp] end)
-        return (ok and valid(a)) and a or nil
-    end
-    for _, n in ipairs(propList(comp)) do
+    for _, n in ipairs(PART_LINKS) do
         local ok, a = pcall(function() return comp[n] end)
-        if ok and (type(a) == "userdata" or type(a) == "table") and valid(a) and classChain(a):find("MonsterPartActor", 1, true) then
-            partLinkProp = n
-            log("overlay: part components point at their part actor through " .. n)
+        if ok and a ~= nil and type(a) ~= "number" and type(a) ~= "string" and type(a) ~= "boolean" and valid(a) then
+            logOnce("partlink:" .. n, "overlay: part components point at their part actor through " .. n)
             return a
         end
     end
@@ -418,12 +366,12 @@ local function findParts(e, sets)
         if under(pathOf(comp), e.path) then
             local actor = linkedActor(comp)
             if actor then
-                local read, src = partReader(actor, sets)
+                local read = partReader(actor, sets)
                 local name = prettyPart(lastName(comp))
                 local id = nameOf(actor) or name
                 if read and not seen[id] then
                     seen[id] = true
-                    parts[#parts + 1] = { name = name, read = read, src = src }
+                    parts[#parts + 1] = { name = name, read = read }
                 end
             end
         end
@@ -458,7 +406,7 @@ local function trackScan(now)
             end
             if e then
                 found[key] = true
-                if #e.parts == 0 and now - e.partsAt >= TRACK_PARTS then
+                if S.role == "server" and #e.parts == 0 and now - e.partsAt >= TRACK_PARTS then   -- parts exist on hunt servers only
                     e.partsAt = now
                     sets = sets or findAll({ "ArchonHealthAttributeSet" })
                     local ok, ps = pcall(findParts, e, sets)
