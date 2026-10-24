@@ -783,6 +783,17 @@ div.lrow { cursor: default; }
 .bcchecks { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
 .bcchecks span { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 4px 9px; border-radius: 8px; border: 1px solid rgba(79, 240, 180, .3); color: #c6fbe6; background: rgba(79, 240, 180, .06); }
 .bcchecks span::before { content: "✓"; color: var(--ok); font-weight: 700; }
+.bch5 { margin: 0 0 8px; font: 600 12px var(--display); letter-spacing: .08em; text-transform: uppercase; color: var(--aether); }
+.audit { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 6px; }
+.audit li { display: grid; grid-template-columns: 20px 1fr; gap: 2px 8px; font-size: 13px; line-height: 1.45; padding: 7px 10px; border-radius: 9px; border: 1px solid var(--seam2); background: rgba(0, 0, 0, .14); }
+.audit li::before { content: "✓"; grid-row: span 2; font-weight: 700; color: var(--ok); }
+.audit li.note::before { content: "i"; color: var(--aether); font-style: italic; }
+.audit li.revise::before, .audit li.fail::before { content: "!"; color: var(--ember); }
+.audit li b { color: var(--frost); font-weight: 600; }
+.audit li span { color: var(--ash); }
+.bcpass { flex: none; display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 99px; font-size: 11.5px; font-weight: 700; color: var(--ok); border: 1px solid rgba(79, 240, 180, .35); background: rgba(79, 240, 180, .06); cursor: help; }
+.pgaps { margin-top: 10px; display: grid; gap: 5px; font-size: 12.5px; color: var(--ash); }
+.pgaps b { color: var(--ember); font-weight: 600; }
 .bcsrc { display: grid; gap: 6px; font-size: 13px; }
 .bcsrc a { color: var(--aether); text-decoration: none; word-break: break-word; }
 .bcsrc a:hover { text-decoration: underline; }
@@ -2000,7 +2011,7 @@ function bcRequest(extra = {}) {
 }
 
 // ---- creating: the real steps, ticked off while the panel works
-const BC_PROG = ['Reading your choices', 'Searching the 1.14.7 gear for your weapon', 'Fitting cells to every slot', 'Checking the game\'s rules', 'Writing the explanation'];
+const BC_PROG = ['Reading your choices', 'Searching the 1.14.7 gear for your weapon', 'Fitting cells to every slot', 'Checking the game\'s rules', 'Running the pre-build check', 'Writing the explanation'];
 async function bcMake(req) {
   BC.req = req;
   bcStage('bcMaking');
@@ -2070,11 +2081,13 @@ function bcShow(v, req) {
   const tile = (p) => `<button class="ptile${p.weight > 0 ? '' : ' minor'}" title="${esc(p.effect)}"><span class="pn">${esc(p.name)}<b>+${p.counts}</b></span><span class="pips">${[1, 2, 3, 4, 5, 6].map((i) => `<i class="${i <= p.counts ? 'on' : ''}"></i>`).join('')}</span>${p.goals.length ? `<span class="pg">${esc(p.goals.join(' · '))}</span>` : ''}<span class="pe">${esc(p.effect)}</span>${p.wasted ? `<span class="bctag">+${p.level}: only +6 counts</span>` : ''}</button>`;
   const main = v.perks.filter((p) => p.weight > 0), minor = v.perks.filter((p) => !(p.weight > 0));
   const ex = v.explanation;
+  const au = v.audit, gaps = v.gaps || [];
   const list = (cls, items) => items.length ? `<ul class="why ${cls}">${items.map((s) => `<li>${esc(s)}</li>`).join('')}</ul>` : '';
   const html = `
   <div class="bcres">
     <div class="bctop">
       <div class="tt"><div><h3>${esc(v.name)}</h3><div class="sub">${esc(v.subtitle)}</div></div>
+        ${au ? `<span class="bcpass" title="${esc(au.checks.map((c) => c.label).join(' · '))}">✓ ${au.checks.length} checks passed</span>` : ''}
         <span class="bcconf ${esc(v.confidence.level)}" title="${esc(v.confidence.reasons.join(' '))}">${esc(v.confidence.level)} confidence</span></div>
       <div class="bcgoals">${v.goals.map((g) => `<div><span><b>${esc(g.label)}</b>${g.pct}%</span><div class="bar"><i style="width:${g.pct}%"></i></div></div>`).join('')}</div>
       <div class="acts">
@@ -2087,13 +2100,16 @@ function bcShow(v, req) {
     </div>
     <div class="bccard"><h4>Equip this <small>click a row for details</small></h4><div class="lgrid">${rows.join('')}</div></div>
     <div class="bccard"><h4>Perks you get</h4><div class="pgrid">${main.map(tile).join('')}</div>
+      ${gaps.length ? `<div class="pgaps">${gaps.map((g) => `<div><b>${esc(g.perk)} +${g.level}</b> — ${esc(g.why)}</div>`).join('')}</div>` : ''}
       ${minor.length ? `<div class="pminor"><span>Also:</span>${minor.map((p) => `<span title="${esc(p.effect)}">${esc(p.name)} +${p.counts}</span>`).join('')}</div>` : ''}</div>
     <div class="bccard bctabs">
       <div class="seg" id="bcTabSeg"><span class="ind"></span><button data-t="play" class="on">How to play</button><button data-t="why">Why it works</button><button data-t="src">Checks and sources</button></div>
       <div class="tpanel on" data-p="play">${bcPlay(v.usage)}</div>
       <div class="tpanel" data-p="why"><p class="lead">${esc(ex.playstyle)}</p>${list('good', ex.strengths)}${list('link', ex.synergies)}${list('bad', ex.weaknesses)}</div>
       <div class="tpanel" data-p="src">
-        <div class="bcchecks">${v.check.checks.map((c) => `<span>${esc(c)}</span>`).join('')}</div>
+        ${au ? `<h5 class="bch5">Pre-build check</h5><ul class="audit">${au.checks.map((c) => `<li class="${esc(c.status)}"><b>${esc(c.label)}</b><span>${esc(c.detail)}</span></li>`).join('')}</ul>
+        ${au.revisions.length ? `<p class="lead">Revised before showing: ${esc(au.revisions.join('; '))}.</p>` : ''}` : ''}
+        ${au ? '' : `<div class="bcchecks">${v.check.checks.map((c) => `<span>${esc(c)}</span>`).join('')}</div>`}
         ${v.check.warnings.length ? list('bad', v.check.warnings) : ''}
         <p class="lead"><b>${esc(v.confidence.level)} confidence.</b> ${esc(v.confidence.reasons.join(' '))}</p>
         <div class="bcsrc">${v.sources.map((s) => `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title)}</a>`).join('')}</div>

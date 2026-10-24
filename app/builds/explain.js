@@ -6,7 +6,7 @@
 'use strict';
 const { kb, perkEffect } = require('./data.js');
 const { GOALS, RISKY, PAIRS, OMNICELLS } = require('./goals.js');
-const { perkTotals, ARMOUR_SLOTS } = require('./rules.js');
+const { perkTotals, elementCoverage, ARMOUR_SLOTS } = require('./rules.js');
 const { perkWeights, metaFrequency, CURVE } = require('./optimize.js');
 
 const SLOT_LABEL = { head: 'Head', torso: 'Chest', arms: 'Arms', legs: 'Legs' };
@@ -19,10 +19,10 @@ function cellInfo(name, slot) {
   return { slot, name, perk: v.perk, value: v.value, id: v.id, exists: v.exists };
 }
 
-function goalCoverage(ctx, totals) {
+function goalCoverage(ctx, totals, b) {
   const out = [];
   for (const g of ctx.goals) {
-    if (g === 'elemental') continue;
+    if (g === 'elemental') { const pct = elementCoverage(ctx, b); if (pct != null) out.push({ id: g, label: GOALS[g].label, pct, el: true }); continue; }
     const ws = Object.entries(GOALS[g].perks).filter(([, w]) => w > 0).sort((a, b) => b[1] - a[1]);
     const ideal = ws.slice(0, 3).reduce((s, [, w]) => s + w, 0) || 1;
     let got = 0;
@@ -47,7 +47,7 @@ function closestMeta(b) {
     url: BUILDER + m.buildId, info: m.subcategoryInfo || m.categoryInfo || '' };
 }
 
-function describe(ctx, result, owned) {
+function describe(ctx, result, owned, au, revisions) {
   const K = kb(), b = result.build;
   const w = K.weaponByName[b.weapon], bond = b.bond && K.weaponByName[b.bond];
   const totals = perkTotals(b), W = perkWeights(ctx);
@@ -88,7 +88,7 @@ function describe(ctx, result, owned) {
   const omnicell = { name: o.name, passive: o.passive, active: o.active, id: o.id, exists: o.exists, chosen: ctx.omnicell && ctx.omnicell !== 'auto',
     why: ctx.omnicell && ctx.omnicell !== 'auto' ? 'Your pick.' : oGoals.length ? `Its own abilities serve ${oGoals.join(' and ')}.` : 'The best fit for these goals among the Omnicells.' };
   // ---- explanation
-  const coverage = goalCoverage(ctx, totals);
+  const coverage = goalCoverage(ctx, totals, b);
   const strengths = [], weaknesses = [], synergies = [];
   for (const p of key) strengths.push(`${p.name} +${p.counts}: ${p.effect}`);
   if (target && weak) {
@@ -109,6 +109,7 @@ function describe(ctx, result, owned) {
   const surv = ['Tough', 'Evasion', 'Nine Lives', 'Water', 'Fortress', 'Parasitic', 'Aegis'].filter((n) => (totals[n] || {}).level >= 3);
   if (!ctx.goals.includes('survival') && !surv.length) weaknesses.push('Little defence: no survival perk at +3 or more. Dodge well, or swap a cell for Tough or Evasion.');
   for (const p of perks) if (p.risky) weaknesses.push(`${p.name} ${p.risky}.`);
+  for (const g of (au && au.gaps) || []) weaknesses.push(`${g.perk} stays at +${g.level}: ${g.why}`);
   for (const p of perks) if (p.wasted) weaknesses.push(`${p.name} reaches +${p.level}; only +6 counts, so ${p.wasted} point${p.wasted > 1 ? 's are' : ' is'} unused.`);
   for (const pr of PAIRS) if ((totals[pr.a] || {}).level >= 3 && (totals[pr.b] || {}).level >= 3) (pr.v > 0 ? synergies : weaknesses).push(`${pr.a} and ${pr.b}: ${pr.why}.`);
   const poss = (n) => (/s$/.test(n) ? n + "'" : n + "'s");
@@ -140,12 +141,16 @@ function describe(ctx, result, owned) {
   const inferred = [w, bond, ...armour.map((a) => K.armourByName[a.name])].filter((x) => x && x.exists === 'inferred').map((x) => x.name);
   const reasons = [];
   let level = 'High';
-  if (meta && meta.shared >= 5) reasons.push(`It shares ${meta.shared} of ${meta.of} main pieces with a community meta build ("${meta.title}", ${meta.category}).`);
-  else { level = 'Medium'; reasons.push(meta ? `It is Lantern's own fit for your goals: the closest community meta build shares ${meta.shared} of ${meta.of} main pieces.` : 'No community meta build uses this weapon type.'); }
+  // evidence: how it compares with the community builds for this weapon (pre-build check), and how close it is to one
+  const best = au && au.meta;
+  if (best && au.ours + 1e-9 >= best.score) reasons.push(`Under your goals it scores at least as well as every community meta build Lantern could compare for this weapon (best: "${best.title}", ${best.category}).`);
+  else { level = 'Medium'; reasons.push(best ? 'A community build scored higher and could not be matched with the gear allowed.' : 'No community meta build could be compared with it, so its standing against the community meta is not established.'); }
+  if (meta && meta.shared >= 5) reasons.push(`It shares ${meta.shared} of ${meta.of} main pieces with a community build ("${meta.title}").`);
+  else if (meta) reasons.push(`It is Lantern's own fit for your goals rather than a copy: the closest community build shares ${meta.shared} of ${meta.of} main pieces.`);
   if (inferred.length) { if (level === 'High') level = 'Medium'; reasons.push(`${inferred.join(', ')} ${inferred.length > 1 ? 'are' : 'is'} in your 1.14.7 game files without an English name; Lantern matched ${inferred.length > 1 ? 'them' : 'it'} by elimination.`); }
   const avg = coverage.length ? coverage.reduce((s, c) => s + c.pct, 0) / coverage.length : 100;
   if (avg < 35) { level = 'Low'; reasons.push('The goals are only lightly covered by the gear available.'); }
-  reasons.push('Perk values, slot types and item effects are the community-maintained Dauntless 1.14.6 data (1.14.7 changed none of them). How much each perk serves a goal is Lantern\'s own judgement.');
+  reasons.push('Perk values, slot types and item effects are the community-maintained Dauntless 1.14.6 data (1.14.7 changed none of them). How much each perk serves a goal is Lantern\'s own judgement, and no damage numbers are worked out, so this is the best fit Lantern found, not a proven optimum.');
   const empties = armour.filter((a) => a.empty).map((a) => a.slot.toLowerCase());
   if (empties.length) weaknesses.push(`You own no ${empties.join(' or ')} armour Lantern has data for, so that slot is left empty. Any armour there adds its perk and a cell slot.`);
   const notes = [
@@ -172,6 +177,8 @@ function describe(ctx, result, owned) {
     usage, notes, sources, meta,
     confidence: { level, reasons },
     check: { checks: result.check.checks, warnings: result.check.warnings },
+    audit: au ? { checks: au.checks, revisions: revisions || [] } : null,
+    gaps: au ? au.gaps.map((g) => ({ perk: g.perk, level: g.level, why: g.why })) : [],
     missing,
   };
 }

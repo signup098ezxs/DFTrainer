@@ -1,5 +1,5 @@
 {
-  "version": "3.7.2",
+  "version": "3.8.0",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Build Creator: a cleaner build page. One \"Equip this\" list (a row per slot with its cells; click a row for details), perk tiles with level bars, and tabs for How to play (tips first, then your kit in one line each), Why it works, and Checks and sources."
+  "notes": "Build Creator: every build now passes a pre-build check before it is shown: legal gear and cells, perk levels counted twice, weapon fit and element, goal order, which perks reach +6 (and why any don't), a comparison with the community meta builds, and the alternatives searched. A build that fails is rebuilt and checked again; one that still breaks a rule is never shown. The results are under Checks and sources."
 }

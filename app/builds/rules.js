@@ -36,6 +36,17 @@ function perkTotals(b) {
   return out;
 }
 
+// the elemental goal is about elements, not perks: a weapon of the element the target is weak to (70%), and armour of
+// the target's element (resists it, +7.5% a piece) rather than armour weak to it (-7.5% a piece). Null with no target.
+function elementCoverage(ctx, b) {
+  const K = kb(), target = ctx.target && ctx.target !== 'Neutral' ? ctx.target : null, weak = target && K.weakTo[target];
+  if (!weak) return null;
+  const w = K.weaponByName[b.weapon];
+  let pct = w && w.element === weak ? 70 : 0;
+  for (const [k] of ARMOUR_SLOTS) { const a = K.armourByName[b[k]]; if (!a) continue; if (a.element === target) pct += 7.5; if (a.weakness === target) pct -= 7.5; }
+  return Math.round(Math.max(0, Math.min(100, pct)));
+}
+
 function validate(b) {
   const K = kb(), errors = [], warnings = [], checks = [];
   const w = K.weaponByName[b.weapon];
@@ -106,4 +117,4 @@ function validate(b) {
   return { ok: !errors.length, errors, warnings, checks, inferred: notNamed.map((x) => x.name) };
 }
 
-module.exports = { validate, perkTotals, partKinds, ARMOUR_SLOTS };
+module.exports = { validate, elementCoverage, perkTotals, partKinds, ARMOUR_SLOTS };

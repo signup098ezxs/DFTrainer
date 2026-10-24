@@ -10,15 +10,22 @@ const { kb } = require('./data.js');
 const { GOALS, PRIORITY, RISKY, SITUATIONAL, IMMUNITY, PAIRS, OMNICELLS, LANTERNS, EFFECT_WORDS } = require('./goals.js');
 const { validate, perkTotals, ARMOUR_SLOTS } = require('./rules.js');
 
-const CURVE = [0, 0.22, 0.4, 0.56, 0.7, 0.82, 1];
+// What a perk level is worth, as a share of the perk at +6. +6 is the target: most perks add a second effect there,
+// and gear and cells come in steps of 3, so one perk at +6 must beat two perks at +3 (2 x 0.42 < 1). A perk below +6
+// still counts (a +6 is not forced when the points do more elsewhere), and points above +6 are wasted.
+const CURVE = [0, 0.14, 0.28, 0.42, 0.56, 0.7, 1];
+const OVERFLOW = 0.08;   // per wasted point above +6
 const ESCALATION = { 'Pack Hunter': 0.6, Aetherhunter: 0.6, 'Pack Walker': 0.4, 'Pack Caller': 0.2, Deconstruction: 0.2 };
 
-function prio(ctx, goal) { const i = ctx.goals.indexOf(goal); return i < 0 ? 0 : (PRIORITY[i] || 0.2); }
+// a goal's weight by its place in the player's order; the pre-build check can sharpen the order ("boost") when a
+// lower goal ended up better served than a higher one
+const pw = (ctx, i) => Math.pow(PRIORITY[i] || 0.2, 1 + 0.7 * (ctx.boost || 0));
+function prio(ctx, goal) { const i = ctx.goals.indexOf(goal); return i < 0 ? 0 : pw(ctx, i); }
 
 // perk -> how much the player's goals value it
 function perkWeights(ctx) {
   const W = {};
-  ctx.goals.forEach((g, i) => { for (const [p, w] of Object.entries(GOALS[g].perks)) W[p] = (W[p] || 0) + (PRIORITY[i] || 0.2) * w; });
+  ctx.goals.forEach((g, i) => { for (const [p, w] of Object.entries(GOALS[g].perks)) W[p] = (W[p] || 0) + pw(ctx, i) * w; });
   for (const p of Object.keys(SITUATIONAL)) W[p] = ctx.content === 'escalation' ? (W[p] || 0) + ESCALATION[p] : 0;
   if (ctx.target && IMMUNITY[ctx.target]) W[IMMUNITY[ctx.target]] = (W[IMMUNITY[ctx.target]] || 0) + (ctx.goals.includes('survival') ? 0.35 : 0.2);
   if (ctx.risk === 'safe') for (const p of Object.keys(RISKY)) W[p] = -1;
@@ -83,6 +90,12 @@ function makeScorer(ctx) {
     if (avoid.has(l.name)) s -= 0.2;
     return s;
   }
+  // the Omnicell's own abilities (so a community build with another Omnicell is compared fairly)
+  function omnicellScore(name) {
+    let s = 0;
+    for (const [g, v] of Object.entries((OMNICELLS[name] || {}).goals || {})) s += 0.4 * prio(ctx, g) * v;
+    return s;
+  }
   // perk levels without building objects: each item's perks are looked up once
   const perkList = new Map();
   const perksOf = (key, perks) => { let l = perkList.get(key); if (!l) { l = Object.entries(perks || {}); perkList.set(key, l); } return l; };
@@ -104,13 +117,13 @@ function makeScorer(ctx) {
       const wt = W[p] || 0;
       if (!wt) continue;
       s += wt * CURVE[Math.min(6, level)];
-      if (level > 6 && wt > 0) s -= 0.05 * (level - 6);
+      if (level > 6 && wt > 0) s -= OVERFLOW * (level - 6);
     }
     s += tie;
     for (const pr of PAIRS) if ((lv.get(pr.a) || 0) >= 3 && (lv.get(pr.b) || 0) >= 3 && (W[pr.a] > 0 || W[pr.b] > 0)) s += pr.v;
     s += itemStatic(K.weaponByName[b.weapon], 'weapon') + itemStatic(b.bond && K.weaponByName[b.bond], 'bond');
     for (const [k] of ARMOUR_SLOTS) s += itemStatic(K.armourByName[b[k]], 'armour');
-    s += lanternScore(K.lanternByName[b.lantern]);
+    s += lanternScore(K.lanternByName[b.lantern]) + omnicellScore(b.omnicell);
     // Universal: armour pieces that share a weakness all take more from that one element; spread them out
     if (ctx.universal) {
       const n = {};
@@ -120,7 +133,8 @@ function makeScorer(ctx) {
     }
     return s;
   }
-  return { score, W };
+  let evals = 0;
+  return { score: (b) => { evals++; return score(b); }, W, evals: () => evals };
 }
 
 // ---- what may be used (all of the game's gear, or only what the player owns)
@@ -308,9 +322,37 @@ function adaptMeta(m, ctx, cand) {
   return b;
 }
 
-function optimise(ctx) {
+// one community build as it was published (its own cells and parts), for the pre-build check's comparison and as a
+// starting point; null when it cannot be used here (another weapon type, gear not owned, an illegal combination)
+function metaAsIs(m, ctx, cand) {
+  const K = kb(), w = K.weaponByName[m.build.weapon];
+  if (!w || w.type !== ctx.weaponType || (ctx.weapon && w.name !== ctx.weapon)) return null;
+  if (!cand.weapons.some((x) => x.name === w.name)) return null;
+  const b = blank(ctx);
+  b.weapon = w.name; b.bond = w.bond ? m.build.bond : null;
+  if (w.bond && !bondOptions(w, cand).some((x) => x.name === b.bond)) return null;
+  for (const [k] of ARMOUR_SLOTS) { if (!cand.armour[k].some((a) => a.name === m.build[k])) return null; b[k] = m.build[k]; }
+  if (!cand.lanterns.some((l) => l.name === m.build.lantern)) return null;
+  b.lantern = m.build.lantern;
+  const okCell = (c, t) => { const v = c && K.cellVariant[c]; return v && (t === 'Prismatic' || v.slot === t) && (cand.cellsBySlot[t] || []).some((x) => x.cell === v.cell) ? c : null; };
+  b.weaponCells = w.cells.map((t, i) => okCell(m.build.weaponCells[i], t));
+  for (const [k] of ARMOUR_SLOTS) { const a = K.armourByName[b[k]]; b.cells[k] = a && a.cells.length ? okCell(m.build[k + 'Cell'], a.cells[0]) : null; }
+  const l = K.lanternByName[b.lantern]; b.lanternCell = l.cells.length ? okCell(m.build.lanternCell, l.cells[0]) : null;
+  b.parts = {};
+  for (const [kind, list] of Object.entries(K.parts[w.type] || {})) { const n = m.build.parts.find((p) => list.some((x) => x.name === p)); if (n && !(kind === 'specials' && w.restrictSpecials)) b.parts[kind] = n; }
+  b.omnicell = ctx.omnicell && ctx.omnicell !== 'auto' ? ctx.omnicell : m.build.omnicell || ctx.omnicellPick;
+  if (ctx.risk === 'safe' && (OMNICELLS[b.omnicell] || {}).risk) b.omnicell = ctx.omnicellPick;
+  return validate(b).ok ? b : null;
+}
+
+function optimise(ctx, opts = {}) {
   const K = kb();
   const cand = candidates(ctx);
+  cand.allWeapons = cand.weapons;
+  if (opts.element) {   // the pre-build check asked for a weapon of the target's weak element
+    const el = cand.weapons.filter((w) => w.element === opts.element);
+    if (el.length) cand.weapons = el;
+  }
   if (!cand.weapons.length) return { error: ctx.owned ? `You don't own a ${ctx.weaponType} that Lantern has data for.` : `No ${ctx.weaponType} found.` };
   if (!cand.lanterns.length) return { error: ctx.owned ? 'You don\'t own a lantern Lantern has data for (Recruit\'s and Utility lanterns have no ability data).' : 'No lantern found.' };
   ctx.omnicellPick = pickOmnicell(ctx);
@@ -321,7 +363,9 @@ function optimise(ctx) {
   const seeds = builds.map((m) => ({ m, b: adaptMeta(m, ctx, cand) })).filter((x) => x.b);
   for (const s of seeds) { fitCells(s.b, scorer, cand, false); s.v = scorer.score(s.b) + (s.m.build.omnicell === ctx.omnicellPick ? 0.05 : 0); }
   seeds.sort((a, b) => b.v - a.v);
-  for (const s of seeds.slice(0, 3)) starts.push({ b: s.b, from: s.m });
+  for (const s of seeds.slice(0, 5)) starts.push({ b: s.b, from: s.m });
+  // the pre-build check can hand in starting points (a community build as published, a fixed version of the last build)
+  for (const b of opts.seeds || []) if (b && cand.weapons.some((w) => w.name === b.weapon)) starts.push({ b: clone({ ...b, omnicell: ctx.omnicellPick }), from: opts.seedFrom || null, given: true });
   // a fresh start: the best weapon on its own, the best piece per slot on its own
   const fresh = blank(ctx);
   let bestW = null;
@@ -329,15 +373,18 @@ function optimise(ctx) {
   Object.assign(fresh, bestW.t);
   starts.push({ b: fresh, from: null });
   let best = null;
+  const searches = [];
   for (const s of starts) {
     const v = improve(s.b, ctx, scorer, cand);
+    searches.push({ v, b: clone(s.b), from: s.from ? s.from.title : s.given ? 'pre-build check' : 'fresh pick' });
     if (!best || v > best.v) best = { v, b: s.b, from: s.from };
   }
+  best.b.omnicell = ctx.omnicellPick;
   best.b.parts = pickParts(best.b, ctx);
   best.b.weaponCells = best.b.weaponCells.map((c) => c || null);
   const check = validate(best.b);
   if (!check.ok) return { error: 'Lantern could not make a build that passes the game\'s rules: ' + check.errors.join(' '), check };
-  return { build: best.b, score: best.v, check, weights: scorer.W, seededFrom: best.from };
+  return { build: best.b, score: scorer.score(best.b), check, weights: scorer.W, seededFrom: best.from, searches, evaluated: scorer.evals(), cand, scorer };
 }
 
-module.exports = { optimise, perkWeights, metaFrequency, prio, CURVE };
+module.exports = { bondOptions, optimise, perkWeights, metaFrequency, prio, CURVE, makeScorer, candidates, metaAsIs, fitCells, cellSlots, clone };
