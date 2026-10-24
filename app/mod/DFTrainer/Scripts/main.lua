@@ -104,7 +104,7 @@ if Base then LogFile = Base .. "/logs/" .. os.date("%Y%m%d-%H%M%S") .. "-" .. Pr
 if Base then log("mod folder: " .. Base .. " (process " .. ProcId .. ")") else log("could not find the mod folder; the panel cannot reach this process") end
 
 ---------------------------------------------------------------- toggles (flat JSON written by the panel)
-local T = { damage = 1, refresh = false, refreshFn = "", locked = false, track = false, lock = false, lockPart = "Head", lockSmooth = 0.15 }
+local T = { damage = 1, refresh = false, refreshFn = "", locked = false, track = false, lock = false, lockPart = "Head", lockSmooth = 0.15, lockOff = "", lockMode = "" }
 local togglesText = ""
 
 local function parseToggles(s)
@@ -115,8 +115,11 @@ local function parseToggles(s)
     T.locked = flag("locked")   -- not the owner's panel: no multiplier, no refresh
     if T.locked then T.damage, T.refresh = 1, false end
     T.track = flag("track")     -- the behemoth overlay is on (anyone's panel)
-    -- part lock-on (Repeaters only; the owner's, like Damage)
-    T.lock = flag("lock") and not T.locked
+    -- part lock-on (Repeaters only): anyone's panel (Assist), but only while the game is played solo or with friends;
+    -- the panel decides that and sends lock=false and the reason (lockOff) in a game open to everyone
+    T.lock = flag("lock")
+    T.lockOff = s:match('"lockOff"%s*:%s*"([%w _]*)"') or ""
+    T.lockMode = s:match('"lockMode"%s*:%s*"(%a*)"') or ""
     T.lockPart = s:match('"lockPart"%s*:%s*"([%w _]*)"') or "Head"
     T.lockSmooth = math.max(0.02, math.min(0.6, tonumber(s:match('"lockSmooth"%s*:%s*([%d%.]+)')) or 0.15))
 end
@@ -130,7 +133,7 @@ local function readToggles()
     if s ~= togglesText and s:find("}", 1, true) then
         togglesText = s
         parseToggles(s)
-        log(string.format("toggles: damage=x%g refresh=%s track=%s lock=%s (%s, smooth %.2f)", T.damage, tostring(T.refresh), tostring(T.track), tostring(T.lock), T.lockPart, T.lockSmooth))
+        log(string.format("toggles: damage=x%g refresh=%s track=%s lock=%s (%s, smooth %.2f, mode %s%s)", T.damage, tostring(T.refresh), tostring(T.track), tostring(T.lock), T.lockPart, T.lockSmooth, T.lockMode, T.lockOff ~= "" and (", off: " .. T.lockOff) or ""))
     end
 end
 
@@ -897,13 +900,17 @@ end
 
 -- what the panel shows: whether it is locked, on what, or why not
 local function lockJson()
-    return string.format('"lock":{"on":%s,"want":%s,"engaged":%s,"part":"%s","why":"%s","frames":"%s","weapon":%s,"parts":"%s"}',
-        tostring(T.lock), tostring(LK.want == true), tostring(LK.engaged), clean(LK.part), clean(LK.why), clean(LK.src or ""),
+    return string.format('"lock":{"mode":"%s","on":%s,"want":%s,"engaged":%s,"part":"%s","why":"%s","frames":"%s","weapon":%s,"parts":"%s"}',
+        clean(T.lockMode), tostring(T.lock), tostring(LK.want == true), tostring(LK.engaged), clean(LK.part), clean(LK.why), clean(LK.src or ""),
         tostring(LK.weaponOk), clean(table.concat((function() local t = {} for _, p in ipairs(LK.parts or {}) do t[#t + 1] = p.name end return t end)(), ",")))
 end
 
 local function lockToggle()
-    if S.role ~= "game" or not T.lock then return end
+    if S.role ~= "game" then return end
+    if not T.lock then   -- switched on in the panel but not allowed here (a game open to everyone): say why
+        if T.lockOff ~= "" then lockStatus(false, T.lockOff) LK.changed = true end
+        return
+    end
     LK.want = not LK.want
     LK.part, LK.panelPart = T.lockPart, T.lockPart
     if LK.want then lockHooks() lockStatus(false, "looking for " .. LK.part) else release("let go") end
@@ -944,7 +951,7 @@ local function step()
     if not ok then logOnce("tick:" .. tostring(err), "tick error: " .. tostring(err)) end
     local okT, errT = pcall(trackTick, now)
     if not okT then logOnce("track:" .. tostring(errT), "overlay error: " .. tostring(errT)) end
-    if LK.want and not T.lock then release("turned off") end
+    if LK.want and not T.lock then release(T.lockOff ~= "" and T.lockOff or "turned off") end
     -- another part picked in the panel while locked: move to it
     if LK.want and T.lockPart ~= LK.panelPart then
         LK.panelPart, LK.part, LK.beh, LK.changed = T.lockPart, T.lockPart, nil, true
@@ -987,4 +994,4 @@ pcall(function()
     RegisterKeyBind(Key.F8, function() pcall(lockNextPart) end)
 end)
 
-log("loaded (v5: damage multiplier, overlay tracking with stagger, part lock-on, instant refresh)")
+log("loaded (v5.1: damage multiplier, overlay tracking with stagger, part lock-on for solo and friends, instant refresh)")

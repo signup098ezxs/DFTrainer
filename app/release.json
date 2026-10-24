@@ -1,5 +1,5 @@
 {
-  "version": "3.5.0",
+  "version": "3.6.0",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Part lock-on for Repeaters (owner only, Game rules): pick a part, press middle mouse or F7 and your aim follows that part smoothly as the behemoth moves; F8 picks the next part. Lets go when you switch weapon, the part is destroyed or the behemoth dies or leaves. The overlay shows which part is locked. Stagger is now read from the game's own stagger functions."
+  "notes": "New Assist tab: Part lock-on (Repeaters) is now for everyone with a key, not just the owner. It works solo and in games with friends (Host with friends, Host Mode private, joining a friend, LAN) and switches itself off in games open to everyone (Play online, Allow randoms, Host Mode public). The tab shows which way the game is being played."
 }
