@@ -175,15 +175,17 @@ func (m *ovModel) setParts(ps []ovPart, now float64, fresh bool) {
 		ps = ps[:ovMaxParts]
 	}
 	old := map[string]*ovPartAnim{}
+	n := map[string]int{}
 	for _, p := range m.parts {
-		old[p.name] = p
+		old[dupKey(n, p.name)] = p
 	}
+	n = map[string]int{}
 	out := make([]*ovPartAnim, 0, len(ps))
 	for _, p := range ps {
 		if p.Max <= 0 || math.IsNaN(p.Max) || math.IsInf(p.Max, 0) {
 			continue // not a part with health
 		}
-		a := old[p.Name]
+		a := old[dupKey(n, p.Name)] // two parts with one name never share one bar
 		known := p.Cur != nil && !math.IsNaN(*p.Cur) && !math.IsInf(*p.Cur, 0)
 		if !known && !p.Broken && !(a != nil && a.broken) {
 			if a != nil { // no reading now: keep it, marked unknown, value not changed

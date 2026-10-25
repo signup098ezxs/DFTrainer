@@ -1,5 +1,5 @@
 {
-  "version": "3.9.8",
+  "version": "3.9.9",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Hunt crash fix: since 3.9.6 the hunt server could crash on your first hit, so hits did no damage and the hunt ended. The game mod asked the game for the behemoth's display name at that moment, and the game crashed inside UE4SS; it no longer asks. Behemoth names still come from the game's own row names, kill tokens and item texts. Close the game fully and start it again after updating."
+  "notes": "Bug fixes from a full check of the client. Gifts: two changes to your save at the same moment no longer lose one; a gift no longer hangs if the game closes mid-answer; large unlocks no longer freeze the panel. Panel: no longer crashes if a font file or the launcher is missing; settings are saved safely; buttons no longer stay stuck after a failed request; the item list loads again after a failed first try. Overlay: no flicker of broken parts while the game rewrites its files; two quest objectives or parts with the same name keep their own progress; gear-set names (Champion, Nikola) are never used as behemoth names. Game mod 6.8: no game functions called off the game's thread; the damage multiplier no longer drops a behemoth to 1 HP after being switched off and on, and only runs on the hunt server; a behemoth whose health read 0 at spawn is shown again. Launcher 1.6.11: a version that only started slowly is no longer blocked for good; safer update lock. Close the game fully and start it again after updating."
 }

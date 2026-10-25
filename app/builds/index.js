@@ -30,14 +30,14 @@ function options() {
 // a request -> a clean context (anything unknown is dropped)
 function context(req) {
   const K = kb();
-  const goals = [...new Set((Array.isArray(req.goals) ? req.goals : []).filter((g) => GOALS[g]))].slice(0, 6);
+  const goals = [...new Set((Array.isArray(req.goals) ? req.goals : []).filter((g) => typeof g === 'string' && Object.prototype.hasOwnProperty.call(GOALS, g)))].slice(0, 6);
   if (!goals.length) return { error: 'Pick at least one goal.' };
   if (!K.weaponTypes.includes(req.weaponType)) return { error: 'Pick a weapon type.' };
   const weapon = req.weapon && K.weapons.some((w) => w.name === req.weapon && w.type === req.weaponType) ? req.weapon : null;
   const elements = ['Blaze', 'Frost', 'Shock', 'Terra', 'Radiant', 'Umbral', 'Neutral'];
   // Universal: one build for every behemoth (no element favoured, armour weaknesses spread)
   const universal = req.target === 'Universal';
-  const target = universal ? null : elements.includes(req.target) ? req.target : (K.behemoths[req.target] || null);
+  const target = universal ? null : elements.includes(req.target) ? req.target : ((typeof req.target === 'string' && Object.prototype.hasOwnProperty.call(K.behemoths, req.target) && K.behemoths[req.target]) || null);
   return {
     weaponType: req.weaponType, weapon, goals, target, universal,
     content: ['hunts', 'escalation', 'trials'].includes(req.content) ? req.content : 'hunts',

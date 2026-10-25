@@ -53,7 +53,9 @@ let settings = readJson(SETTINGS, {});
 // 3.8.4 removed Assist (part lock-on): its saved switches are dropped (written out with the next save)
 delete settings.assist;
 const VERSION = process.env.DFT_VERSION || readJson(path.join(HERE, 'release.json'), {}).version || 'dev';
-const saveSettings = () => { try { fs.writeFileSync(SETTINGS, JSON.stringify(settings, null, 2)); } catch {} };
+// written to a temporary file and renamed: a crash or power cut mid-write never leaves a half file (which reads as
+// empty settings and loses the gifts waiting in the queue)
+const saveSettings = () => { try { const t = SETTINGS + '.tmp'; fs.writeFileSync(t, JSON.stringify(settings, null, 2)); fs.renameSync(t, SETTINGS); } catch {} };
 const RELEASE = readJson(path.join(HERE, 'release.json'), {});
 
 // ---------------------------------------------------------------- license key (keys.js)
@@ -305,7 +307,8 @@ const isOwner = () => !!LIC.status().owner;
 function readToggles(p) {
   const t = p.modDir ? readJson(path.join(p.modDir, 'trainer-toggles.json'), null) : null;
   if (!isOwner()) return { ...TOGGLE_DEFAULTS };
-  const all = { ...TOGGLE_DEFAULTS, ...(settings.toggles || {}), ...(t || {}) };
+  // a file written while no owner key was present says x1 "locked": it is not the owner's setting, so it is ignored
+  const all = { ...TOGGLE_DEFAULTS, ...(settings.toggles || {}), ...(t && !t.locked ? t : {}) };
   return { damage: all.damage, refresh: all.refresh, refreshFn: all.refreshFn };
 }
 let lockLogsGone = false;
@@ -314,7 +317,8 @@ function writeToggles(p, t) {
     damage: Math.min(1000, Math.max(1, Number(t.damage) || 1)),
     refresh: !!t.refresh, refreshFn: /^[A-Za-z_]\w{0,80}$/.test(String(t.refreshFn || '')) ? String(t.refreshFn) : '',
   };
-  settings.toggles = clean; saveSettings();
+  // the owner's settings are kept only from the owner's panel (without the key, x1 must not overwrite them)
+  if (isOwner()) { settings.toggles = clean; saveSettings(); }
   if (p.modDir && fs.existsSync(p.modDir)) {
     const f = path.join(p.modDir, 'trainer-toggles.json');
     // not the owner: the mod gets x1 and "locked"
@@ -430,7 +434,15 @@ function jobSummary(p, job) {
   if (job.action === 'set') { const e = Object.entries(job.counts); const t = e.slice(0, 2).map(([k, v]) => `${nameOf(p, k)} ${Number(v).toLocaleString('en-US')}`).join(', '); return e.length > 2 ? `${t} and ${e.length - 2} more` : t; }
   return listNames(p, jobIds(job));
 }
-async function applyJob(p, job, live = false) {
+// one change to your save at a time: two at once (a double click, a gift while the queue is applied) both rewrote
+// the save from the same copy, so one of them was lost although it said it was added
+let saveChain = Promise.resolve();
+function applyJob(p, job, live = false) {
+  const run = saveChain.then(() => applyJobNow(p, job, live));
+  saveChain = run.catch(() => {});
+  return run;
+}
+async function applyJobNow(p, job, live) {
   let r;
   if (live) {
     try {
@@ -504,7 +516,9 @@ async function drainQueue() {
       const job = queue[0];
       const r = await applyJob(p, job);
       if (!r.ok && /still running|close the game/i.test(r.error || '')) break;   // started again meanwhile
-      queue.shift(); settings.queue = queue; saveSettings();
+      // this job, not whatever is first now (the queue may have been cleared, and a new gift added, meanwhile)
+      const at = queue.indexOf(job); if (at >= 0) queue.splice(at, 1);
+      settings.queue = queue; saveSettings();
       if (!r.ok) note('error', 'Could not apply', r.error || describe(job));
       else if (job.action === 'remove') removeOutcome(p, r);
       else if (r.raised && r.raised.length) note('applied', 'Weapon levels raised', `${r.raised.map((w) => WEAPON_NAMES[w] || w).join(', ')}: level 20.`);
@@ -712,6 +726,15 @@ const BEHEMOTHS = require('./behemoths.js');
 function panelLog(m) { try { console.log(m); } catch {} }
 let ovCache = null, ovCacheAt = 0;
 const later = (a, b) => { for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] > b[i]; return false; };
+// the mod rewrites its track file in place: a read in the middle of that finds it empty or cut off. The last good
+// reading of that file (under a second old) is used then, so the hunt server's copy (with the parts) never drops out
+const trackGood = new Map();   // file -> { t, at }
+function readTrack(file) {
+  const t = readJson(file, null);
+  if (t) { trackGood.set(file, { t, at: Date.now() }); return t; }
+  const g = trackGood.get(file);
+  return g && Date.now() - g.at < 1000 ? g.t : null;
+}
 function overlayTrack(p) {
   if (ovCache && Date.now() - ovCacheAt < 80) return ovCache;
   let best = null;
@@ -720,7 +743,7 @@ function overlayTrack(p) {
     const now = Date.now() / 1000;
     for (const f of fs.readdirSync(dir)) {
       if (!f.endsWith('.json')) continue;
-      const t = readJson(path.join(dir, f), null);
+      const t = readTrack(path.join(dir, f));
       if (!t || !t.b || now - (t.time || 0) > 4) continue;
       const score = [t.role === 'server' ? 1 : 0, t.b.at || 0, (t.b.parts || []).length, t.b.n || 0];
       // a hunt server first (it owns the fight: health and parts as they really are), your game only without one;
@@ -765,6 +788,7 @@ function ensureOverlay(running) {
   try {
     // not windowsHide: Windows would apply a hidden start to the overlay's window too
     const c = spawn(LAUNCHER, ['--overlay', `http://127.0.0.1:${PORT}`, TOKEN], { detached: true, stdio: 'ignore' });
+    c.on('error', (e) => { overlayPid = 0; console.log(`overlay: could not start the launcher (${e.message})`); });   // a missing exe is reported here, not thrown
     overlayPid = c.pid || 0; c.unref();
   } catch {}
 }
@@ -868,14 +892,19 @@ for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(sig, () => process
 
 // ---------------------------------------------------------------- HTTP
 function send(res, code, body, type = 'application/json; charset=utf-8') {
+  if (res.headersSent) { try { res.end(); } catch {} return; }   // an answer already started: never a second one
+  const data = typeof body === 'string' || Buffer.isBuffer(body) ? body : JSON.stringify(body);   // before the headers
   res.writeHead(code, { 'Content-Type': type, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
-  res.end(typeof body === 'string' || Buffer.isBuffer(body) ? body : JSON.stringify(body));
+  res.end(data);
 }
+// the bytes are joined before decoding (a character split between two chunks stays whole); a body over 2 MB, or a
+// connection that drops, ends the request instead of leaving it waiting
 function body(req) {
-  return new Promise((resolve) => {
-    let s = '';
-    req.on('data', (c) => { s += c; if (s.length > 2e6) req.destroy(); });
-    req.on('end', () => { try { resolve(JSON.parse(s || '{}')); } catch { resolve({}); } });
+  return new Promise((resolve, reject) => {
+    const parts = []; let n = 0;
+    req.on('data', (c) => { n += c.length; if (n > 2e6) { req.destroy(); reject(new Error('Request too large.')); } else parts.push(c); });
+    req.on('end', () => { try { resolve(JSON.parse(Buffer.concat(parts).toString('utf8') || '{}')); } catch { resolve({}); } });
+    req.on('error', reject); req.on('aborted', () => reject(new Error('Request aborted.')));
   });
 }
 
@@ -960,7 +989,7 @@ const routes = {
     const p = places(), o = overlaySettings(), was = o.on;
     if (typeof b.on === 'boolean') o.on = b.on;
     if (OVERLAY_POS.includes(b.pos)) o.pos = b.pos;
-    if (b.size in OVERLAY_SIZE) o.size = b.size;
+    if (Object.prototype.hasOwnProperty.call(OVERLAY_SIZE, b.size)) o.size = b.size;
     if (typeof b.opacity === 'number' && b.opacity >= 0.4 && b.opacity <= 1) o.opacity = Math.round(b.opacity * 100) / 100;
     if (typeof b.parts === 'boolean') o.parts = b.parts;
     if (typeof b.numbers === 'boolean') o.numbers = b.numbers;
@@ -982,7 +1011,7 @@ const routes = {
     if (p.pkg) { writeToggles(p, readToggles(p)); ensureOverlay(await backendUp()); }
     return { ok: true, quests: questSettings() };
   },
-  'POST /api/queue/clear': async () => { queue = []; settings.queue = queue; saveSettings(); return { ok: true }; },
+  'POST /api/queue/clear': async () => { queue.length = 0; settings.queue = queue; saveSettings(); return { ok: true }; },
   'GET /api/prefs': async () => settings.prefs || {},
   'POST /api/prefs': async (b) => {
     const p = {}, ok = (k, test) => { if (b[k] !== undefined && test(b[k])) p[k] = b[k]; };
@@ -1002,7 +1031,12 @@ const routes = {
     if (!LAUNCHER) return { ok: false, error: 'Updates come with the Lantern Client launcher.' };
     // the launcher waits for this panel to exit, then starts the new version (gifts still waiting are kept)
     // not windowsHide: Windows would apply that hidden start to the launcher's window too
-    spawn(LAUNCHER, ['--after', String(process.pid)], { detached: true, stdio: 'ignore' }).unref();
+    const ok = await new Promise((resolve) => {
+      const c = spawn(LAUNCHER, ['--after', String(process.pid)], { detached: true, stdio: 'ignore' });
+      c.on('error', () => resolve(false));   // the launcher is gone: this panel keeps running instead of quitting
+      c.on('spawn', () => { c.unref(); resolve(true); });
+    });
+    if (!ok) return { ok: false, error: 'The Lantern Client launcher could not be started. Open Lantern Client from its shortcut.' };
     setTimeout(() => process.exit(0), 400);
     return { ok: true };
   },
@@ -1035,8 +1069,10 @@ const server = http.createServer(async (req, res) => {
     // the panel's own fonts (public, cached)
     const font = /^\/fonts\/(figtree|chakra-500|chakra-600|chakra-700|inter|orbitron|exo2|rajdhani-500|rajdhani-600|rajdhani-700|saira|nunito|jetbrainsmono)\.woff$/.exec(url.pathname);
     if (req.method === 'GET' && font) {
+      let data;
+      try { data = fs.readFileSync(path.join(HERE, 'ui', 'fonts', font[1] + '.woff')); } catch { return send(res, 404, 'Not found', 'text/plain'); }
       res.writeHead(200, { 'Content-Type': 'font/woff', 'Cache-Control': 'public, max-age=31536000, immutable' });
-      return res.end(fs.readFileSync(path.join(HERE, 'ui', 'fonts', font[1] + '.woff')));
+      return res.end(data);
     }
     if (req.method === 'GET' && url.pathname === '/api/events') {
       // EventSource cannot send headers, so the token comes in the address here

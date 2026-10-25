@@ -60,9 +60,14 @@ function namesFromItems(items) {
       counts.set(k, (counts.get(k) || 0) + 1);
     }
   }
+  // behemoths only: a codename with breakable parts in the game's items (BREAK_ARMSTRONG_...). Gear sets such as
+  // TRIALS ("Champion's ...") or SILVER ("Nikola's ...") have none, so they never name a behemoth
+  const behemoth = new Set();
+  for (const it of items) { const m = /^BREAK_([A-Z0-9]+)_/.exec(String(it.id || '')); if (m) behemoth.add(m[1]); }
   const best = new Map();
   for (const [k, c] of counts) {
     const [code, w] = k.split('|');
+    if (!behemoth.has(code)) continue;
     if (c >= 3 && (!best.has(code) || c > best.get(code).c)) best.set(code, { w, c });
   }
   return new Map([...best].map(([code, v]) => [code, v.w]));

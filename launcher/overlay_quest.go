@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"image"
 	"math"
+	"strconv"
 )
 
 // ------------------------------------------------------------------ data from the panel
@@ -71,13 +72,17 @@ func (m *qModel) update(qs []ovQuest, now float64) {
 			a.completeAt = now
 		}
 		a.title, a.cat, a.complete, a.more, a.visTarget = q.Title, q.Cat, q.Complete, q.More, 1
+		// objectives are matched by their text and, for the same text, by its order (the 2nd "" is the 2nd ""): two
+		// with one description never share one animation
 		prev := map[string]*qObjAnim{}
+		n := map[string]int{}
 		for _, o := range a.obj {
-			prev[o.d] = o
+			prev[dupKey(n, o.d)] = o
 		}
+		n = map[string]int{}
 		objs := make([]*qObjAnim, 0, len(q.Obj))
 		for _, o := range q.Obj {
-			x := prev[o.D]
+			x := prev[dupKey(n, o.D)]
 			if x == nil {
 				x = &qObjAnim{d: o.D}
 			}
@@ -365,4 +370,14 @@ func (r *ovRenderer) drawQuests(m *qModel, st ovStyle, u float64) *image.RGBA {
 		}
 	}
 	return r.out
+}
+
+// dupKey: s, or s plus how many times it came before ("Leg", "Leg\x001"), counted in n
+func dupKey(n map[string]int, s string) string {
+	k := s
+	if c := n[s]; c > 0 {
+		k = s + "\x00" + strconv.Itoa(c)
+	}
+	n[s]++
+	return k
 }

@@ -10,7 +10,7 @@
 -- file. Otherwise it looks for behemoths every 1 to 2 seconds and checks their health every 150 ms and on every hit.
 -- Only property reads and writes are used. Logged as [DFTrainer] in UE4SS.log.
 
-local MOD_VERSION  = "6.7"
+local MOD_VERSION  = "6.8"
 local TICK_MS      = 150    -- how often behemoth health is checked while the multiplier is on
 local RESCAN_EVERY = 2.0    -- seconds between searches for behemoths
 local READ_EVERY   = 0.5    -- seconds between reads of the toggles file
@@ -52,6 +52,11 @@ local function readNum(o, prop)
     if ok and type(v) == "number" then return v end
     return nil
 end
+-- a number JSON can carry: NaN and +-inf (which %.0f writes as "nan" / "inf", breaking the file) become 0
+local function fin(v)
+    if type(v) ~= "number" or v ~= v or v > 1e15 or v < -1e15 then return 0 end
+    return v
+end
 local function writeNum(o, prop, v)
     local ok = pcall(function() o[prop] = v end)
     return ok
@@ -72,9 +77,11 @@ local function search(cls)
     lastFound[cls] = list
     return list
 end
+PendingRefresh = nil           -- an instant refresh waiting for the game's thread
 local function onGameThread(fn, ...)
     local was = InGT
     InGT = true
+    if PendingRefresh and runPendingRefresh then pcall(runPendingRefresh) end
     local ok, err = pcall(fn, ...)
     InGT = was
     return ok, err
@@ -163,8 +170,11 @@ local lastRescan = -100
 -- controllers. IsLocalController alone does not answer in every copy (3.3.x took your game for a server and let it
 -- look for parts), so the local player objects decide too, as in the first versions of this mod.
 local function isLocal(pc)
-    local ok, res = pcall(function() return pc:IsLocalController() end)
-    if ok and res == true then return true end
+    -- IsLocalController is a game function: asked only on the game's thread (6.8; the timer thread reads properties)
+    if InGT then
+        local ok, res = pcall(function() return pc:IsLocalController() end)
+        if ok and res == true then return true end
+    end
     local okP, pl = pcall(function() return pc.Player end)
     if not (okP and valid(pl)) then return false end
     local n = (nameOf(pl) or ""):lower()
@@ -234,9 +244,16 @@ end
 -- every health drop on a behemoth is repeated (mult - 1) more times, never below 1 HP, so the game's own hit still
 -- lands the kill
 local function tick()
-    if T.damage <= 1 then return end
+    if T.damage <= 1 then
+        -- off: the last health is forgotten, so turning it on again never multiplies the damage dealt meanwhile
+        for _, b in ipairs(S.behemoths) do b.last = nil end
+        return
+    end
     local now = os.clock()
     if now - lastRescan >= RESCAN_EVERY then rescan(now) end
+    -- the hunt server owns the behemoth's health; your game only shows what it sends (multiplying there too would
+    -- multiply the server's already multiplied drop again, on your screen)
+    if not (S.roleKnown and S.role == "server") then return end
     for _, b in ipairs(S.behemoths) do
         if valid(b.set) then
             local hp = readNum(b.set, "CurrentHealth")
@@ -342,12 +359,24 @@ local function checkRefresh()
         pick = invFns[((nextFn - 1) % #invFns) + 1]
         nextFn = nextFn + 1
     end
-    for _, inv in ipairs(invs) do
-        local okC, err = pcall(function() return inv[pick](inv) end)
-        if not okC then logOnce("callerr:" .. pick, "calling " .. pick .. " failed: " .. tostring(err)) end
+    -- a game function: called on the game's thread, at its next event (6.8; this runs on the timer thread)
+    PendingRefresh = { pick = pick, invs = invs }
+    log("instant refresh: " .. pick .. " will be called at the game's next event")
+end
+-- on the game's thread only
+function runPendingRefresh()
+    local r = PendingRefresh
+    if not r then return end
+    PendingRefresh = nil
+    local n = 0
+    for _, inv in ipairs(r.invs) do
+        if valid(inv) then
+            local okC, err = pcall(function() return inv[r.pick](inv) end)
+            if okC then n = n + 1 else logOnce("callerr:" .. r.pick, "calling " .. r.pick .. " failed: " .. tostring(err)) end
+        end
     end
-    S.called, S.calledAt = pick, os.time()
-    log("instant refresh: called " .. pick .. " on " .. #invs .. " inventory object(s)")
+    S.called, S.calledAt = r.pick, os.time()
+    log("instant refresh: called " .. r.pick .. " on " .. n .. " inventory object(s)")
 end
 
 ---------------------------------------------------------------- behemoth tracking (the Lantern overlay)
@@ -590,12 +619,15 @@ local function stagReader(set)
 end
 
 local function trackJson(e)
-    local hp, mx = readNum(e.set, "CurrentHealth") or 0, readNum(e.set, "MaxHealth") or 0
+    local rawHp = readNum(e.set, "CurrentHealth")
+    local hp, mx = fin(rawHp or 0), fin(readNum(e.set, "MaxHealth") or 0)
+    local dead = rawHp ~= nil and rawHp == rawHp and rawHp <= 0   -- a reading of NaN is not "dead"
     local ps = {}
     e.partMax = e.partMax or {}
     for _, p in ipairs(e.parts) do
         local c, m = p.read()
-        if c == nil then e.partsLost = true end
+        if c == nil and e.partLast[p.name] ~= nil then e.partsLost = true end
+        m = m and fin(m)
         if m and m > 0 then e.partMax[p.name] = m end
         m = m or e.partMax[p.name]
         -- "Body" has millions of health (far more than the behemoth): not a part you can break, so it is not shown
@@ -620,21 +652,21 @@ local function trackJson(e)
         e.stag = ok and r or false
     end
     if e.stagFn and e.stagFn[2] and e.stagFn[2] > 0 then
-        stg = string.format(',"stg":[%.0f,%.0f]', math.max(e.stagFn[1], 0), e.stagFn[2])
+        stg = string.format(',"stg":[%.0f,%.0f]', math.max(fin(e.stagFn[1]), 0), fin(e.stagFn[2]))
     elseif e.stagComp then
-        stg = string.format(',"stg":[%.0f,%.0f]', math.max(e.stagComp[1], 0), e.stagComp[2])
+        stg = string.format(',"stg":[%.0f,%.0f]', math.max(fin(e.stagComp[1]), 0), fin(e.stagComp[2]))
     elseif e.stag then
         local sc, sm = e.stag()
-        if sc and sm and sm > 0 then stg = string.format(',"stg":[%.0f,%.0f]', math.max(sc, 0), sm) end
+        if sc and sm and sm > 0 then stg = string.format(',"stg":[%.0f,%.0f]', math.max(fin(sc), 0), fin(sm)) end
     end
-    if e.stagDmg then stg = stg .. string.format(',"sdmg":%.0f', math.max(e.stagDmg, 0)) end
+    if e.stagDmg then stg = stg .. string.format(',"sdmg":%.0f', math.max(fin(e.stagDmg), 0)) end
     -- the game's own name for this behemoth, and its metadata row name (the panel prefers these to any mapping)
     if e.gameName then stg = stg .. ',"nm":"' .. tostring(e.gameName):gsub('[%c"\\]', '') .. '"' end
     if e.metaName then stg = stg .. ',"mn":"' .. tostring(e.metaName):gsub('[%c"\\]', '') .. '"' end
     if e.dispArch then stg = stg .. ',"da":"' .. tostring(e.dispArch):gsub('[%c"\\]', '') .. '"' end
     if e.dispClass and e.dispClass ~= "" then stg = stg .. ',"dc":"' .. tostring(e.dispClass):gsub('[%c"\\]', '') .. '"' end
     return string.format('{"key":"%s","cls":"%s","cur":%.0f,"max":%.0f,"at":%d,"n":%d,"dead":%s,"parts":[%s]%s}',
-        clean(e.key), clean(e.cls), math.max(hp, 0), mx, e.atTime or 0, e.n or 0, tostring(hp <= 0), table.concat(ps, ","), stg)
+        clean(e.key), clean(e.cls), math.max(hp, 0), mx, e.atTime or 0, e.n or 0, tostring(dead), table.concat(ps, ","), stg)
 end
 
 local resolveBreak   -- defined with the break events below; called by the tracking loop
@@ -662,7 +694,9 @@ local function trackTick(now)
             for _, p in ipairs(e.parts) do
                 local c, m = p.read()
                 local was = e.partLast[p.name]
-                if c == nil then e.partsLost = true end   -- its health object is gone (replaced): found again by the scan
+                -- its health object is gone (replaced): found again by the scan. A part that never had one is not "lost"
+                -- (it would make the scan search every object every second for the whole fight)
+                if c == nil and e.partLast[p.name] ~= nil then e.partsLost = true end
                 if c and was and c < was - 0.01 then hit = true end
                 -- a break: the game often refills that part right away (it can break again), so breaks are counted
                 if c and was and was > 0 and c <= 0 then
@@ -683,6 +717,7 @@ local function trackTick(now)
             if e.pending then local okR, errR = pcall(resolveBreak, e, now) if not okR then logOnce("resolve:" .. tostring(errR), "overlay: break check error: " .. tostring(errR)) e.pending = nil end end
             if hit then Tk.n = Tk.n + 1 e.at, e.atTime, e.n = now, os.time(), Tk.n end
             if hp and hp <= 0 and not e.deadAt then e.deadAt = now end
+            if hp and hp > 0 then e.deadAt = nil end   -- 0 at spawn (health not filled in yet) is not dead
             if e.deadAt and now - e.deadAt > TRACK_LINGER then e.at = nil end
             if e.at and (not best or e.at > best.at) then best = e end
         end
@@ -1149,7 +1184,7 @@ local function questTick(now, gt)
                 local os_ = {}
                 for _, o in ipairs(r.objs) do
                     os_[#os_ + 1] = string.format('{"d":%s,"c":%s,"r":%s,"done":%s}', jstr(o.desc),
-                        o.cur and string.format("%.0f", o.cur) or "null", o.req and string.format("%.0f", o.req) or "null", tostring(o.done))
+                        o.cur and string.format("%.0f", fin(o.cur)) or "null", o.req and string.format("%.0f", fin(o.req)) or "null", tostring(o.done))
                 end
                 out[#out + 1] = string.format('{"key":%s,"id":%s,"title":%s,"type":%s,"status":%s,"obj":[%s]}', jstr(r.key), jstr(r.id),
                     jstr(r.title), jstr(r.type), jstr(r.status), table.concat(os_, ","))
@@ -1227,6 +1262,7 @@ end)
 local lastHitTick, lastHitTrack = -1, -1
 local hooked, hookErr = pcall(function()
     RegisterHook("/Script/Archon.ArchonCombatTextComponent:MulticastSendMultitypeCombatText", function()
+        if PendingRefresh then onGameThread(function() end) end   -- an instant refresh waiting for the game's thread
         if T.damage <= 1 and not T.track and not T.quests then return end
         local now = os.clock()
         Tk.hitAt = now
@@ -1255,7 +1291,7 @@ local qHooks = {}
 for _, fn in ipairs({ "/Script/Archon.HUDObjectiveTracker:OnQuestObjectiveUpdated", "/Script/Archon.HUDObjectiveTracker:OnQuestStatusUpdated",
                       "/Script/Archon.MarkerSystemComponent:OnQuestObjectiveUpdated", "/Script/Archon.MarkerSystemComponent:OnQuestStatusUpdated",
                       "/Script/Archon.QuestSystemComponent:OnRep_Series", "/Script/Archon.QuestSystemComponent:OnRep_NumExpectedQuests" }) do
-    local ok = pcall(RegisterHook, fn, function() if T.quests then onGameThread(questGameThread) end end)
+    local ok = pcall(RegisterHook, fn, function() if T.quests then onGameThread(questGameThread) elseif PendingRefresh then onGameThread(function() end) end end)
     if ok then qHooks[#qHooks + 1] = fn:match(":(.+)$") end
 end
 log("quest events hooked: " .. (#qHooks > 0 and table.concat(qHooks, ", ") or "none (the tracker reads every second instead)"))

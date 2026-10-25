@@ -22,6 +22,10 @@ function call(method, urlPath, body) {
       let s = ''; res.setEncoding('utf8');
       res.on('data', (c) => { s += c; });
       res.on('end', () => { let json = null; try { json = JSON.parse(s); } catch {} resolve({ status: res.statusCode, json, text: s }); });
+      // the game closed mid-answer: an error, never a request that waits for ever (resolve once: the first wins)
+      res.on('aborted', () => resolve({ status: 0, error: 'the game closed while answering' }));
+      res.on('error', (e) => resolve({ status: 0, error: e.message }));
+      res.on('close', () => { if (!res.complete) resolve({ status: 0, error: 'the game closed while answering' }); });
     });
     req.on('timeout', () => req.destroy(new Error('timeout')));
     req.on('error', (e) => resolve({ status: 0, error: e.message }));
@@ -66,8 +70,12 @@ async function transaction(characterId, parts) {
 // What to send for one character. Returns { addInstanced, addStacked, removeStacked, added, already, unknown }
 function plan(job, inv, cat) {
   const out = { addInstanced: [], addStacked: [], removeStacked: [], added: [], already: [], unknown: [] };
-  const held = (id) => inv.stacked.find((x) => x && x.catalogId === id);
+  // looked up once (an unlock-all checks thousands of items against an inventory of thousands)
+  const stacks = new Map();
+  for (const x of inv.stacked) if (x && !stacks.has(x.catalogId)) stacks.set(x.catalogId, x);
+  const held = (id) => stacks.get(id);
   const ids = new Set(inv.instanced.map((i) => i && i.instanceId));
+  const ownedInst = new Set(inv.instanced.map((i) => i && i.catalogId));
   const counts = job.counts || {};
   if (job.action === 'atleast') {   // top each stack up to the count; more than that is left as it is
     for (const [id, want] of Object.entries(counts)) {
@@ -91,7 +99,7 @@ function plan(job, inv, cat) {
   for (const id of list) {
     if (!cat.picker.has(id)) { out.unknown.push(id); continue; }
     if (cat.storage.get(id) === 'i') {
-      if (inv.instanced.some((i) => i && i.catalogId === id)) { out.already.push(id); continue; }
+      if (ownedInst.has(id)) { out.already.push(id); continue; }
       const iid = ids.has(id) ? crypto.randomUUID() : id; ids.add(iid);
       out.addInstanced.push({ catalogId: id, instanceId: iid, updateVersion: 1 });
       out.added.push(id);

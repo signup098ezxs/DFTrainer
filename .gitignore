@@ -10,3 +10,4 @@ lantern-owner-key.pem
 owner-key.pem
 license.json
 issued-keys.json
+launcher/launcher

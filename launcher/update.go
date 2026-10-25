@@ -219,14 +219,25 @@ func download(ctx context.Context, urls map[string]string, a Asset) ([]byte, err
 // blocking every update for the next 15 minutes ("Could not check for updates: another update is running").
 func takeLock() (func(), bool) {
 	p := filepath.Join(rootDir(), "update.lock")
+	me := strconv.Itoa(os.Getpid())
 	for try := 0; try < 2; try++ {
 		f, err := os.OpenFile(p, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
 		if err == nil {
-			fmt.Fprintf(f, "%d", os.Getpid())
+			fmt.Fprint(f, me)
 			f.Close()
-			return func() { _ = os.Remove(p) }, true
+			// released only while it is still this process's lock (never one another update took over)
+			return func() {
+				if b, err := os.ReadFile(p); err == nil && strings.TrimSpace(string(b)) == me {
+					_ = os.Remove(p)
+				}
+			}, true
 		}
-		if !lockStale(p) {
+		seen, stale := lockStale(p)
+		if !stale {
+			return nil, false
+		}
+		// cleared only if it is still the lock that was found stale (another update may have just replaced it)
+		if b, err := os.ReadFile(p); err == nil && string(b) != seen {
 			return nil, false
 		}
 		logf("update: cleared a lock left by an update that was stopped")
@@ -235,23 +246,25 @@ func takeLock() (func(), bool) {
 	return nil, false
 }
 
-// lockStale: the lock's owner is not running any more, or it is older than any update can take
-func lockStale(p string) bool {
+// lockStale: the lock's owner is not running any more. A lock with an owner that is still running is respected
+// however long its update takes (a slow download and unzip can pass 7 minutes); only a lock with no owner recorded
+// (from launchers before 1.6.10) is judged by its age, and any lock past an hour (its process id reused) is stale.
+// Returns the lock's content as it was judged.
+func lockStale(p string) (string, bool) {
 	st, err := os.Stat(p)
 	if err != nil {
-		return true
-	}
-	if time.Since(st.ModTime()) > 7*time.Minute { // the longest update (download 5 min) is over by then
-		return true
+		return "", true
 	}
 	b, _ := os.ReadFile(p)
+	age := time.Since(st.ModTime())
+	if age > time.Hour {
+		return string(b), true
+	}
 	pid, err := strconv.Atoi(strings.TrimSpace(string(b)))
 	if err != nil || pid <= 0 {
-		// an empty lock (written by launchers before 1.6.10, which did not record their process): its owner may still
-		// be downloading, so only the age counts (above)
-		return false
+		return string(b), age > 7*time.Minute // the longest update of those launchers (download 5 min) is over by then
 	}
-	return pid != os.Getpid() && !processAlive(pid)
+	return string(b), pid != os.Getpid() && !processAlive(pid)
 }
 
 func checkOnly(timeout time.Duration) Result {

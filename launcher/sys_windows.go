@@ -134,7 +134,13 @@ func comCall(obj uintptr, i int, args ...uintptr) uintptr {
 	return r
 }
 
-func wstr(s string) uintptr { p, _ := syscall.UTF16PtrFromString(s); return uintptr(unsafe.Pointer(p)) }
+// wstr: s as a UTF-16 string for a COM call, kept in keep: a uintptr alone does not keep the string alive, so the
+// caller holds keep (runtime.KeepAlive) until its last COM call
+func wstr(keep *[]*uint16, s string) uintptr {
+	p, _ := syscall.UTF16PtrFromString(s)
+	*keep = append(*keep, p)
+	return uintptr(unsafe.Pointer(p))
+}
 
 // writeShortcut saves a .lnk at path pointing at exe (IShellLinkW + IPersistFile)
 func writeShortcut(path, exe, description string) error {
@@ -147,17 +153,19 @@ func writeShortcut(path, exe, description string) error {
 	if hr, _, _ := procCoCreateInstance.Call(uintptr(unsafe.Pointer(&clsidShellLink)), 0, 1 /* CLSCTX_INPROC_SERVER */, uintptr(unsafe.Pointer(&iidShellLinkW)), uintptr(unsafe.Pointer(&link))); hr != 0 || link == 0 {
 		return fmt.Errorf("shell link: 0x%x", uint32(hr))
 	}
-	defer comCall(link, 2)                    // Release
-	comCall(link, 20, wstr(exe))              // SetPath
-	comCall(link, 9, wstr(filepath.Dir(exe))) // SetWorkingDirectory
-	comCall(link, 7, wstr(description))       // SetDescription
-	comCall(link, 17, wstr(exe), 0)           // SetIconLocation
+	var keep []*uint16
+	defer func() { runtime.KeepAlive(keep) }()
+	defer comCall(link, 2)                           // Release
+	comCall(link, 20, wstr(&keep, exe))              // SetPath
+	comCall(link, 9, wstr(&keep, filepath.Dir(exe))) // SetWorkingDirectory
+	comCall(link, 7, wstr(&keep, description))       // SetDescription
+	comCall(link, 17, wstr(&keep, exe), 0)           // SetIconLocation
 	var pf uintptr
 	if hr := comCall(link, 0, uintptr(unsafe.Pointer(&iidPersistFile)), uintptr(unsafe.Pointer(&pf))); hr != 0 || pf == 0 {
 		return fmt.Errorf("persist file: 0x%x", uint32(hr))
 	}
 	defer comCall(pf, 2)
-	if hr := comCall(pf, 6, wstr(path), 1); hr != 0 { // Save
+	if hr := comCall(pf, 6, wstr(&keep, path), 1); hr != 0 { // Save
 		return fmt.Errorf("save %s: 0x%x", path, uint32(hr))
 	}
 	return nil

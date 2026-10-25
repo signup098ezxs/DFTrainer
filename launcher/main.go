@@ -377,10 +377,14 @@ func launch(noUpdate bool) {
 		if errors.Is(err, errNoNode) {
 			fatal("Node.js was not found.\n\nOpen the Dauntless Forever launcher, pick 1.6.2 and run its Set up once (it installs Node.js), then open Lantern Client again.")
 		}
-		// a version that does not start is never used again: back to the one before
+		// a version that does not start: back to the one before. Only a panel that stopped by itself (its own error)
+		// marks the version as never to be used again; a slow start (a busy PC, a virus scan of the new files) or a
+		// log file that could not be opened is not the version's fault, so it is offered again by the next update check
 		st = loadState()
 		if st.Previous != "" && st.Previous != v && versionReady(st.Previous) {
-			st.Bad = append(st.Bad, v)
+			if errors.Is(err, errPanelStopped) {
+				st.Bad = append(st.Bad, v)
+			}
 			st.Current, st.Previous = st.Previous, ""
 			_ = saveState(st)
 			_ = writeAtomic(updateNotePath(), mustJSON(map[string]any{"rolledBack": v, "to": st.Current, "at": time.Now().Unix()}))
@@ -407,6 +411,7 @@ func launch(noUpdate bool) {
 }
 
 var errNoNode = errors.New("node.js not found")
+var errPanelStopped = errors.New("the panel stopped")
 var urlRe = regexp.MustCompile(`(?:Lantern Client|DF Trainer) panel: (http://127\.0\.0\.1:\d+/\?t=[0-9a-f]+)`)
 
 func startPanel(v string) (string, error) {
@@ -443,7 +448,7 @@ func startPanel(v string) (string, error) {
 			return string(m[1]), nil
 		}
 		if !processAlive(pid) {
-			return "", fmt.Errorf("the panel stopped: %s", lastLines(string(b), 6))
+			return "", fmt.Errorf("%w: %s", errPanelStopped, lastLines(string(b), 6))
 		}
 	}
 	b, _ := os.ReadFile(logPath)
