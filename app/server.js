@@ -24,6 +24,7 @@ const MOD_SRC = path.join(HERE, 'mod', 'DFTrainer');
 const LIVE = require('./live.js');
 const { protectedIds, isStarter } = require('./protect.js');
 const BUILDS = require('./builds/index.js');
+const GAMETEXT = require('./gametext.js');
 // Installed by the launcher, each version lives in its own folder (app\<version>): settings live one level up, in the
 // install folder (DFT_ROOT), so updates keep them. Started by hand (node server.js), they stay next to this file.
 const ROOT = process.env.DFT_ROOT || null;
@@ -115,8 +116,11 @@ function catalog(p) {
   const names = new Map(), storage = new Map(), groupOf = new Map();
   const full = readJson(files[1], {}).items || [];
   const behemoths = new Map();   // TOKEN_KILL_COUNT_LERAWR_BETA "Kill Token: Rogue Embermane" -> LERAWR_BETA: Rogue Embermane
+  // the game's own text names what the catalog leaves unnamed, before the picker's guess from the id (gametext.js)
+  const text = GAMETEXT.englishText(p.pkg), fromText = new Set();
   for (const i of full) {
     if (i.name && i.name !== i.id) names.set(i.id, i.name);
+    else { const t = GAMETEXT.displayName(text, i); if (t) { names.set(i.id, t.trim()); fromText.add(i.id); } }
     const k = /^TOKEN_KILL_COUNT_([A-Z0-9_]+)$/.exec(i.id || '');
     if (k && i.name) behemoths.set(k[1], i.name.replace(/^Kill Token:\s*/i, '').trim());
     storage.set(i.id, i.storage === 'instance' ? 'i' : 's');
@@ -124,25 +128,30 @@ function catalog(p) {
   }
   const picker = readJson(files[0], {});
   const gear = (picker.items || []).map((g) => {
-    const named = g[1] && g[1] !== g[0];
-    if (named) names.set(g[0], g[1]);
+    const named = fromText.has(g[0]) || (g[1] && g[1] !== g[0]);
+    if (named && !fromText.has(g[0])) names.set(g[0], g[1]);
     storage.set(g[0], g[3] === 'i' ? 'i' : 's');
     // the picker files hunt arrivals (the animation as you land on a hunt, EM_INTRO_*) under Emotes: their own kind here
     const type = g[2] === 'Emotes' && /^EM_INTRO_/.test(g[0]) ? 'Hunt arrivals' : g[2];
-    return [g[0], named ? g[1] : g[0], type, GEAR_KINDS.has(g[2]) ? 0 : 1, named ? 0 : 1];   // id, name, type, cosmetic, unnamed
+    return [g[0], named ? names.get(g[0]) : g[0], type, GEAR_KINDS.has(g[2]) ? 0 : 1, named ? 0 : 1];   // id, name, type, cosmetic, unnamed
   });
   for (const grp of readJson(path.join(p.pkg, 'items.json'), {}).groups || []) for (const i of grp.items || []) names.set(i.id, i.name);
+  // items.json calls it "Cell Dust"; in game it is Aetherdust (UI::Common.CellDust), the currency Timeweave crafting costs
+  if (text.get('UI::Common.CellDust')) names.set(PARTS.AETHERDUST, text.get('UI::Common.CellDust'));
+  // the game's crafting table (recipe per item: craft, then upgrades), for gear whose parts come from other behemoths
+  const rules = readJson(path.join(p.pkg, 'backend', 'game-rules1147-data.json'), {});
+  const recipes = { craftItems: rules.craftItems || {}, recipes: rules.recipes || {} };
   const types = (picker.types || []).flatMap((t) => (t === 'Emotes' ? ['Emotes', 'Hunt arrivals'] : [t]));
   // what live.js needs for a gift while you play, from this same catalog (no second copy of it)
   let live = null;   // built on the first gift while you play
   const codeNames = BEHEMOTHS.namesFromItems(full);   // ARMSTRONG -> Torgadoro, from the game's own item names
-  CATALOG = { gear, names, storage, groupOf, types, behemoths, codeNames,
+  CATALOG = { gear, names, storage, groupOf, types, behemoths, codeNames, recipes,
     get live() { return live || (live = { storage, picker: new Set(gear.map((g) => g[0])), cosmetics: gear.filter((g) => g[3]).map((g) => g[0]) }); } };
   CATALOG_KEY = key;
   return CATALOG;
 }
 function equippedPartsOf(p, player, charId) {
-  const c = catalog(p), r = PARTS.equippedParts(player, charId, c.storage, c.groupOf);
+  const c = catalog(p), r = PARTS.equippedParts(player, charId, c.storage, c.groupOf, c.recipes);
   if (!r) return null;
   const nm = (id) => nameOf(p, id);
   return {
@@ -398,9 +407,10 @@ async function setup() {
 }
 
 // ---------------------------------------------------------------- items
-// atleast: top stacks up to a count, never lower. maxweapons: every weapon type to level 20 (1.14.7 levels weapons
-// per type, not per item, so there is no "give at max level")
-const ITEM_ACTIONS = new Set(['addgear', 'set', 'atleast', 'maxweapons', 'addcosmetic', 'remove']);
+// atleast: top stacks up to a count, never lower. add: add exactly the count to a stack. maxweapons: every weapon
+// type to level 20 (1.14.7 levels weapons per type, not per item, so there is no "give at max level")
+const ITEM_ACTIONS = new Set(['addgear', 'set', 'atleast', 'add', 'maxweapons', 'addcosmetic', 'remove']);
+const COUNTED = new Set(['set', 'atleast', 'add']);   // jobs with counts, not a list
 // moving from 1.6.2: gifts that were waiting were for 1.6.2 characters, and its package folder no longer applies
 if (settings.build !== GAME_BUILD) { settings.queue = []; if (settings.package && !isPackage(settings.package)) delete settings.package; settings.build = GAME_BUILD; saveSettings(); }
 let queue = settings.queue || [];
@@ -418,9 +428,9 @@ function validJob(b) {
   if (!/^[\w-]{1,64}$|^\*$/.test(String(b.character))) return 'Unknown character.';
   if (b.action === 'remove' && b.character === '*') return 'Pick one character to remove items from.';
   if (b.action === 'maxweapons' || (b.action === 'addcosmetic' && b.list === 'all')) return null;
-  if (b.action === 'set' || b.action === 'atleast') {
+  if (COUNTED.has(b.action)) {
     const c = {};
-    for (const [k, n] of Object.entries(b.counts || {})) if (/^[A-Z0-9_]{3,80}$/.test(k) && Number.isFinite(Number(n))) c[k] = Math.max(b.action === 'atleast' ? 1 : 0, Math.min(99999999, Math.floor(Number(n))));
+    for (const [k, n] of Object.entries(b.counts || {})) if (/^[A-Z0-9_]{3,80}$/.test(k) && Number.isFinite(Number(n))) c[k] = Math.max(b.action === 'set' ? 0 : 1, Math.min(99999999, Math.floor(Number(n))));
     if (!Object.keys(c).length) return 'Nothing to change.';
     b.counts = c;
   } else {
@@ -432,16 +442,16 @@ function validJob(b) {
 }
 const describe = (j) => {
   if (j.label) return j.label;
-  const n = j.action === 'set' || j.action === 'atleast' ? Object.keys(j.counts).length : Array.isArray(j.list) ? j.list.length : 0, s = n === 1 ? '' : 's';
-  return { maxweapons: 'Max weapon levels', set: `Set ${n} amount${s}`, atleast: `Top up ${n} item${s}`, addgear: `Give ${n} item${s}`,
+  const n = COUNTED.has(j.action) ? Object.keys(j.counts).length : Array.isArray(j.list) ? j.list.length : 0, s = n === 1 ? '' : 's';
+  return { maxweapons: 'Max weapon levels', set: `Set ${n} amount${s}`, atleast: `Top up ${n} item${s}`, add: `Add to ${n} item${s}`, addgear: `Give ${n} item${s}`,
     remove: `Remove ${n} item${s}`,
     addcosmetic: j.list === 'all' ? 'Unlock all cosmetics' : `Unlock ${n} cosmetic${s}` }[j.action] || j.action;
 };
-function jobIds(job) { return job.action === 'set' || job.action === 'atleast' ? Object.keys(job.counts) : Array.isArray(job.list) ? job.list : []; }
+function jobIds(job) { return COUNTED.has(job.action) ? Object.keys(job.counts) : Array.isArray(job.list) ? job.list : []; }
 function jobSummary(p, job) {
   if (job.action === 'maxweapons') return 'Every weapon type at level 20';
   if (job.action === 'addcosmetic' && job.list === 'all') return 'Every cosmetic unlocked';
-  if (job.action === 'set') { const e = Object.entries(job.counts); const t = e.slice(0, 2).map(([k, v]) => `${nameOf(p, k)} ${Number(v).toLocaleString('en-US')}`).join(', '); return e.length > 2 ? `${t} and ${e.length - 2} more` : t; }
+  if (job.action === 'set' || job.action === 'add') { const e = Object.entries(job.counts); const t = e.slice(0, 2).map(([k, v]) => `${nameOf(p, k)} ${job.action === 'add' ? '+' : ''}${Number(v).toLocaleString('en-US')}`).join(', '); return e.length > 2 ? `${t} and ${e.length - 2} more` : t; }
   return listNames(p, jobIds(job));
 }
 // one change to your save at a time: two at once (a double click, a gift while the queue is applied) both rewrote
@@ -460,8 +470,8 @@ async function applyJobNow(p, job, live) {
       const res = await LIVE.give(p.pkg, job, ((mine && mine.characters) || []).map((c) => c.id), catalog(p).live);
       r = { ok: true, ...res };
     } catch (e) { r = { ok: false, error: e.message }; }
-  } else if (job.action === 'maxweapons' || job.action === 'atleast' || job.action === 'remove') {
-    // the package's items.js only sets counts and adds items: offline.js tops counts up and raises weapon levels
+  } else if (job.action === 'maxweapons' || job.action === 'atleast' || job.action === 'add' || job.action === 'remove') {
+    // the package's items.js only sets counts and adds items: offline.js tops counts up, adds to them and raises weapon levels
     const mine = await listChars(p);
     r = mine && mine.ok ? await runOwn(p, 'offline.js', [p.pkg, JSON.stringify(job), JSON.stringify((mine.characters || []).map((c) => c.id))])
       : (mine || { ok: false, error: 'Could not read your characters.' });
@@ -480,6 +490,7 @@ function giftOutcome(p, job, r) {
   o.nothingNew = !added.length && !raised.length && !r.queued;
   if (o.nothingNew && already.length) o.message = job.action === 'maxweapons' ? 'Every weapon type is already at level 20.'
     : job.action === 'atleast' ? `You already have ${Math.max(...Object.values(job.counts))} or more of ${already.length > 3 ? `all ${already.length} of those` : o.owned}.`
+    : job.action === 'add' ? `${o.owned} is already at the most it can hold (${(99999999).toLocaleString('en-US')}).`
     : `You already own ${o.owned}.`;
   if (job.action === 'atleast' || job.action === 'maxweapons') { o.topped = added.length; delete o.owned; }   // counts and levels, not "already own"
   return o;
@@ -501,7 +512,7 @@ async function giveLive(p, job) {
   const r = await applyJob(p, job, true);
   if (!r.ok) return r;
   const later = null;
-  const liveJob = r.added && r.added.length ? (job.action === 'set' || job.action === 'atleast' ? { ...job, counts: Object.fromEntries(r.added.map((i) => [i, job.counts[i]])) } : { ...job, list: r.added }) : null;
+  const liveJob = r.added && r.added.length ? (COUNTED.has(job.action) ? { ...job, counts: Object.fromEntries(r.added.map((i) => [i, job.counts[i]])) } : { ...job, list: r.added }) : null;
   if (liveJob) {
     const what = job.list === 'all' ? `${r.added.length} cosmetics unlocked` : jobSummary(p, liveJob);
     deliveries.push({ id: crypto.randomBytes(4).toString('hex'), at: Date.now(), character: liveJob.character, what, status: 'saved' });
@@ -532,7 +543,7 @@ async function drainQueue() {
       if (!r.ok) note('error', 'Could not apply', r.error || describe(job));
       else if (job.action === 'remove') removeOutcome(p, r);
       else if (r.raised && r.raised.length) note('applied', 'Weapon levels raised', `${r.raised.map((w) => WEAPON_NAMES[w] || w).join(', ')}: level 20.`);
-      else if (r.added && r.added.length) note('applied', 'Added to your save', listNames(p, r.added));
+      else if (r.added && r.added.length) note('applied', 'Added to your save', job.action === 'add' ? jobSummary(p, job) : listNames(p, r.added));
       else if (job.action === 'set' || job.list === 'all') note('applied', 'Added to your save', jobSummary(p, job));
       else if (job.action === 'maxweapons') note('ok', 'Weapons already maxed', 'Every weapon type is already at level 20.');
       else if (r.already && r.already.length) note('ok', 'Already yours', `You already own ${listNames(p, r.already, 3)}.`);
@@ -1001,7 +1012,7 @@ const routes = {
     if (job.action === 'set' || (job.action === 'addcosmetic' && job.list === 'all')) { note('applied', 'Added to your save', jobSummary(p, job)); return { ok: true }; }
     if (job.action === 'remove') return removeOutcome(p, r);
     const o = giftOutcome(p, job, r);
-    if (r.added && r.added.length) note('applied', 'Added to your save', listNames(p, r.added));
+    if (r.added && r.added.length) note('applied', 'Added to your save', job.action === 'add' ? jobSummary(p, job) : listNames(p, r.added));
     if (r.raised && r.raised.length) note('applied', 'Weapon levels raised', `${o.raisedNames}: level 20.`);
     if (job.action === 'maxweapons' && !o.raised) return { ok: true, nothingNew: true, message: 'Every weapon type is already at level 20.' };
     return { ok: true, ...o };
@@ -1029,8 +1040,15 @@ const routes = {
       if (!last.ok) return last;
       given += eq.parts.length;
     }
-    if (!last) return { ok: false, error: 'Nothing equipped comes from a behemoth, so there are no parts to give.' };
+    if (!last) return { ok: false, error: 'Nothing equipped takes behemoth parts, so there are none to give.' };
     return { ...last, parts: given, amount };
+  },
+  // Aetherdust (CURRENCY_CELLDUST): adds exactly one of the five amounts, counted from the inventory at that moment
+  'POST /api/aetherdust': async (b) => {
+    const amount = Number(b.amount);
+    if (!PARTS.AETHERDUST_STEPS.includes(amount)) return { ok: false, error: 'Pick 1,000, 2,000, 3,000, 4,000 or 5,000.' };
+    const r = await routes['POST /api/items']({ action: 'add', character: b.character, counts: { [PARTS.AETHERDUST]: amount }, label: `Aetherdust +${amount.toLocaleString('en-US')}` });
+    return r.ok ? { ...r, amount } : r;
   },
   'GET /api/overlay/state': async () => {
     const p = places(), o = overlaySettings(), q = questsOn();

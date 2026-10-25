@@ -12,6 +12,7 @@
 const fs = require('fs'), path = require('path'), http = require('http'), crypto = require('crypto');
 
 const HOST = '127.0.0.1', PORT = 63005;
+const ADD_CAP = 99999999;   // the most validJob lets any count be set to
 const GEAR_KINDS = new Set(['Weapons', 'Armour', 'Lanterns', 'Weapon parts', 'Omnicells']);
 
 function call(method, urlPath, body) {
@@ -81,6 +82,13 @@ function plan(job, inv, cat) {
     for (const [id, want] of Object.entries(counts)) {
       const have = Number((held(id) || {}).quantity) || 0;
       if (want > have) { out.addStacked.push({ catalogId: id, quantity: want - have }); out.added.push(id); } else out.already.push(id);
+    }
+    return out;
+  }
+  if (job.action === 'add') {   // add exactly the count to each stack (Aetherdust 1,000 to 5,000), never past ADD_CAP
+    for (const [id, n] of Object.entries(counts)) {
+      const have = Number((held(id) || {}).quantity) || 0, q = Math.min(n, ADD_CAP - have);
+      if (q > 0) { out.addStacked.push({ catalogId: id, quantity: q }); out.added.push(id); } else out.already.push(id);
     }
     return out;
   }

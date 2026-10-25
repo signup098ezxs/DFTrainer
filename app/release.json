@@ -1,5 +1,5 @@
 {
-  "version": "3.9.12",
+  "version": "3.9.13",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "New Parts page: gives every behemoth part for the weapon and armour you have equipped (your active loadout), up to 90 of each, in one press. Parts only, no other materials, and nothing you already have more of is taken away. Works while you play."
+  "notes": "Timeweave armour: all four pieces now show their real names (Timeweave Helm, Robes, Gauntlets, Leggings), and the Parts page gives the shards they take to craft and upgrade, Rampaging Shard included (Fenroar and Frostwolf gear get their parts now too). New on Parts: Add Aetherdust, 1,000 to 5,000 at a time, added exactly. 700+ other items that showed a made-up name now show the game's own."
 }

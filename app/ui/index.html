@@ -255,6 +255,12 @@ select option { background: var(--hull); }
 .item.lock .cb { visibility: hidden; }
 .partsamt input { width: 72px; height: 32px; margin-left: 8px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--seam2); background: rgba(6, 10, 15, .6); text-align: right; font: 600 15px var(--display); outline: none; }
 .partsamt input:focus { border-color: rgba(var(--a-rgb), .5); }
+.dustcard .cellhead > div { flex: 1; min-width: 0; }
+.dustcard .readout { margin-top: 4px; }
+section.on .dustcard .seg button { animation: rise .35s var(--ease) both; }
+section.on .dustcard .seg button:nth-child(3) { animation-delay: .04s; } section.on .dustcard .seg button:nth-child(4) { animation-delay: .08s; }
+section.on .dustcard .seg button:nth-child(5) { animation-delay: .12s; } section.on .dustcard .seg button:nth-child(6) { animation-delay: .16s; }
+.dustcard.done { animation: flash .7s var(--ease); }
 .pslot h4 small { margin-left: 8px; color: var(--ash); font: 500 12.5px var(--body, inherit); letter-spacing: 0; }
 .pslot .none { padding: 10px 14px; color: var(--ash); font-size: 13px; }
 .cellkey { color: var(--ash2); font-size: 12px; }
@@ -481,7 +487,7 @@ h2 { margin: 0; font: 600 21px/1.2 var(--display); letter-spacing: .01em; }
 
 /* segmented control with a sliding indicator */
 .seg { position: relative; display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 4px; margin-top: 12px; border-radius: 10px; border: 1px solid var(--seam2); background: rgba(6, 10, 15, .55); }
-.seg .ind { position: absolute; top: 4px; left: 0; height: calc(100% - 8px); border-radius: 9px; background: linear-gradient(180deg, var(--a-light), var(--a-deep)); box-shadow: 0 0 16px rgba(var(--a-rgb), .45), inset 0 1px 0 rgba(255, 255, 255, .25); transition: transform .45s var(--spring), width .35s var(--ease), opacity .2s; pointer-events: none; opacity: 0; }
+.seg .ind { position: absolute; top: 4px; left: 0; height: calc(100% - 8px); border-radius: 9px; background: linear-gradient(180deg, var(--a-light), var(--a-deep)); box-shadow: 0 0 16px rgba(var(--a-rgb), .45), inset 0 1px 0 rgba(255, 255, 255, .25); transition: transform .45s var(--spring), width .35s var(--ease), top .35s var(--ease), opacity .2s; pointer-events: none; opacity: 0; }
 .seg button { position: relative; z-index: 1; height: 28px; padding: 0 11px; border: 0; border-radius: 9px; background: none; color: var(--ash); font: 600 13px/1 var(--display); letter-spacing: .02em; transition: color .25s; }
 .seg button:hover { color: var(--frost); }
 .seg button.on { color: #02242a; }
@@ -942,7 +948,7 @@ div.lrow { cursor: default; }
 
     <!-- PARTS: behemoth parts for the gear equipped now -->
     <section id="tab-parts">
-      <div class="head"><div><h2>Parts</h2><p class="lede">Behemoth parts for the weapon and armour you have equipped. Parts only: no ores, currencies or other materials.</p></div></div>
+      <div class="head"><div><h2>Parts</h2><p class="lede">Behemoth parts for the weapon and armour you have equipped, and Aetherdust. No ores or other materials.</p></div></div>
       <div class="wrap">
         <div class="setcard cellcard">
           <div class="cellhead"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20c2-6 6-10 16-16-3 9-7 13-13 15"/><path d="M8 16l-3-3M12 13l-2-2"/></svg><div><h3>Give all parts</h3><p class="lede" id="partsInfo"></p></div></div>
@@ -953,6 +959,15 @@ div.lrow { cursor: default; }
             <button class="btn primary" id="giveParts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20c2-6 6-10 16-16-3 9-7 13-13 15"/><path d="M8 16l-3-3M12 13l-2-2"/></svg><span>Give all parts</span></button>
           </div>
           <p class="cellnote">Tops each part up to that amount (90 at most) for the character picked at the top, from its active loadout. Parts you already have more of are left as they are. Works while you play.</p>
+        </div>
+        <div class="setcard cellcard dustcard">
+          <div class="cellhead"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8z"/><path d="M18 15l.9 2.1L21 18l-2.1.9L18 21l-.9-2.1L15 18l2.1-.9zM5 15l.6 1.4L7 17l-1.4.6L5 19l-.6-1.4L3 17l1.4-.6z"/></svg><div><h3>Add Aetherdust</h3><p class="lede" id="dustInfo"></p></div><span class="readout" id="dustHave" aria-live="polite"></span></div>
+          <div class="cellopts">
+            <div class="seg" id="dustQty" aria-label="Aetherdust to add"><span class="ind"></span><button data-v="1000" class="on">1,000</button><button data-v="2000">2,000</button><button data-v="3000">3,000</button><button data-v="4000">4,000</button><button data-v="5000">5,000</button></div>
+            <span class="grow"></span>
+            <button class="btn primary" id="giveDust"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg><span>Add 1,000</span></button>
+          </div>
+          <p class="cellnote">Adds exactly that much to the character picked at the top. Timeweave armour takes 250 a piece to craft and 500 to upgrade. Works while you play.</p>
         </div>
         <div id="partsList"></div>
       </div>
@@ -2322,7 +2337,9 @@ function placeInd(seg) {
   const ind = seg.querySelector('.ind'), on = seg.querySelector('button.on');
   if (!ind) return;
   if (!on || !on.offsetWidth) { ind.style.opacity = 0; return; }
-  ind.style.opacity = 1; ind.style.width = on.offsetWidth + 'px'; ind.style.transform = `translateX(${on.offsetLeft}px)`;
+  // a seg that wraps (narrow window) puts the picked button on a later row: follow its row too
+  ind.style.opacity = 1; ind.style.width = on.offsetWidth + 'px'; ind.style.height = on.offsetHeight + 'px'; ind.style.top = on.offsetTop + 'px';
+  ind.style.transform = `translateX(${on.offsetLeft}px)`;
 }
 
 /* ================================================= damage (Game rules, owner only) and the mod's switches */
@@ -2537,12 +2554,12 @@ function renderParts() {
         if (!dup) { kinds++; if (k < n) need++; }
         return `<div class="cellrow"><div class="nm" title="${esc(id)}">${esc(name)}</div><div class="lv"><span class="${k >= n ? 'have' : k ? '' : 'none'}">×${k.toLocaleString('en-US')}</span></div></div>`;
       }).join('');
-      const sub = sl.behemoth ? `${esc(sl.name)}, ${esc(sl.behemoth)}` : esc(sl.name);
-      return `<div class="group pslot"><h4>${many ? esc(c.name || c.id) + ': ' : ''}${esc(sl.label)}<small>${sub}</small></h4><div class="list">${rows || '<div class="none">Not from a behemoth: no parts.</div>'}</div></div>`;
+      const sub = sl.behemoth ? `${esc(sl.name)}, ${esc(sl.behemoth)}` : sl.recipe ? `${esc(sl.name)}, parts its crafting and upgrade take` : esc(sl.name);
+      return `<div class="group pslot"><h4>${many ? esc(c.name || c.id) + ': ' : ''}${esc(sl.label)}<small>${sub}</small></h4><div class="list">${rows || '<div class="none">Not from a behemoth and no parts in its recipe.</div>'}</div></div>`;
     }).join('');
   }).join('');
   setHTML('#partsList', html || '<div class="empty">No characters yet.</div>');
-  $('#partsInfo').textContent = kinds ? `${kinds} part${kinds === 1 ? '' : 's'} from your equipped gear, ${n} of each.` : 'Nothing equipped comes from a behemoth.';
+  $('#partsInfo').textContent = kinds ? `${kinds} part${kinds === 1 ? '' : 's'} from your equipped gear, ${n} of each.` : 'Nothing equipped takes behemoth parts.';
   $('#giveParts').disabled = !need;
   $('#giveParts').lastChild.textContent = !kinds ? 'No parts' : need ? (need === kinds ? 'Give all parts' : `Give ${need} missing`) : `You have ${n} of each`;
 }
@@ -2562,7 +2579,31 @@ $('#giveParts').onclick = async (e) => {
   else toast('Parts added', `${r.topped ?? r.added ?? r.parts} part${(r.topped ?? r.added ?? r.parts) === 1 ? '' : 's'} topped up to ${r.amount} each.${r.live ? ' They show up after your next loading screen.' : ''}`, 'applied', 5000);
   setTimeout(loadSave, 600);
 };
-$('nav > button[data-tab="parts"]').addEventListener('click', () => { renderParts(); requestAnimationFrame(() => placeInd($('#partsQty'))); });
+// Aetherdust (CURRENCY_CELLDUST): one of five amounts, added exactly; the total shown is the save's after each change
+const DUST = 'CURRENCY_CELLDUST', fmt = (n) => Number(n).toLocaleString('en-US');
+const dustAmt = () => Number(($('#dustQty button.on') || {}).dataset?.v) || 1000;
+function renderDust() {
+  const cs = partsChars(), n = dustAmt(), one = cs.length === 1, have = cs.reduce((t, c) => t + (Number((c.items || {})[DUST]) || 0), 0);
+  setReadout('#dustHave', cs.length ? fmt(have) : '', false);
+  $('#dustInfo').textContent = !cs.length ? 'No characters yet.' : one ? `You have ${fmt(have)}. Adding ${fmt(n)} makes ${fmt(have + n)}.` : `${fmt(n)} for each of your ${cs.length} characters (${fmt(have)} between them now).`;
+  $('#giveDust').disabled = !cs.length;
+  $('#giveDust').lastChild.textContent = `Add ${fmt(n)}`;
+}
+$('#dustQty').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b || b.classList.contains('on')) return; SFX.select(true); $$('#dustQty button').forEach((x) => x.classList.toggle('on', x === b)); placeInd($('#dustQty')); renderDust(); });
+$('#giveDust').onclick = async (e) => {
+  const btn = e.currentTarget; if (btn.classList.contains('busy')) return;
+  btn.classList.add('busy');
+  const r = await api('/api/aetherdust', { character: charId(), amount: dustAmt() });
+  btn.classList.remove('busy');
+  if (!r.ok) { SFX.error(); toast('Aetherdust not added', r.error || 'That did not work.', 'error', 7000); return; }
+  if (r.nothingNew) { toast(r.message || 'Nothing added.', '', 'ok', 5000); return; }
+  SFX.give();
+  const card = $('.dustcard'); card.classList.remove('done'); void card.offsetWidth; card.classList.add('done');
+  if (r.queued && !r.live) toast('Waiting for the game to close', r.note || 'It is added the moment you close the game.', 'queued', 6000);
+  else toast('Aetherdust added', `+${fmt(r.amount)}.${r.live ? ' It shows up after your next loading screen.' : ''}`, 'applied', 5000);
+  setTimeout(loadSave, 600);
+};
+$('nav > button[data-tab="parts"]').addEventListener('click', () => { renderParts(); renderDust(); requestAnimationFrame(() => { placeInd($('#partsQty')); placeInd($('#dustQty')); }); });
 
 /* ================================================= rules */
 function renderRules() {
@@ -2590,9 +2631,9 @@ async function loadSaveNow() {
   s.innerHTML = r.characters.map((c) => `<option value="${esc(c.id)}">${esc(c.name || c.id)}</option>`).join('') + '<option value="*">All my characters</option>';
   const want = charPicked ? keep : (S && S.playingAs) || keep;
   s.value = [...s.options].some((o) => o.value === want) && want !== '*' ? want : charPicked && keep === '*' ? '*' : (r.characters[0] ? r.characters[0].id : '*');
-  renderList(); renderCur(); renderCells(); renderRemove(); renderParts(); updateDock();
+  renderList(); renderCur(); renderCells(); renderRemove(); renderParts(); renderDust(); updateDock();
 }
-function onChar() { rmSel.clear(); renderList(); renderCur(); renderCells(); renderRemove(); renderParts(); updateDock(); }
+function onChar() { rmSel.clear(); renderList(); renderCur(); renderCells(); renderRemove(); renderParts(); renderDust(); updateDock(); }
 $('#charSel').addEventListener('change', () => { ownedCache = null; charPicked = true; SFX.tick(); onChar(); });
 
 function prepCatalog(c) {

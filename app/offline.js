@@ -4,6 +4,7 @@
 // items.js (1.14.7) lists, sets counts, and adds gear and cosmetics. Two things are done here instead, on the save
 // itself (data\state.json), the way items.js changes it:
 //   atleast     top counted items (cells, materials) up to a number, never lowering one
+//   add         add exactly a number to a counted item (Aetherdust), the way live.js plans it
 //   maxweapons  every weapon type to level 20 (players.<you>.progress.tracks.ExperienceTrack_Weapon_<type>)
 //   remove      take gear and cosmetic unlocks away (a big inventory makes the game stutter), never anything in use
 //               (protect.js)
