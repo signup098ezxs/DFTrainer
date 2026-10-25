@@ -141,6 +141,16 @@ function catalog(p) {
   CATALOG_KEY = key;
   return CATALOG;
 }
+function equippedPartsOf(p, player, charId) {
+  const c = catalog(p), r = PARTS.equippedParts(player, charId, c.storage, c.groupOf);
+  if (!r) return null;
+  const nm = (id) => nameOf(p, id);
+  return {
+    max: PARTS.MAX_EACH, parts: r.parts,
+    slots: r.slots.map((x) => ({ ...x, name: nm(x.id), behemoth: x.code ? String(c.behemoths.get(x.code + '_NORMAL') || c.codeNames.get(x.code) || '').replace(/\bHost\b/, 'Boreus') || null : null,
+      parts: x.parts.map((id) => [id, nm(id)]) })),
+  };
+}
 function nameOf(p, id) { return catalog(p).names.get(id) || cellName(id) || id; }
 
 // ---------------------------------------------------------------- cells
@@ -735,6 +745,7 @@ function questFeed(p) {
 }
 // Which behemoth (name, element): behemoths.js, in one place. The game's own name (from the mod) first.
 const BEHEMOTHS = require('./behemoths.js');
+const PARTS = require('./parts.js');
 function panelLog(m) { try { console.log(m); } catch {} }
 let ovCache = null, ovCacheAt = 0;
 const later = (a, b) => { for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] > b[i]; return false; };
@@ -965,6 +976,7 @@ const routes = {
         const pl = players.find((x) => (x.characters || []).some((y) => y && y.id === c.id));
         c.inUse = pl ? [...protectedIds(pl, c.id)].filter((id) => catalog(p).storage.has(id)) : [];
         c.starter = (c.gear || []).map((g) => g.id).filter(isStarter);
+        c.equippedParts = pl ? equippedPartsOf(p, pl, c.id) : null;   // the Parts page: behemoth parts for equipped gear
       }
     }
     return r;
@@ -993,6 +1005,32 @@ const routes = {
     if (r.raised && r.raised.length) note('applied', 'Weapon levels raised', `${o.raisedNames}: level 20.`);
     if (job.action === 'maxweapons' && !o.raised) return { ok: true, nothingNew: true, message: 'Every weapon type is already at level 20.' };
     return { ok: true, ...o };
+  },
+  // Parts: the behemoth parts for the gear equipped now (weapon and armour only, no other materials), topped up to
+  // `amount` each (1 to 90; more than you already have is never taken away). Worked out here from the save, not sent in.
+  'POST /api/parts': async (b) => {
+    const p = places(); if (!p.pkg) return { ok: false, error: 'Package not found.' };
+    const who = String(b.character || '');
+    if (!/^[\w-]{1,64}$|^\*$/.test(who)) return { ok: false, error: 'Unknown character.' };
+    const amount = PARTS.clampAmount(b.amount);
+    const l = await listChars(p);
+    if (!l || !l.ok) return l || { ok: false, error: 'Could not read your characters.' };
+    const st = readJson(path.join(p.dataDir, 'state.json'), null);
+    const players = Object.values((st && st.players) || {});
+    const chars = (l.characters || []).filter((c) => who === '*' || c.id === who);
+    if (!chars.length) return { ok: false, error: 'Character not found.' };
+    let last = null, given = 0;
+    for (const c of chars) {
+      const pl = players.find((x) => (x.characters || []).some((y) => y && y.id === c.id));
+      const eq = pl && equippedPartsOf(p, pl, c.id);
+      if (!eq || !eq.parts.length) continue;
+      const counts = Object.fromEntries(eq.parts.map((id) => [id, amount]));
+      last = await routes['POST /api/items']({ action: 'atleast', character: c.id, counts, label: `Parts for equipped gear, ${amount} each` });
+      if (!last.ok) return last;
+      given += eq.parts.length;
+    }
+    if (!last) return { ok: false, error: 'Nothing equipped comes from a behemoth, so there are no parts to give.' };
+    return { ...last, parts: given, amount };
   },
   'GET /api/overlay/state': async () => {
     const p = places(), o = overlaySettings(), q = questsOn();

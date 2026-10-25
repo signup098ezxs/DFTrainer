@@ -1,5 +1,5 @@
 {
-  "version": "3.9.11",
+  "version": "3.9.12",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Works with Dauntless Forever 1.14.7 (2026-10-25.2) and its new loader. Modded mode off is now respected: the panel says the overlay, quest tracker and multiplier are paused (Dauntless Forever advises Modded mode off for escalations) instead of asking you to set up again, and turns it back on only when you press the button. When you enter an escalation with Modded mode on, the panel warns you once. Broken parts (game mod 6.9): breaks whose part refilled to 87-89% of its health, or was hit right after the refill, are now recognised (seen in real hunts); unclear cases are still left unmarked. Close the game fully and start it again after updating."
+  "notes": "New Parts page: gives every behemoth part for the weapon and armour you have equipped (your active loadout), up to 90 of each, in one press. Parts only, no other materials, and nothing you already have more of is taken away. Works while you play."
 }

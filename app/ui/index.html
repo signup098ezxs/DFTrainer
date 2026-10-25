@@ -253,6 +253,10 @@ select option { background: var(--hull); }
 .btn.danger.arm { background: rgba(255, 90, 116, .18); border-color: #ff5a74; color: #fff; }
 .item.lock { cursor: default; opacity: .55; }
 .item.lock .cb { visibility: hidden; }
+.partsamt input { width: 72px; height: 32px; margin-left: 8px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--seam2); background: rgba(6, 10, 15, .6); text-align: right; font: 600 15px var(--display); outline: none; }
+.partsamt input:focus { border-color: rgba(var(--a-rgb), .5); }
+.pslot h4 small { margin-left: 8px; color: var(--ash); font: 500 12.5px var(--body, inherit); letter-spacing: 0; }
+.pslot .none { padding: 10px 14px; color: var(--ash); font-size: 13px; }
 .cellkey { color: var(--ash2); font-size: 12px; }
 .cellrow { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 8px 14px; border-bottom: 1px solid rgba(120, 225, 255, .05); content-visibility: auto; contain-intrinsic-size: auto 40px; }
 .cellrow:last-child { border-bottom: 0; }
@@ -858,6 +862,7 @@ div.lrow { cursor: default; }
     <span class="bar" id="navBar"></span>
     <button data-tab="items" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 17.5 3 6V3h3l11.5 11.5M13 19l6-6M16 16l4 4M19 21l2-2"/></svg>Give items</button>
     <button data-tab="currency"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="m12 8 4 4-4 4-4-4z"/></svg>Currencies</button>
+    <button data-tab="parts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20c2-6 6-10 16-16-3 9-7 13-13 15"/><path d="M8 16l-3-3M12 13l-2-2"/></svg>Parts</button>
     <button data-tab="rules"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>Game rules</button>
     <button data-tab="builds"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="M12 22V12M3 7l9 5 9-5"/></svg>Build Creator</button>
     <button data-tab="feed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Live feed <span class="count" id="feedCount"></span></button>
@@ -933,6 +938,24 @@ div.lrow { cursor: default; }
     <section id="tab-currency">
       <div class="head"><div><h2>Currencies and materials</h2><p class="lede">Set any amount, then apply. Works while you play.</p></div><span class="grow"></span><button class="btn" id="maxAll">Max everything</button><button class="btn primary" id="applyCur" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"/></svg>Apply changes</button></div>
       <div class="wrap" id="groups"></div>
+    </section>
+
+    <!-- PARTS: behemoth parts for the gear equipped now -->
+    <section id="tab-parts">
+      <div class="head"><div><h2>Parts</h2><p class="lede">Behemoth parts for the weapon and armour you have equipped. Parts only: no ores, currencies or other materials.</p></div></div>
+      <div class="wrap">
+        <div class="setcard cellcard">
+          <div class="cellhead"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20c2-6 6-10 16-16-3 9-7 13-13 15"/><path d="M8 16l-3-3M12 13l-2-2"/></svg><div><h3>Give all parts</h3><p class="lede" id="partsInfo"></p></div></div>
+          <div class="cellopts">
+            <label class="field partsamt">Amount of each <input id="partsAmt" inputmode="numeric" value="90" aria-label="Amount of each part (1 to 90)"></label>
+            <div class="seg" id="partsQty" aria-label="Amount of each"><span class="ind"></span><button data-v="10">10</button><button data-v="30">30</button><button data-v="60">60</button><button data-v="90" class="on">90</button></div>
+            <span class="grow"></span>
+            <button class="btn primary" id="giveParts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20c2-6 6-10 16-16-3 9-7 13-13 15"/><path d="M8 16l-3-3M12 13l-2-2"/></svg><span>Give all parts</span></button>
+          </div>
+          <p class="cellnote">Tops each part up to that amount (90 at most) for the character picked at the top, from its active loadout. Parts you already have more of are left as they are. Works while you play.</p>
+        </div>
+        <div id="partsList"></div>
+      </div>
     </section>
 
     <!-- RULES -->
@@ -1613,6 +1636,7 @@ function tourSteps() {
     ...(!owner ? [] : [{ tab: 'rules', target: setup ? '#banner' : '#dmgCard', title: 'Damage (owner only)', body: `<p><b>Damage</b> on the Game rules page multiplies your damage to behemoths, up to one hit, at once.</p><p>It needs the Lantern game mod: with the game <b>closed</b>, press <b>Set up</b>${setup ? ' here' : ''}. It installs the mod (and UE4SS if needed) and turns on modded mode and server mods.</p>${setup ? '' : '<p>Your set-up is already done: the Mod light shows it.</p>'}` }]),
     { tab: 'items', target: '#tab-items .search', title: 'Give items', body: '<p>Search the whole 1.14.7 catalog (weapons, armour, lanterns, parts, omnicells, gliders, pets, skins and every cosmetic), tick what you want and press <b>Give</b>.</p><ul><li><b>Max weapon levels</b> takes every weapon type to level 20.</li><li><b>Unlock all cosmetics</b> unlocks every cosmetic in one click.</li><li><b>Cells</b> (switch at the top) gives every cell at once, at +3 or every level.</li><li><b>Remove items</b> takes unused gear and cosmetics away in bulk: a smaller inventory means less stutter in game.</li></ul><p>With the game closed, gifts go into your save. While you play, they arrive live and are announced in game chat.</p>' },
     { target: '#charSel', title: 'Who gets it', body: '<p>Pick which character receives gifts, or all of them. While you play, it follows the character you are on.</p>' },
+    { tab: 'parts', target: 'nav > button[data-tab="parts"]', title: 'Parts', body: '<p>Every behemoth part for the weapon and armour you have equipped, up to <b>90 of each</b>, in one press. Parts only: no other materials. Works while you play.</p>' },
     { tab: 'currency', target: '#tab-currency .head', title: 'Currencies and materials', body: '<p>Type any amount of Rams, Merits, tokens, materials and cell cores, then press <b>Apply changes</b>. <b>Max everything</b> fills them all. Works while you play.</p>' },
     { tab: 'rules', target: '#rules > :first-child', title: 'Game rules', body: '<p>XP speeds (weapons, Hunt Pass, mastery), reward amounts (materials, Rams, Merits, Rare Cores), free crafting, free platinum and extra loadout slots. Pick a setting and it is saved; it applies the next time you press <b>Play</b>.</p>' },
     { tab: 'builds', target: 'nav > button[data-tab="builds"]', title: 'Build Creator', body: '<p>Answer a few questions (goals, weapon, target, play style) and get a full 1.14.7 build: weapon, armour, cells, lantern and Omnicell, checked against the game\'s rules, with why each piece is there and where the data comes from.</p>' },
@@ -2493,6 +2517,53 @@ $('#applyCur').onclick = async (e) => {
   if (await runItems({ action: 'set', character: charId(), counts: { ...edits }, label: `Set ${n} amount${n > 1 ? 's' : ''}` }, e.currentTarget)) { for (const k in edits) delete edits[k]; renderCur(); }
 };
 
+/* ================================================= parts */
+// Parts: the behemoth parts for each character's equipped weapon and armour (worked out by the panel from the save,
+// sent as equippedParts with /api/save). The panel works the list out again when you give, and caps it at 90 each.
+const PARTS_MAX = 90;
+const partsAmt = () => Math.max(1, Math.min(PARTS_MAX, Math.floor(Number(String($('#partsAmt').value).replace(/[^\d]/g, ''))) || PARTS_MAX));
+function partsChars() { return ((SAVE && SAVE.characters) || []).filter((c) => charId() === '*' || c.id === charId()); }
+function renderParts() {
+  if (!$('#partsList')) return;
+  const n = partsAmt(), cs = partsChars(), many = cs.length > 1;
+  let kinds = 0, need = 0;
+  const html = cs.map((c) => {
+    const eq = c.equippedParts, have = c.items || {};
+    if (!eq) return `<div class="group pslot"><h4>${esc(c.name || c.id)}</h4><div class="list"><div class="none">No loadout in the save yet. Equip something in game first.</div></div></div>`;
+    const seen = new Set();
+    return eq.slots.map((sl) => {
+      const rows = sl.parts.map(([id, name]) => {
+        const k = Number(have[id]) || 0, dup = seen.has(id); seen.add(id);
+        if (!dup) { kinds++; if (k < n) need++; }
+        return `<div class="cellrow"><div class="nm" title="${esc(id)}">${esc(name)}</div><div class="lv"><span class="${k >= n ? 'have' : k ? '' : 'none'}">×${k.toLocaleString('en-US')}</span></div></div>`;
+      }).join('');
+      const sub = sl.behemoth ? `${esc(sl.name)}, ${esc(sl.behemoth)}` : esc(sl.name);
+      return `<div class="group pslot"><h4>${many ? esc(c.name || c.id) + ': ' : ''}${esc(sl.label)}<small>${sub}</small></h4><div class="list">${rows || '<div class="none">Not from a behemoth: no parts.</div>'}</div></div>`;
+    }).join('');
+  }).join('');
+  setHTML('#partsList', html || '<div class="empty">No characters yet.</div>');
+  $('#partsInfo').textContent = kinds ? `${kinds} part${kinds === 1 ? '' : 's'} from your equipped gear, ${n} of each.` : 'Nothing equipped comes from a behemoth.';
+  $('#giveParts').disabled = !need;
+  $('#giveParts').lastChild.textContent = !kinds ? 'No parts' : need ? (need === kinds ? 'Give all parts' : `Give ${need} missing`) : `You have ${n} of each`;
+}
+function partsPick(v) { $$('#partsQty button').forEach((x) => x.classList.toggle('on', Number(x.dataset.v) === v)); placeInd($('#partsQty')); }
+$('#partsAmt').addEventListener('input', () => { partsPick(partsAmt()); renderParts(); });
+$('#partsAmt').addEventListener('focusout', () => { $('#partsAmt').value = partsAmt(); });
+$('#partsQty').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b || b.classList.contains('on')) return; SFX.select(true); $('#partsAmt').value = b.dataset.v; partsPick(Number(b.dataset.v)); renderParts(); });
+$('#giveParts').onclick = async (e) => {
+  const btn = e.currentTarget; if (btn.classList.contains('busy')) return;
+  btn.classList.add('busy');
+  const r = await api('/api/parts', { character: charId(), amount: partsAmt() });
+  btn.classList.remove('busy');
+  if (!r.ok) { SFX.error(); toast('Parts not added', r.error || 'That did not work.', 'error', 7000); return; }
+  SFX.give();
+  if (r.nothingNew) toast(r.message || 'You already have enough of every part.', '', 'ok', 5000);
+  else if (r.queued && !r.live) toast('Waiting for the game to close', r.note || 'They are added the moment you close the game.', 'queued', 6000);
+  else toast('Parts added', `${r.topped ?? r.added ?? r.parts} part${(r.topped ?? r.added ?? r.parts) === 1 ? '' : 's'} topped up to ${r.amount} each.${r.live ? ' They show up after your next loading screen.' : ''}`, 'applied', 5000);
+  setTimeout(loadSave, 600);
+};
+$('nav > button[data-tab="parts"]').addEventListener('click', () => { renderParts(); requestAnimationFrame(() => placeInd($('#partsQty'))); });
+
 /* ================================================= rules */
 function renderRules() {
   const { defs, picks } = CAT.rules;
@@ -2519,9 +2590,9 @@ async function loadSaveNow() {
   s.innerHTML = r.characters.map((c) => `<option value="${esc(c.id)}">${esc(c.name || c.id)}</option>`).join('') + '<option value="*">All my characters</option>';
   const want = charPicked ? keep : (S && S.playingAs) || keep;
   s.value = [...s.options].some((o) => o.value === want) && want !== '*' ? want : charPicked && keep === '*' ? '*' : (r.characters[0] ? r.characters[0].id : '*');
-  renderList(); renderCur(); renderCells(); renderRemove(); updateDock();
+  renderList(); renderCur(); renderCells(); renderRemove(); renderParts(); updateDock();
 }
-function onChar() { rmSel.clear(); renderList(); renderCur(); renderCells(); renderRemove(); updateDock(); }
+function onChar() { rmSel.clear(); renderList(); renderCur(); renderCells(); renderRemove(); renderParts(); updateDock(); }
 $('#charSel').addEventListener('change', () => { ownedCache = null; charPicked = true; SFX.tick(); onChar(); });
 
 function prepCatalog(c) {
