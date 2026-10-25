@@ -1,5 +1,5 @@
 {
-  "version": "3.9.4",
+  "version": "3.9.5",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Behemoth overlay: a severed tail (or any part the game refills the instant it breaks) now shows BROKEN. The game's break event names only the behemoth, so the overlay now finds the broken part right after it: the one whose health is at 0, is removed, or jumps back up (part health never rises otherwise). Once found, it stays BROKEN until a new behemoth. After updating, close the game fully and start it again."
+  "notes": "Behemoth overlay: names come from the game itself. The overlay now shows the name the game gives each behemoth (variants included), so Boreus and Escalation variants no longer show as \"Host\" or an internal name; where the game gives none, the species' name is shown. Broken parts: the part behind each of the game's break events is found for every behemoth and part (heads, legs, wings, tails, armour), and a part regrowing at the same time is no longer mistaken for it. After updating, close the game fully and start it again."
 }

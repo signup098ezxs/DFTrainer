@@ -687,36 +687,9 @@ function questFeed(p) {
   list.sort((a, b) => (a.complete - b.complete) || (order[a.cat] - order[b.cat]) || a.title.localeCompare(b.title));
   return (qCache = list.slice(0, qs.max));
 }
-// The behemoth's species code from its class: "sq_rock_normal_bp_C" -> ROCK, variant NORMAL ("sq_" is a hunt-mode
-// prefix: the same Skarn)
-function speciesOf(cls) {
-  const id = String(cls || '').replace(/_C$/i, '').replace(/_bp$/i, '').replace(/^BP_/i, '').replace(/^sq_/i, '').toUpperCase();
-  const m = /^(.*?)_(ALPHA|BETA|NORMAL)$/.exec(id);
-  return m ? { species: m[1], variant: m[2], id } : { species: id, variant: 'NORMAL', id: id + '_NORMAL' };
-}
-// Names: the game's kill tokens. Two fixes: "Host" there is a placeholder for Boreus (its gear is "...of Boreus" and
-// "Boreal ..."), and mcbeaver has no token of its own: a Gnasher (its parts and build are a Gnasher's).
-const SPECIES_ALIAS = { MCBEAVER: 'BEAVER' };
-function behemothName(p, cls) {
-  const BEH_NAMES = catalog(p).behemoths;
-  const sp = speciesOf(cls), species = SPECIES_ALIAS[sp.species] || sp.species;
-  const n = BEH_NAMES.get(species + '_' + sp.variant) || BEH_NAMES.get(species + '_NORMAL');
-  if (n) return species === 'HOST' ? n.replace(/\bHost\b/, 'Boreus') : n;
-  return sp.species.toLowerCase().split('_').filter(Boolean).map((w) => w[0].toUpperCase() + w.slice(1)).join(' ') || 'Behemoth';
-}
-// Element by species (variants share it), and the element it is weak to (Dauntless: Blaze <-> Frost, Shock <-> Terra,
-// Radiant <-> Umbral; Neutral has none)
-const SPECIES_ELEMENT = {
-  BEAVER: 'Neutral', BULLSEYE: 'Neutral', MOONFACE: 'Neutral', PAPER: 'Terra', ROCK: 'Terra', SCISSORS: 'Terra',
-  LERAWR: 'Blaze', LAVAROLLER: 'Blaze', SALLY: 'Blaze', HOST: 'Frost', MCROLLIN: 'Frost', SNOWFLAKE: 'Frost',
-  FULGAR: 'Shock', ELECTROQUILL: 'Shock', SHOCKMANE: 'Shock', CROWBEAR: 'Umbral', SHADOWCAT: 'Umbral',
-  BUGBEAR: 'Radiant', SALT: 'Radiant',
-};
-const WEAK_TO = { Blaze: 'Frost', Frost: 'Blaze', Shock: 'Terra', Terra: 'Shock', Radiant: 'Umbral', Umbral: 'Radiant' };
-function behemothElement(cls) {
-  const sp = speciesOf(cls), el = SPECIES_ELEMENT[SPECIES_ALIAS[sp.species] || sp.species] || '';
-  return { element: el, weak: WEAK_TO[el] || '' };
-}
+// Which behemoth (name, element): behemoths.js, in one place. The game's own name (from the mod) first.
+const BEHEMOTHS = require('./behemoths.js');
+function panelLog(m) { try { console.log(m); } catch {} }
 let ovCache = null, ovCacheAt = 0;
 const later = (a, b) => { for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] > b[i]; return false; };
 function overlayTrack(p) {
@@ -738,9 +711,10 @@ function overlayTrack(p) {
   ovCacheAt = Date.now();
   if (!best) return (ovCache = null);
   const b = best.t.b;
-  const el = behemothElement(b.cls), stg = Array.isArray(b.stg) && b.stg[1] > 0 ? b.stg : null;
+  const who = BEHEMOTHS.resolveBehemoth(b.cls, { gameName: b.nm, tokens: catalog(p).behemoths, log: panelLog });
+  const el = who, stg = Array.isArray(b.stg) && b.stg[1] > 0 ? b.stg : null;
   if (!Number.isFinite(b.max) || b.max <= 0 || !Number.isFinite(b.cur)) return (ovCache = null);   // no valid health: nothing to show
-  return (ovCache = { key: b.key, name: behemothName(p, b.cls), cur: Math.min(Math.max(b.cur, 0), b.max), max: b.max, dead: !!b.dead,
+  return (ovCache = { key: b.key, name: who.name, cur: Math.min(Math.max(b.cur, 0), b.max), max: b.max, dead: !!b.dead,
     element: el.element, weak: el.weak, stagger: stg ? stg[0] : 0, staggerMax: stg ? stg[1] : 0, staggerDmg: Number.isFinite(b.sdmg) ? b.sdmg : -1,
     parts: (b.parts || []).filter((x) => Array.isArray(x) && Number.isFinite(x[2]) && x[2] > 0).map(([n, c, m, k, x]) => {
       const broken = x === 1, known = Number.isFinite(c) && c >= 0;

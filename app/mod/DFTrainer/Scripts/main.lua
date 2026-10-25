@@ -10,7 +10,7 @@
 -- file. Otherwise it looks for behemoths every 1 to 2 seconds and checks their health every 150 ms and on every hit.
 -- Only property reads and writes are used. Logged as [DFTrainer] in UE4SS.log.
 
-local MOD_VERSION  = "6.3"
+local MOD_VERSION  = "6.4"
 local TICK_MS      = 150    -- how often behemoth health is checked while the multiplier is on
 local RESCAN_EVERY = 2.0    -- seconds between searches for behemoths
 local READ_EVERY   = 0.5    -- seconds between reads of the toggles file
@@ -462,6 +462,18 @@ local function trackScan(now)
             end
             if e then
                 found[key] = true
+                if not e.gameName and (e.nameTries or 0) < 20 then
+                    e.nameTries = (e.nameTries or 0) + 1
+                    local okN, fn = pcall(getField, b, "BehemothFullName")
+                    local okM, mn = pcall(getField, b, "BehemothMetadataName")
+                    local function txt(v) if v == nil then return nil end if type(v) == "string" then return v end local ok2, t = pcall(function() return v:ToString() end) return ok2 and type(t) == "string" and t or nil end
+                    local full, meta = okN and txt(fn), okM and txt(mn)
+                    if full and full ~= "" and full ~= "None" then e.gameName = full end
+                    if meta and meta ~= "" and meta ~= "None" then e.metaName = meta end
+                    if e.gameName or e.nameTries == 20 then
+                        logOnce("name:" .. e.cls, string.format("overlay: %s is called %s by the game (metadata %s)", e.cls, tostring(e.gameName), tostring(e.metaName)))
+                    end
+                end
                 -- the regular re-check is for the behemoth being fought; the others only until their parts are found
                 local again = (#e.parts == 0 and now - e.partsAt >= TRACK_PARTS) or (e.at and now - e.partsAt >= TRACK_REBIND) or e.partsLost
                 if S.roleKnown and S.role == "server" and again then   -- parts are read on hunt servers only
@@ -595,6 +607,9 @@ local function trackJson(e)
         if sc and sm and sm > 0 then stg = string.format(',"stg":[%.0f,%.0f]', math.max(sc, 0), sm) end
     end
     if e.stagDmg then stg = stg .. string.format(',"sdmg":%.0f', math.max(e.stagDmg, 0)) end
+    -- the game's own name for this behemoth, and its metadata row name (the panel prefers these to any mapping)
+    if e.gameName then stg = stg .. ',"nm":"' .. tostring(e.gameName):gsub('[%c"\\]', '') .. '"' end
+    if e.metaName then stg = stg .. ',"mn":"' .. tostring(e.metaName):gsub('[%c"\\]', '') .. '"' end
     return string.format('{"key":"%s","cls":"%s","cur":%.0f,"max":%.0f,"at":%d,"n":%d,"dead":%s,"parts":[%s]%s}',
         clean(e.key), clean(e.cls), math.max(hp, 0), mx, e.atTime or 0, e.n or 0, tostring(hp <= 0), table.concat(ps, ","), stg)
 end
@@ -805,7 +820,9 @@ resolveBreak = function(e, now)
             end
         end
     end
-    if best and bestRise >= 0.1 then
+    local bc, bm = nil, nil
+    if best then bc, bm = best.read() end
+    if best and bestRise >= 0.1 and bc and bm and bc >= 0.9 * bm then
         local c, m = best.read()
         markBroken(e, best, string.format("%s, its health refilled from %.0f to %.0f of %.0f", pb.why, pb.before[best.name] or 0, c or 0, m or 0))
         e.pending = nil
