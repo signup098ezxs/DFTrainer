@@ -1,5 +1,5 @@
 {
-  "version": "3.9.7",
+  "version": "3.9.8",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Crash fix: the game could crash a few seconds after logging in when many new items had just been added (for example every weapon skin). The crash was inside UE4SS's object cache while the game loaded those items; Lantern Client now turns that cache off (UE4SS-settings.ini, original kept as UE4SS-settings.ini.lantern-bak). The game mod also no longer searches the game's objects in town or on the game's own thread. Close the game fully and start it again after updating."
+  "notes": "Hunt crash fix: since 3.9.6 the hunt server could crash on your first hit, so hits did no damage and the hunt ended. The game mod asked the game for the behemoth's display name at that moment, and the game crashed inside UE4SS; it no longer asks. Behemoth names still come from the game's own row names, kill tokens and item texts. Close the game fully and start it again after updating."
 }

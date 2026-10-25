@@ -2,8 +2,8 @@
 // shows. Licence: AGPL-3.0-only.
 //
 // In order of trust:
-//   1. the name the running game shows for it: ArchonBehemoth GetBehemothNameDataNative (archetype and
-//      classification, localized), asked by the game mod from 6.5;
+//   1. the name the running game shows for it (track field "da"/"dc"), if a game mod sends one. Mod 6.5-6.6 asked
+//      ArchonBehemoth GetBehemothNameDataNative for it, which crashed hunt servers; from 6.7 nothing sends it;
 //   2. the game's own row name for it (BehemothFullName, e.g. "beaver_alpha" for the mcbeaver_heroic class) and else
 //      its class name, looked up in the game's kill tokens (TOKEN_KILL_COUNT_<CODE>_<VARIANT> "Kill Token: Ragetail");
 //   3. variant names checked against two published sources each (VERIFIED, with the sources), for classes the kill
