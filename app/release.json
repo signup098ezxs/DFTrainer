@@ -1,5 +1,5 @@
 {
-  "version": "3.9.5",
+  "version": "3.9.6",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Behemoth overlay: names come from the game itself. The overlay now shows the name the game gives each behemoth (variants included), so Boreus and Escalation variants no longer show as \"Host\" or an internal name; where the game gives none, the species' name is shown. Broken parts: the part behind each of the game's break events is found for every behemoth and part (heads, legs, wings, tails, armour), and a part regrowing at the same time is no longer mistaken for it. After updating, close the game fully and start it again."
+  "notes": "Behemoth overlay names: behemoths that showed as \"Behemoth\" now show their real name. The game's own row name is used (so the heroic Gnasher shows as Ragetail), Torgadoro, Thrax and Malkarion are named from the game's own item texts, and the Escalation variants Deepfrost Gnasher, Lightbound Boreus, Shadowtouched Drask, Shadowtouched Koshai, Sporestruck Embermane and Sporestruck Charrogg are named. The game mod also asks the game for the name it displays and uses that first. A behemoth that still cannot be named shows as \"Unidentified behemoth\" and is written to the panel log. After updating, close the game fully and start it again."
 }

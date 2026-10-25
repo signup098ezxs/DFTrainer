@@ -2,22 +2,22 @@
 // shows. Licence: AGPL-3.0-only.
 //
 // In order of trust:
-//   1. the game's own name for that behemoth (ArchonBehemoth BehemothFullName, read by the game mod from 6.4): what the
-//      game itself calls it, variants included (an Escalation variant, a training dummy...);
-//   2. the game's kill tokens (TOKEN_KILL_COUNT_<SPECIES>_<VARIANT> "Kill Token: Rogue Embermane" in the 1.14.7
-//      catalog), for the classes whose name is <species>_<alpha|beta|normal>. One correction: the tokens call Boreus by
-//      its codename, "Host" (its gear is "...of Boreus", its hide "Boreus Hide"), so "Host" becomes "Boreus" there;
-//   3. a class with something else after the species (an elemental Escalation variant such as mcbeaver_frost, a
-//      Heroic class, sq_ice_rock...): its species' own name from the kill tokens. The variant's full name is not
-//      guessed: until the game gives it, the base name is shown and the class is logged once as unresolved;
-//   4. a species that is not known at all: "Behemoth", logged once. A raw class name is never shown.
+//   1. the name the running game shows for it: ArchonBehemoth GetBehemothNameDataNative (archetype and
+//      classification, localized), asked by the game mod from 6.5;
+//   2. the game's own row name for it (BehemothFullName, e.g. "beaver_alpha" for the mcbeaver_heroic class) and else
+//      its class name, looked up in the game's kill tokens (TOKEN_KILL_COUNT_<CODE>_<VARIANT> "Kill Token: Ragetail");
+//   3. variant names checked against two published sources each (VERIFIED, with the sources), for classes the kill
+//      tokens do not cover;
+//   4. the codename's name in the game's own item texts ("Torgadoro's Apex", "Thrax Hide", "Malkarion's Sight" ...:
+//      a name used by 3+ of that codename's items), only for codenames with no kill token at all;
+//   5. the species' name for a variant whose own name is not verified, logged once;
+//   6. "Unidentified behemoth", logged once with its class and row name. A raw id is never shown.
+// The kill tokens call Boreus by its codename, "Host" (its gear is "...of Boreus", its hide "Boreus Hide"): corrected.
 'use strict';
 
-// the species codes the game uses in its class names (and the code its kill tokens use, where they differ)
-const SPECIES_ALIAS = { MCBEAVER: 'BEAVER' };
-// the kill tokens' name for a species, corrected where the token holds a codename
+const CODE_ALIAS = { MCBEAVER: 'BEAVER' };   // class word -> the codename the game's items use
 const TOKEN_FIX = { HOST: [/\bHost\b/g, 'Boreus'] };
-// element by species (variants keep it unless their class says otherwise); weak-to pairs as in Dauntless
+// element by codename (only where it is established); weak-to pairs as in Dauntless
 const SPECIES_ELEMENT = {
   BEAVER: 'Neutral', BULLSEYE: 'Neutral', MOONFACE: 'Neutral', PAPER: 'Terra', ROCK: 'Terra', SCISSORS: 'Terra',
   LERAWR: 'Blaze', LAVAROLLER: 'Blaze', SALLY: 'Blaze', HOST: 'Frost', MCROLLIN: 'Frost', SNOWFLAKE: 'Frost',
@@ -25,71 +25,122 @@ const SPECIES_ELEMENT = {
   BUGBEAR: 'Radiant', SALT: 'Radiant',
 };
 const WEAK_TO = { Blaze: 'Frost', Frost: 'Blaze', Shock: 'Terra', Terra: 'Shock', Radiant: 'Umbral', Umbral: 'Radiant' };
-// an element named in a class (mcbeaver_frost, fulgar_umbral, sq_ice_rock)
 const CLASS_ELEMENT = { frost: 'Frost', ice: 'Frost', blaze: 'Blaze', fire: 'Blaze', shock: 'Shock', terra: 'Terra', radiant: 'Radiant', umbral: 'Umbral' };
 const VARIANTS = new Set(['alpha', 'beta', 'normal']);
-// words in a class that change nothing about which behemoth it is (snowflake_normal_new: the remade Skraev)
-const IGNORED = new Set(['new']);
-const PREFIXES = new Set(['sq', 'bp', 'ctor', 'tp']);
+const IGNORED = new Set(['new']);            // snowflake_normal_new: the remade Skraev, same behemoth
+const PREFIXES = new Set(['sq', 'bp', 'ctor', 'tp', 'aq']);
+// Escalation variants with no kill token. Each name is confirmed by two sources, and the class names the same thing.
+//   Deepfrost Gnasher: Dauntless Wiki "Deepfrost Gnasher" (a Gnasher variant, Frost Escalation) / class mcbeaver_frost
+//   Shadowtouched Drask: Dauntless Wiki island tables (Deepfrost Gnasher page) / class fulgar_umbral
+//   Shadowtouched Koshai: TheSixthAxis, Dauntless 1.7.4 notes / class paper_umbral
+//   Lightbound Boreus: Dauntless Wiki island tables / class host_radiant
+//   Sporestruck Embermane, Sporestruck Charrogg: Two Average Gamers, "Terra Escalation: the Sporestruck behemoths" /
+//     classes terramane_normal (Terra Embermane) and sq_sally_terrogg (Terra Charrogg)
+const VERIFIED = {
+  mcbeaver_frost: { name: 'Deepfrost Gnasher', element: 'Frost' },
+  fulgar_umbral: { name: 'Shadowtouched Drask', element: 'Umbral' },
+  paper_umbral: { name: 'Shadowtouched Koshai', element: 'Umbral' },
+  host_radiant: { name: 'Lightbound Boreus', element: 'Radiant' },
+  terramane_normal: { name: 'Sporestruck Embermane', element: 'Terra' },
+  sally_terrogg: { name: 'Sporestruck Charrogg', element: 'Terra' },
+};
 
-// "sq_ice_rock_bp_C" -> { species: 'ROCK', variant: 'NORMAL', extras: ['ice'], element: 'Frost' }
-function parseClass(cls) {
-  const words = String(cls || '').toLowerCase().replace(/_c$/, '').replace(/_bp$/, '').split('_').filter(Boolean);
-  while (words.length && PREFIXES.has(words[0])) words.shift();
-  let species = null, at = -1;
-  for (let i = 0; i < words.length; i++) {
-    const w = words[i].toUpperCase();
-    if (SPECIES_ELEMENT[SPECIES_ALIAS[w] || w]) { species = SPECIES_ALIAS[w] || w; at = i; break; }
+// codename -> name, from the game's own item names: "Torgadoro's Apex" x7 -> ARMSTRONG: Torgadoro
+function namesFromItems(items) {
+  const counts = new Map();
+  for (const it of items) {
+    const id = String(it.id || ''), n = String(it.name || '');
+    if (!n || n === id) continue;
+    const m = /^(?:AR|WP_[A-Z]{2}|BREAK|PART_[A-Z]{2}_[A-Z]+)_([A-Z0-9]+)(?:_|$)/.exec(id);
+    if (!m) continue;
+    const code = m[1];
+    const words = [...n.matchAll(/\b([A-Z][a-zü]{3,})'s\b/g), ...n.matchAll(/\bof ([A-Z][a-zü]{3,})\b/g), ...n.matchAll(/^([A-Z][a-zü]{3,}) (?:Hide|Leather|Scale|Chitin|Feather)$/g)].map((x) => x[1]);
+    for (const w of new Set(words)) {
+      const k = code + '|' + w;
+      counts.set(k, (counts.get(k) || 0) + 1);
+    }
   }
-  const rest = species ? words.filter((_, i) => i !== at) : words;
-  let variant = 'NORMAL';
-  const extras = [];
-  for (const w of rest) {
-    if (VARIANTS.has(w)) variant = w.toUpperCase();
-    else if (!IGNORED.has(w)) extras.push(w);
+  const best = new Map();
+  for (const [k, c] of counts) {
+    const [code, w] = k.split('|');
+    if (c >= 3 && (!best.has(code) || c > best.get(code).c)) best.set(code, { w, c });
   }
-  const element = extras.map((w) => CLASS_ELEMENT[w]).find(Boolean) || null;
-  // a word that is neither an element nor "heroic" (sq_sally_terrogg): a variant whose element is not known from here
-  const unknownExtra = extras.some((w) => !CLASS_ELEMENT[w] && w !== 'heroic' && w !== 'dummy');
-  return { species, variant, extras, element, unknownExtra, dummy: words[0] === 'dummy' };
+  return new Map([...best].map(([code, v]) => [code, v.w]));
 }
 
-// a name the game gave that is really a name (not empty, not "None", not an internal id)
-function gameNameOk(n) {
+// "sq_ice_rock_bp_C" -> { code: 'ROCK', variant: 'NORMAL', extras: ['ice'], element: 'Frost', key: 'ice_rock' }
+function parseClass(cls, known) {
+  const words = String(cls || '').toLowerCase().replace(/_c$/, '').replace(/_bp$/, '').split('_').filter(Boolean);
+  while (words.length > 1 && PREFIXES.has(words[0])) words.shift();
+  const key = words.join('_');
+  let code = null, at = -1;
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i].toUpperCase(), c = CODE_ALIAS[w] || w;
+    if (SPECIES_ELEMENT[c] || (known && known.has(c))) { code = c; at = i; break; }
+  }
+  let variant = 'NORMAL';
+  const extras = [];
+  words.forEach((w, i) => {
+    if (i === at) return;
+    if (VARIANTS.has(w)) variant = w.toUpperCase();
+    else if (!IGNORED.has(w)) extras.push(w);
+  });
+  const element = extras.map((w) => CLASS_ELEMENT[w]).find(Boolean) || null;
+  const unknownExtra = extras.some((w) => !CLASS_ELEMENT[w] && w !== 'heroic' && w !== 'dummy');
+  return { code, variant, extras, element, unknownExtra, key, dummy: words[0] === 'dummy' };
+}
+
+// a name from the game that is a real name, not empty, "None" or an internal id
+function textOk(n) {
   const s = String(n || '').trim();
-  return s && s !== 'None' && !/_bp_c$|_c$/i.test(s) && !/^[a-z0-9_]+$|^[A-Z0-9_]+$/.test(s) ? s : null;
+  return s && s !== 'None' && !/_/.test(s) && !/^[a-z0-9]+$/.test(s) && !/^[A-Z0-9]+$/.test(s) ? s : null;
 }
 
 const logged = new Set();
-// name: { tokens: Map<'LERAWR_BETA', 'Rogue Embermane'> } from the game catalog; log: where unresolved classes go
-function resolveBehemoth(cls, { gameName, tokens, log } = {}) {
-  const pc = parseClass(cls);
-  // the element: named in the class, else the species' own, but not guessed for a variant the class does not explain
-  const elementOf = () => pc.element || (pc.species && !pc.unknownExtra && SPECIES_ELEMENT[pc.species]) || '';
-  const out = (name, source) => {
-    const element = elementOf();
-    return { name, source, element, weak: WEAK_TO[element] || '' };
-  };
-  const fixed = (n) => { const f = pc.species && TOKEN_FIX[pc.species]; return f ? n.replace(f[0], f[1]) : n; };
-  const once = (why) => { const k = cls + why; if (log && !logged.has(k)) { logged.add(k); log(`behemoth name: ${cls}: ${why}`); } };
+// ctx: { gameRow, gameArch, gameClass, tokens: Map<'LERAWR_BETA','Rogue Embermane'>, codeNames: Map<'ARMSTRONG','Torgadoro'>, log }
+function resolveBehemoth(cls, ctx = {}) {
+  const { tokens, codeNames, log } = ctx;
+  const tokenCodes = new Set(tokens ? [...tokens.keys()].map((k) => k.replace(/_(ALPHA|BETA|NORMAL)$/, '')) : []);
+  const known = new Set([...tokenCodes, ...(codeNames ? codeNames.keys() : [])]);
+  const pc = parseClass(cls, known);
+  const row = ctx.gameRow ? parseClass(ctx.gameRow, known) : null;   // the game's own row name, read like a class
+  const fix = (code, n) => { const f = code && TOKEN_FIX[code]; return f ? n.replace(f[0], f[1]) : n; };
+  const once = (why) => { const k = cls + '|' + why; if (log && !logged.has(k)) { logged.add(k); log(`behemoth name: ${cls}${ctx.gameRow ? ` (game row ${ctx.gameRow})` : ''}: ${why}`); } };
+  const elementOf = (p, extra) => extra || p.element || (p.code && !p.unknownExtra && SPECIES_ELEMENT[p.code]) || '';
+  const out = (name, source, element) => ({ name, source, element: element || '', weak: WEAK_TO[element] || '' });
+  const tok = (p) => (tokens && p && p.code && p.extras.length === 0 ? tokens.get(p.code + '_' + p.variant) : null);
 
-  const g = gameNameOk(gameName);
-  if (g) return out(fixed(g), 'game');
-  const tok = (v) => tokens && pc.species ? tokens.get(pc.species + '_' + v) : null;
-  if (pc.species && pc.extras.length === 0) {
-    const n = tok(pc.variant);
-    if (n) return out(fixed(n), 'token');
+  // 1. what the running game shows
+  const arch = textOk(ctx.gameArch);
+  if (arch) {
+    const c = textOk(ctx.gameClass);
+    const name = c && !CLASS_ELEMENT[c.toLowerCase()] && c !== 'Behemoth' && !arch.includes(c) ? `${c} ${arch}` : arch;
+    return out(fix(pc.code, name), 'game', elementOf(pc, VERIFIED[pc.key] && VERIFIED[pc.key].element));
   }
-  if (pc.dummy) { once('training dummy without a name from the game'); return out('Training dummy', 'dummy'); }
-  if (pc.species) {
-    const base = tok('NORMAL');
-    if (base) {
-      once(`no verified name for this variant (${pc.extras.join(', ') || pc.variant.toLowerCase()}); its species' name is shown`);
-      return out(fixed(base), 'species');
-    }
+  // 2. the game's row name, then the class, in the kill tokens
+  for (const p of [row, pc]) {
+    const t = tok(p);
+    if (t) return out(fix(p.code, t), p === row ? 'game row' : 'token', elementOf(pc.extras.length ? pc : p));
   }
-  once('unknown behemoth');
-  return out('Behemoth', 'unknown');
+  // 3. verified variant names
+  const v = VERIFIED[pc.key];
+  if (v) return out(v.name, 'verified', v.element);
+  // 4. the codename's name in the game's item texts (behemoths without a kill token)
+  const code = (row && row.code) || pc.code;
+  // (only for codenames with no kill token at all: for the others the item texts are gear-set words, "Inferno", "Stalker")
+  if (code && !tokenCodes.has(code) && codeNames && codeNames.has(code) && pc.extras.length === 0) {
+    return out(codeNames.get(code), 'items', elementOf(pc));
+  }
+  if (pc.dummy || (row && row.dummy)) { once('training dummy: no name from the game'); return out('Training dummy', 'dummy', ''); }
+  // 5. the species' name for a variant that is not verified
+  const base = code && ((tokens && tokens.get(code + '_NORMAL')) || (!tokenCodes.has(code) && codeNames && codeNames.get(code)));
+  if (base) {
+    once(`no verified name for this variant (${pc.extras.join(', ') || pc.variant.toLowerCase()}): its species' name is shown`);
+    return out(fix(code, base), 'species', elementOf(pc));
+  }
+  // 6. not known
+  once('unknown behemoth: no name from the game, its kill tokens, its items or a verified source');
+  return out('Unidentified behemoth', 'unknown', elementOf(pc));
 }
 
-module.exports = { resolveBehemoth, parseClass, SPECIES_ELEMENT, WEAK_TO };
+module.exports = { resolveBehemoth, parseClass, namesFromItems, VERIFIED, SPECIES_ELEMENT, WEAK_TO };

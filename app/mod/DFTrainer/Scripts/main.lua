@@ -10,7 +10,7 @@
 -- file. Otherwise it looks for behemoths every 1 to 2 seconds and checks their health every 150 ms and on every hit.
 -- Only property reads and writes are used. Logged as [DFTrainer] in UE4SS.log.
 
-local MOD_VERSION  = "6.4"
+local MOD_VERSION  = "6.5"
 local TICK_MS      = 150    -- how often behemoth health is checked while the multiplier is on
 local RESCAN_EVERY = 2.0    -- seconds between searches for behemoths
 local READ_EVERY   = 0.5    -- seconds between reads of the toggles file
@@ -610,6 +610,8 @@ local function trackJson(e)
     -- the game's own name for this behemoth, and its metadata row name (the panel prefers these to any mapping)
     if e.gameName then stg = stg .. ',"nm":"' .. tostring(e.gameName):gsub('[%c"\\]', '') .. '"' end
     if e.metaName then stg = stg .. ',"mn":"' .. tostring(e.metaName):gsub('[%c"\\]', '') .. '"' end
+    if e.dispArch then stg = stg .. ',"da":"' .. tostring(e.dispArch):gsub('[%c"\\]', '') .. '"' end
+    if e.dispClass and e.dispClass ~= "" then stg = stg .. ',"dc":"' .. tostring(e.dispClass):gsub('[%c"\\]', '') .. '"' end
     return string.format('{"key":"%s","cls":"%s","cur":%.0f,"max":%.0f,"at":%d,"n":%d,"dead":%s,"parts":[%s]%s}',
         clean(e.key), clean(e.cls), math.max(hp, 0), mx, e.atTime or 0, e.n or 0, tostring(hp <= 0), table.concat(ps, ","), stg)
 end
@@ -682,6 +684,55 @@ end
 --   3. the stagger damage the players have dealt toward the next stagger: each player state's own count
 --      (ArchonPlayerState GetCurrentStaggerDamageDealt, which the game resets when the behemoth staggers), summed.
 -- Whichever gives a meter (current and max) is shown as the bar; the damage dealt is shown as a number.
+-- The behemoth's name as the game shows it (localized), from ArchonBehemoth GetBehemothNameDataNative (out params
+-- ArchetypeName, ClassificationName), asked once per behemoth on the game's thread. BehemothFullName (read by the
+-- scan) is the game's internal row name ("beaver_alpha"), not a display name. Every way of reading the answer that
+-- was tried, and what came back, is logged once per kind of behemoth.
+local function plainText(v)
+    if v == nil then return nil end
+    if type(v) == "string" then return v end
+    local ok, t = pcall(function() return v:ToString() end)
+    if ok and type(t) == "string" then return t end
+    return nil
+end
+local function displayName(e)
+    if e.dispTried then return end
+    e.dispTried = true
+    local found, tries = {}, {}
+    local function look(label, v)
+        local t = plainText(v)
+        if t and t ~= "" and t ~= "None" then found[#found + 1] = label .. "=" .. t return t end
+        if type(v) == "table" then
+            for k, x in pairs(v) do
+                local tx = plainText(x)
+                if tx and tx ~= "" and tx ~= "None" then found[#found + 1] = label .. "." .. tostring(k) .. "=" .. tx end
+            end
+        end
+        return nil
+    end
+    -- 1: two tables for the two out params (UE4SS fills them); 2: no arguments (return values)
+    local a, c = {}, {}
+    local ok1, r1 = pcall(function() return e.b:GetBehemothNameDataNative(a, c) end)
+    tries[#tries + 1] = "tables:" .. tostring(ok1)
+    if ok1 then look("ret", r1) look("archetype", a) look("classification", c) end
+    local ok2, x1, x2 = pcall(function() return e.b:GetBehemothNameDataNative() end)
+    tries[#tries + 1] = "plain:" .. tostring(ok2)
+    if ok2 then look("r1", x1) look("r2", x2) end
+    -- the archetype (the behemoth) and the classification (its variant), as the game's own words
+    local arch, cls
+    for _, f in ipairs(found) do
+        local k, v = f:match("^(.-)=(.*)$")
+        if k and k:find("archetype", 1, true) and not arch then arch = v end
+        if k and k:find("classification", 1, true) and not cls then cls = v end
+        if k and (k == "r1" or k == "ret") and not arch then arch = v end
+        if k == "r2" and not cls then cls = v end
+    end
+    if arch and not arch:find("_", 1, true) then e.dispArch, e.dispClass = arch, cls end
+    logOnce("disp:" .. e.cls, string.format("overlay: %s display name from the game: %s (tried %s; got %s)", e.cls,
+        e.dispArch and ((e.dispClass and e.dispClass ~= "" and (e.dispClass .. " / ") or "") .. e.dispArch) or "none",
+        table.concat(tries, ", "), #found > 0 and table.concat(found, " | ") or "nothing"))
+end
+
 local stagSeen = {}
 local stagCompProps = {}   -- class -> { cur = name, max = name } or false
 local function isObj(v) return v ~= nil and type(v) ~= "number" and type(v) ~= "string" and type(v) ~= "boolean" and valid(v) end
@@ -689,6 +740,7 @@ local function stagFromFunctions()
     local best = nil
     for _, e in pairs(Tk.list) do if e.at and (not best or e.at > best.at) then best = e end end
     if not best or not valid(best.b) then return end
+    pcall(displayName, best)
     -- 1. the behemoth's own meter
     local okC, c = pcall(callM, best.b, "GetCurrentStaggerHealth")
     local okM, m = pcall(callM, best.b, "GetMaxStaggerHealth")

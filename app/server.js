@@ -133,7 +133,8 @@ function catalog(p) {
   const types = (picker.types || []).flatMap((t) => (t === 'Emotes' ? ['Emotes', 'Hunt arrivals'] : [t]));
   // what live.js needs for a gift while you play, from this same catalog (no second copy of it)
   let live = null;   // built on the first gift while you play
-  CATALOG = { gear, names, storage, groupOf, types, behemoths,
+  const codeNames = BEHEMOTHS.namesFromItems(full);   // ARMSTRONG -> Torgadoro, from the game's own item names
+  CATALOG = { gear, names, storage, groupOf, types, behemoths, codeNames,
     get live() { return live || (live = { storage, picker: new Set(gear.map((g) => g[0])), cosmetics: gear.filter((g) => g[3]).map((g) => g[0]) }); } };
   CATALOG_KEY = key;
   return CATALOG;
@@ -711,7 +712,8 @@ function overlayTrack(p) {
   ovCacheAt = Date.now();
   if (!best) return (ovCache = null);
   const b = best.t.b;
-  const who = BEHEMOTHS.resolveBehemoth(b.cls, { gameName: b.nm, tokens: catalog(p).behemoths, log: panelLog });
+  const who = BEHEMOTHS.resolveBehemoth(b.cls, { gameRow: b.nm || b.mn, gameArch: b.da, gameClass: b.dc,
+    tokens: catalog(p).behemoths, codeNames: catalog(p).codeNames, log: panelLog });
   const el = who, stg = Array.isArray(b.stg) && b.stg[1] > 0 ? b.stg : null;
   if (!Number.isFinite(b.max) || b.max <= 0 || !Number.isFinite(b.cur)) return (ovCache = null);   // no valid health: nothing to show
   return (ovCache = { key: b.key, name: who.name, cur: Math.min(Math.max(b.cur, 0), b.max), max: b.max, dead: !!b.dead,
