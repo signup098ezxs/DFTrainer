@@ -373,6 +373,7 @@ async function setup() {
   fs.mkdirSync(path.join(p.modDir, 'status'), { recursive: true });
   writeToggles(p, readToggles(p));
   steps.push('Copied the Lantern Client mod.');
+  if (ue4ssSafeSettings(p)) steps.push('Turned off the UE4SS object cache (it crashed the game while loading).');
   for (const a of [['set', 'on'], ['set', 'servers-on'], ['mod', MOD_NAME, 'on']]) {
     const r = await runTool(p, 'ue4ss.cjs', a);
     if (!r.ok) return { ok: false, error: r.error || `ue4ss.cjs ${a.join(' ')} failed.`, steps };
@@ -609,9 +610,27 @@ function devModsOff(p) {
     runTool(p, 'ue4ss.cjs', ['mod', 'CheatManagerEnablerMod', 'off']).catch(() => {});
   } catch {}
 }
+// UE4SS's UObject cache (bUseUObjectArrayCache) keeps a list of every new object, updated from whichever thread makes
+// it, the game's loading threads included. Loading many items at once (a login after a big gift of cosmetics) crashed
+// the game inside it (an access violation in UE4SS, on a loading thread). Turned off, as UE4SS's own settings advise
+// for crashes; the setting is read when the game starts. The original is kept once as UE4SS-settings.ini.lantern-bak.
+function ue4ssSafeSettings(p) {
+  try {
+    if (!p.ue4ssDll) return false;
+    const f = path.join(path.dirname(p.ue4ssDll), 'UE4SS-settings.ini');
+    const s = fs.readFileSync(f, 'utf8');
+    const re = /^([ \t]*bUseUObjectArrayCache[ \t]*=[ \t]*)(true|1)([ \t]*\r?)$/mi;   // that one value; line endings kept
+    if (!re.test(s)) return false;
+    if (!fs.existsSync(f + '.lantern-bak')) fs.writeFileSync(f + '.lantern-bak', s);
+    fs.writeFileSync(f, s.replace(re, '$1false$3'));
+    console.log('UE4SS: turned off its UObject cache (bUseUObjectArrayCache = false)');
+    return true;
+  } catch { return false; }
+}
 function syncMod(gameRunning) {
   try {
     const p = places();
+    ue4ssSafeSettings(p);
     if (!p.modDir || !fs.existsSync(path.join(p.modDir, 'Scripts', 'main.lua'))) return false;   // not set up: Set up does it
     const stale = modFiles(MOD_SRC).filter((rel) => {
       const a = path.join(MOD_SRC, rel), b = path.join(p.modDir, rel);

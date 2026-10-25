@@ -10,7 +10,7 @@
 -- file. Otherwise it looks for behemoths every 1 to 2 seconds and checks their health every 150 ms and on every hit.
 -- Only property reads and writes are used. Logged as [DFTrainer] in UE4SS.log.
 
-local MOD_VERSION  = "6.5"
+local MOD_VERSION  = "6.6"
 local TICK_MS      = 150    -- how often behemoth health is checked while the multiplier is on
 local RESCAN_EVERY = 2.0    -- seconds between searches for behemoths
 local READ_EVERY   = 0.5    -- seconds between reads of the toggles file
@@ -59,10 +59,30 @@ end
 local function under(objPath, ownerPath)
     return objPath and ownerPath and objPath:sub(1, #ownerPath + 1) == ownerPath .. "."
 end
+-- Object searches (FindAllOf) go through every object the game has. They run on the mod's own timer thread only: on
+-- the game's thread (hit, break and quest events) the last search's result is used instead, so a search never holds
+-- up a frame. 6.6: UE4SS's object cache, which made searches cheap, crashed the game while it loaded many items at
+-- once (the panel turns it off), so searches are also kept to where they are needed.
+local InGT = false            -- true while a game-thread event runs
+local lastFound = {}          -- class -> what the last search found
+local function search(cls)
+    if InGT then return lastFound[cls] or {} end
+    local ok, list = pcall(FindAllOf, cls)
+    list = ok and list or {}
+    lastFound[cls] = list
+    return list
+end
+local function onGameThread(fn, ...)
+    local was = InGT
+    InGT = true
+    local ok, err = pcall(fn, ...)
+    InGT = was
+    return ok, err
+end
 local function findAll(classes)
     local out, seen = {}, {}
     for _, cls in ipairs(classes) do
-        local ok, list = pcall(FindAllOf, cls)
+        local ok, list = true, search(cls)
         for _, o in ipairs(ok and list or {}) do
             local n = nameOf(o)
             if n and not seen[n] and not n:find("Default__", 1, true) and valid(o) then
@@ -152,7 +172,7 @@ local function isLocal(pc)
 end
 local function hasLocalPlayer()
     for _, cls in ipairs({ "ArchonLocalPlayer", "LocalPlayer" }) do
-        local ok, list = pcall(FindAllOf, cls)
+        local ok, list = true, search(cls)
         for _, lp in ipairs(ok and list or {}) do
             local n = nameOf(lp) or ""
             if valid(lp) and not n:find("Default__", 1, true) then return true end
@@ -163,6 +183,7 @@ end
 
 -- behemoths and their health sets; players only when instant refresh needs their inventories
 local function rescan(now)
+    if InGT then return end   -- searches: on the timer thread only
     lastRescan = now
     local isGame, owners = false, {}
     for _, pc in ipairs(findAll(PC_CLASSES)) do
@@ -183,7 +204,7 @@ local function rescan(now)
 
     local behemoths = {}
     if T.damage > 1 then
-        local okB, blist = pcall(FindAllOf, "ArchonBehemoth")
+        local okB, blist = true, search("ArchonBehemoth")
         local sets = (okB and blist and #blist > 0) and findAll({ "ArchonHealthAttributeSet" }) or {}
         for _, b in ipairs(okB and blist or {}) do
             if valid(b) then
@@ -283,7 +304,7 @@ local function discoverInvFns(inv)
 end
 local function playerInventories()
     local out = {}
-    local ok, list = pcall(FindAllOf, "ArchonInventory")
+    local ok, list = true, search("ArchonInventory")
     for _, inv in ipairs(ok and list or {}) do
         local ip = pathOf(inv)
         if valid(inv) and ip and not ip:find("Default__", 1, true) then
@@ -623,7 +644,10 @@ local function trackTick(now)
         return
     end
     Tk.cleared = false
-    if now - Tk.lastScan >= TRACK_SCAN then trackScan(now) end
+    -- your own game searches for behemoths only within 30 s of a hit (the hunt server tracks the fight; in town, where
+    -- the game loads the most, it never searches); a hunt server searches every second
+    local nearFight = S.role ~= "game" or (Tk.hitAt and now - Tk.hitAt < 30)
+    if not InGT and nearFight and now - Tk.lastScan >= TRACK_SCAN then trackScan(now) end
     -- what dropped since last time: that behemoth becomes the one to show
     local best = nil
     for key, e in pairs(Tk.list) do
@@ -1231,7 +1255,8 @@ local function step()
     local okT, errT = pcall(trackTick, now)
     if not okT then logOnce("track:" .. tostring(errT), "overlay error: " .. tostring(errT)) end
     if now - lastStatus >= STATUS_EVERY then
-        if T.damage <= 1 and not T.refresh and now - lastRescan >= 10 then pcall(rescan, now) end   -- role only
+        -- role only, until it is known to be your game (a game never becomes a server)
+        if T.damage <= 1 and not T.refresh and S.role ~= "game" and now - lastRescan >= 10 then pcall(rescan, now) end
         pcall(writeStatus, now)
     end
 end
@@ -1250,12 +1275,13 @@ local hooked, hookErr = pcall(function()
     RegisterHook("/Script/Archon.ArchonCombatTextComponent:MulticastSendMultitypeCombatText", function()
         if T.damage <= 1 and not T.track and not T.quests then return end
         local now = os.clock()
-        if T.damage > 1 and now - lastHitTick >= 0.03 then lastHitTick = now pcall(tick) end
+        Tk.hitAt = now
+        if T.damage > 1 and now - lastHitTick >= 0.03 then lastHitTick = now onGameThread(tick) end
         if T.track and now - lastHitTrack >= 0.125 then
             lastHitTrack = now
-            pcall(trackTick, now)   -- the overlay moves with the hit, not on the next timer tick
-            pcall(stagFromFunctions)
-            pcall(partsBrokenFromGame)
+            onGameThread(trackTick, now)   -- the overlay moves with the hit, not on the next timer tick
+            onGameThread(stagFromFunctions)
+            onGameThread(partsBrokenFromGame)
         end
     end)
 end)
@@ -1265,7 +1291,7 @@ local brkHooks = {}
 for _, fn in ipairs({ "/Script/Archon.ArchonTelemetryComponent_Combat:RecordBehemothPartBroken", "/Script/Archon.MasteryComponent:OnBehemothPartBroken",
                       "/Script/Archon.Objective_BehemothParts:OnPartBroken" }) do
     local short = fn:match(":([%w_]+)$")
-    if pcall(RegisterHook, fn, function(...) local a = { ... } pcall(onPartBrokenEvent, short, table.unpack(a)) end) then brkHooks[#brkHooks + 1] = fn:match("%.([%w_]+:[%w_]+)$") end
+    if pcall(RegisterHook, fn, function(...) local a = { ... } onGameThread(onPartBrokenEvent, short, table.unpack(a)) end) then brkHooks[#brkHooks + 1] = fn:match("%.([%w_]+:[%w_]+)$") end
 end
 log("part break events hooked: " .. (#brkHooks > 0 and table.concat(brkHooks, ", ") or "none (breaks come from IsBroken and health)"))
 
@@ -1275,7 +1301,7 @@ local qHooks = {}
 for _, fn in ipairs({ "/Script/Archon.HUDObjectiveTracker:OnQuestObjectiveUpdated", "/Script/Archon.HUDObjectiveTracker:OnQuestStatusUpdated",
                       "/Script/Archon.MarkerSystemComponent:OnQuestObjectiveUpdated", "/Script/Archon.MarkerSystemComponent:OnQuestStatusUpdated",
                       "/Script/Archon.QuestSystemComponent:OnRep_Series", "/Script/Archon.QuestSystemComponent:OnRep_NumExpectedQuests" }) do
-    local ok = pcall(RegisterHook, fn, function() if T.quests then questGameThread() end end)
+    local ok = pcall(RegisterHook, fn, function() if T.quests then onGameThread(questGameThread) end end)
     if ok then qHooks[#qHooks + 1] = fn:match(":(.+)$") end
 end
 log("quest events hooked: " .. (#qHooks > 0 and table.concat(qHooks, ", ") or "none (the tracker reads every second instead)"))

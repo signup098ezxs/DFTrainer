@@ -1,5 +1,5 @@
 {
-  "version": "3.9.6",
+  "version": "3.9.7",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Behemoth overlay names: behemoths that showed as \"Behemoth\" now show their real name. The game's own row name is used (so the heroic Gnasher shows as Ragetail), Torgadoro, Thrax and Malkarion are named from the game's own item texts, and the Escalation variants Deepfrost Gnasher, Lightbound Boreus, Shadowtouched Drask, Shadowtouched Koshai, Sporestruck Embermane and Sporestruck Charrogg are named. The game mod also asks the game for the name it displays and uses that first. A behemoth that still cannot be named shows as \"Unidentified behemoth\" and is written to the panel log. After updating, close the game fully and start it again."
+  "notes": "Crash fix: the game could crash a few seconds after logging in when many new items had just been added (for example every weapon skin). The crash was inside UE4SS's object cache while the game loaded those items; Lantern Client now turns that cache off (UE4SS-settings.ini, original kept as UE4SS-settings.ini.lantern-bak). The game mod also no longer searches the game's objects in town or on the game's own thread. Close the game fully and start it again after updating."
 }
