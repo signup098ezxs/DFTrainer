@@ -10,7 +10,7 @@
 -- file. Otherwise it looks for behemoths every 1 to 2 seconds and checks their health every 150 ms and on every hit.
 -- Only property reads and writes are used. Logged as [DFTrainer] in UE4SS.log.
 
-local MOD_VERSION  = "6.8"
+local MOD_VERSION  = "6.9"
 local TICK_MS      = 150    -- how often behemoth health is checked while the multiplier is on
 local RESCAN_EVERY = 2.0    -- seconds between searches for behemoths
 local READ_EVERY   = 0.5    -- seconds between reads of the toggles file
@@ -873,7 +873,7 @@ end
 resolveBreak = function(e, now)
     local pb = e.pending
     if not pb then return end
-    local best, bestRise = nil, 0
+    local best, bestRise, secondRise = nil, 0, 0
     for _, p in ipairs(e.parts) do
         if not e.broke[p.name] then
             local c, m = p.read()
@@ -881,13 +881,21 @@ resolveBreak = function(e, now)
             if c ~= nil and c <= 0 then markBroken(e, p, pb.why .. ", health 0") e.pending = nil return end
             if c ~= nil and b ~= nil and m and m > 0 then
                 local rise = (c - b) / m
-                if rise > bestRise then best, bestRise = p, rise end
+                if rise > bestRise then best, bestRise, secondRise = p, rise, bestRise
+                elseif rise > secondRise then secondRise = rise end
             end
         end
     end
     local bc, bm = nil, nil
     if best then bc, bm = best.read() end
-    if best and bestRise >= 0.1 and bc and bm and bc >= 0.9 * bm then
+    -- the broken part: its health refilled. Refills seen in real hunts (25 Oct): to 100%, or to 87-93% of max, then
+    -- often hit again within the window (ending at 73-89%), always a jump of 50-100% of max; nothing else rose more
+    -- than 27% in those windows. So: back up to 90% or more after any rise of 10%+ (as before), or a jump of half its
+    -- health or more ending at 70% or more, when no other part rose by a quarter at the same time (two candidates:
+    -- none is marked)
+    local refilled = best and bc and bm and bm > 0 and (
+        (bestRise >= 0.1 and bc >= 0.9 * bm) or (bestRise >= 0.5 and bc >= 0.7 * bm and secondRise < 0.25))
+    if refilled then
         local c, m = best.read()
         markBroken(e, best, string.format("%s, its health refilled from %.0f to %.0f of %.0f", pb.why, pb.before[best.name] or 0, c or 0, m or 0))
         e.pending = nil

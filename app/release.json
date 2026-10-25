@@ -1,5 +1,5 @@
 {
-  "version": "3.9.10",
+  "version": "3.9.11",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Panel and overlay polish. Panel: the 30 / 60 fps setting no longer animates hidden pages (about a quarter less CPU); the Settings preview pauses while the panel is behind the game; sound sleeps when idle; the overlay background slider no longer jumps back while you drag it; \"Remove key\" keeps its warning while armed; typing an amount is no longer interrupted by a save reload; Give, Set up and key buttons cannot be sent twice from the keyboard; Build Creator progress and errors redraw correctly; in a narrow window all tabs show (no hidden tabs or stray bar); the intro skip works after other keys. Overlay (launcher 1.6.12): it no longer stays open if Windows reuses the closed game's window for another program."
+  "notes": "Works with Dauntless Forever 1.14.7 (2026-10-25.2) and its new loader. Modded mode off is now respected: the panel says the overlay, quest tracker and multiplier are paused (Dauntless Forever advises Modded mode off for escalations) instead of asking you to set up again, and turns it back on only when you press the button. When you enter an escalation with Modded mode on, the panel warns you once. Broken parts (game mod 6.9): breaks whose part refilled to 87-89% of its health, or was hit right after the refill, are now recognised (seen in real hunts); unclear cases are still left unmarked. Close the game fully and start it again after updating."
 }

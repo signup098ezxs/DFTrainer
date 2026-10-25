@@ -550,10 +550,22 @@ function followLog() {
   logPos += Buffer.byteLength(text.slice(0, lastNl + 1));
   for (const line of text.slice(0, lastNl).split('\n')) {
     let e; try { e = JSON.parse(line); } catch { continue; }
+    if (e && e.svc === 'mm2' && e.m === 'POST' && e.status === 200 && /^\/candidate\/join/.test(String(e.path || ''))) { placeJoined(e.note); continue; }
     if (!e || e.svc !== 'dauntless' || e.m !== 'GET' || !e.auth || e.status !== 200) continue;
     const m = /^\/inventory\/[^/]+\/([A-Z2-7]{26})\/?$/.exec(String(e.path || ''));
     if (m) inventoryLoaded(p, m[1]);
   }
+}
+// Where the game is going: the backend notes each join as "<mode>/<type> <hunt>" (CITY/CITY, SHARED/HUNTING_GROUND,
+// .../ESCALATION ...). Dauntless Forever (25 Oct, 1.14.7 2026-10-25.2) warns that modded mode (UE4SS, which the game mod
+// needs) can crash in busy escalations: the panel says so when one starts. It does not turn anything off by itself.
+let inEscalation = false;
+function placeJoined(label) {
+  const m = /^[A-Z_]+\/([A-Z_]+|-)/.exec(String(label || ''));
+  if (!m) return;
+  const esc = m[1] === 'ESCALATION';
+  if (esc && !inEscalation) note('mod', 'Escalation: modded mode can crash', 'Dauntless Forever advises turning Modded mode off for escalations (launcher, Mods page) until they fix it. The overlay, quest tracker and damage multiplier need it, so they pause while it is off.');
+  inEscalation = esc;
 }
 function inventoryLoaded(p, characterId) {
   playingAs = characterId;
@@ -811,6 +823,7 @@ async function buildState() {
     toggles: readToggles(p), processes: procs.map(({ time, ...s }) => s),
     // live copies of the game running another version of the mod than this panel's (restart the game to update them)
     modStale: MOD_VERSION ? procs.filter((s) => s.v !== MOD_VERSION).length : 0, modVersion: MOD_VERSION,
+    escalation: running && inEscalation,
     overlay: { ...overlaySettings(), restoreBossbar: undefined, running: overlayAlive() },
     quests: questSettings(),
     queue: queue.map((j) => ({ what: describe(j) })), history,
@@ -824,6 +837,7 @@ async function tickState() {
     if (s.running !== lastRunning) {
       note('game', s.running ? 'Game started' : 'Game closed', s.running ? 'Gifts go in live now.' : (queue.length ? 'Adding the gifts that were waiting...' : ''));
       if (!s.running) for (const d of deliveries) if (d.status === 'saved') d.status = 'closed';
+      if (!s.running) inEscalation = false;
       if (!s.running) { syncMod(false); devModsOff(places()); }
     }
     const n = s.processes.length;

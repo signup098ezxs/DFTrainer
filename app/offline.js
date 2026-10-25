@@ -58,7 +58,7 @@ function writeState(file, state) {
   if (!fs.existsSync(STATE)) fail('No save yet. Press Play once and make a character first.');
   let job, mine;
   try { job = JSON.parse(jobText); mine = new Set(JSON.parse(charsText || '[]')); } catch { fail('Bad request.'); }
-  if (await portUp(63000)) fail('Dauntless is still running. Close the game (and the launcher\'s server window), then try again.');
+  if (await portUp(63000)) fail('Dauntless is still running. Close the game (its local backend stops with it), then try again.');
   let state;
   try { state = JSON.parse(fs.readFileSync(STATE, 'utf8').replace(/^﻿/, '')); } catch { fail('The save file could not be read (data\\state.json).'); }
 

@@ -1345,10 +1345,13 @@ function onState(s) {
   pill('#pGame', s.running ? 'on' : '', s.running ? 'Game running' : 'Game closed');
   const procs = s.processes || [];
   const game = procs.filter((p) => p.role === 'game').length, srv = procs.filter((p) => p.role === 'server').length;
-  const setupNeeded = !s.ue4ss || !s.modInstalled || !s.modOn || !s.mode.on || !s.mode.servers;
+  // installed (UE4SS, the mod, listed) is one thing; Modded mode on is another: Dauntless Forever advises turning it off
+  // for escalations, so off is a choice the panel respects (no "set up" prompt that would turn it back on unasked)
+  const setupNeeded = !s.ue4ss || !s.modInstalled || !s.modOn;
+  const modeOff = !setupNeeded && (!s.mode.on || !s.mode.servers);
   if (procs.length) pill('#pMod', srv ? 'on' : 'warn', srv ? `Mod live in ${game ? 'game + ' : ''}${srv} server${srv > 1 ? 's' : ''}` : 'Mod in game only');
-  else pill('#pMod', setupNeeded ? 'bad' : (s.running ? 'warn' : ''), setupNeeded ? 'Mod not set up' : s.running ? 'Mod not answering' : 'Mod ready');
-  showBanner(setupNeeded ? 'setup' : null);
+  else pill('#pMod', setupNeeded ? 'bad' : (modeOff || s.running ? 'warn' : ''), setupNeeded ? 'Mod not set up' : modeOff ? 'Modded mode off' : s.running ? 'Mod not answering' : 'Mod ready');
+  showBanner(setupNeeded ? 'setup' : modeOff ? 'modeoff' : null);
   syncToggles(s.toggles);
   if (s.overlay && (!OV || JSON.stringify(s.overlay) !== JSON.stringify(OV))) ovSettings(s.overlay); else ovNote();
   if (s.quests && (!QT || JSON.stringify(s.quests) !== JSON.stringify(QT))) qtSettings(s.quests); else qtNote();
@@ -1381,7 +1384,7 @@ function onNote(n, fresh) {
 
 function showBanner(kind) {
   const b = $('#banner'), inp = $('#pkgInput'), btn = $('#bannerBtn');
-  if (kind === 'setup' && !(LIC && LIC.owner) && !(S && S.overlay && S.overlay.on) && !(S && S.quests && S.quests.on)) kind = null;   // Damage (owner), the overlay and the quest tracker need the game mod
+  if ((kind === 'setup' || kind === 'modeoff') && !(LIC && LIC.owner) && !(S && S.overlay && S.overlay.on) && !(S && S.quests && S.quests.on)) kind = null;   // Damage (owner), the overlay and the quest tracker need the game mod
   placeBanner();
   b.classList.toggle('show', !!kind);
   if (!kind) return;
@@ -1393,16 +1396,20 @@ function showBanner(kind) {
     btn.onclick = async () => { SFX.tick(); const r = await api('/api/package', { package: inp.value }); if (r.ok) { toast('Found it', 'Loading your save...'); } else { SFX.error(); toast('That folder did not work', r.error, 'error'); } };
   } else {
     inp.hidden = true;
-    $('#bannerTitle').textContent = 'One-time set-up for the game mod';
-    $('#bannerText').textContent = S.running ? 'Close the game first. Set-up installs the trainer mod and turns on modded mode and server mods.' : 'Installs the trainer mod (and UE4SS if needed) and turns on modded mode and server mods.';
+    const off = kind === 'modeoff';
+    $('#bannerTitle').textContent = off ? 'Modded mode is off' : 'One-time set-up for the game mod';
+    $('#bannerText').textContent = off
+      ? 'The overlay, quest tracker and damage multiplier need Modded mode (UE4SS) in your game and its servers, so they are paused. Dauntless Forever advises keeping it off for escalations, where it can crash. Turn it back on for hunts' + (S.running ? ' once the game is closed.' : '.')
+      : S.running ? 'Close the game first. Set-up installs the trainer mod and turns on modded mode and server mods.' : 'Installs the trainer mod (and UE4SS if needed) and turns on modded mode and server mods.';
     btn.disabled = !!S.running;
-    if (!btn.classList.contains('busy')) btn.textContent = 'Set up';
+    const label = off ? 'Turn Modded mode on' : 'Set up';
+    if (!btn.classList.contains('busy')) btn.textContent = label;
     btn.onclick = async () => {
       if (btn.classList.contains('busy')) return;
       SFX.tick(); btn.classList.add('busy'); btn.textContent = 'Setting up';
       const r = await api('/api/setup', {});
       btn.classList.remove('busy');
-      if (r.ok) { SFX.give(); toast('Game mod set up', 'Press Play in the launcher.', 'applied'); } else { SFX.error(); toast('Set-up stopped', r.error, 'error', 7000); btn.textContent = 'Set up'; }
+      if (r.ok) { SFX.give(); toast(off ? 'Modded mode is on' : 'Game mod set up', 'Press Play in the launcher.', 'applied'); } else { SFX.error(); toast('Set-up stopped', r.error, 'error', 7000); btn.textContent = label; }
     };
   }
 }
@@ -1816,10 +1823,12 @@ function ovSettings(o) {
 }
 function ovNote() {
   const n = $('#ovNote'); if (!OV || !S) return;
-  const setup = !S.ue4ss || !S.modInstalled || !S.modOn || !(S.mode && S.mode.on && S.mode.servers);
+  const setup = !S.ue4ss || !S.modInstalled || !S.modOn, modeOff = !setup && !(S.mode && S.mode.on && S.mode.servers);
   let t = '', warn = false;
   if (!OV.on) t = 'Off. Dauntless Forever\'s own Boss Health Bar is untouched.';
   else if (setup) { t = 'Needs the game mod: press Set up at the top (with the game closed).'; warn = true; }
+  else if (modeOff) { t = 'Paused: Modded mode is off (Dauntless Forever advises that for escalations). Turn it back on at the top for hunts.'; warn = true; }
+  else if (S.escalation) { t = 'In an escalation: Dauntless Forever says Modded mode can crash in busy escalations. The overlay works, but turning Modded mode off for escalations is the safe choice.'; warn = true; }
   else if (!S.app || !S.app.managed) { t = 'Shows in game when Lantern Client is opened from its own app.'; warn = true; }
   else if (S.app.launcher && !S.app.overlay) { t = 'Restart Lantern Client once to finish updating: the overlay comes with the new version.'; warn = true; }
   else if (S.modStale) { t = `${S.modStale} running cop${S.modStale > 1 ? 'ies' : 'y'} of the game still use${S.modStale > 1 ? '' : 's'} an older game mod (hunt servers stay open between hunts). Close the game fully and start it again so the update applies.`; warn = true; }
@@ -1903,10 +1912,12 @@ function qtSettings(q) {
 }
 function qtNote() {
   const n = $('#qtNote'); if (!QT || !S) return;
-  const setup = !S.ue4ss || !S.modInstalled || !S.modOn;
+  const setup = !S.ue4ss || !S.modInstalled || !S.modOn, modeOff = !setup && !(S.mode && S.mode.on);
   let t = '', warn = false;
   if (!QT.on) t = 'Off.';
   else if (setup) { t = 'Needs the game mod: press Set up at the top (with the game closed).'; warn = true; }
+  else if (modeOff) { t = 'Paused: Modded mode is off. Turn it back on at the top.'; warn = true; }
+  else if (S.escalation) { t = 'In an escalation: Dauntless Forever says Modded mode can crash in busy escalations.'; warn = true; }
   else if (!S.app || !S.app.managed) { t = 'Shows in game when Lantern Client is opened from its own app.'; warn = true; }
   else t = 'On: your quests appear in game, and update as the game reports progress.';
   n.textContent = t; n.classList.toggle('warn', warn);
