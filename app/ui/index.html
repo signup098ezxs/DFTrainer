@@ -621,8 +621,9 @@ input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border: 0; bord
 @media (max-width: 860px) {
   .dock { left: 0; }
   main { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
-  nav { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--seam); padding: 8px; }
-  nav .bar,   nav > button { flex: none; height: 40px; }
+  nav { flex-direction: row; flex-wrap: wrap; overflow-x: visible; border-right: 0; border-bottom: 1px solid var(--seam); padding: 8px; }
+  nav > button { flex: none; height: 40px; }
+  nav .bar { display: none; }   /* the side bar marks a tab in the column layout only; here the tab's own highlight does */
   .strip { grid-template-columns: 1fr; }
   .strip > div + div { border-left: 0; border-top: 1px solid var(--seam); }
   section { padding: 22px 16px 110px; }
@@ -1173,7 +1174,13 @@ const SFX = (() => {
     echo.connect(d); d.connect(lp); lp.connect(fb); fb.connect(d); lp.connect(master);
     return ctx;
   }
-  const live = () => { const c = init(); if (!c) return null; if (c.state === 'suspended') c.resume(); return c; };
+  // the audio device sleeps 8 s after the last sound (its echo loop kept it running for the whole session)
+  let sleepT = null;
+  const live = () => {
+    const c = init(); if (!c) return null; if (c.state === 'suspended') c.resume();
+    clearTimeout(sleepT); sleepT = setTimeout(() => { if (c.state === 'running') c.suspend().catch(() => {}); }, 8000);
+    return c;
+  };
   function tone({ f = 440, f2, type = 'sine', t = 0, d = 0.15, g = 0.2, a = 0.005, pan = 0, wet = 0 }) {
     const c = live(); if (!c || !on) return;
     const now = c.currentTime + t;
@@ -1239,14 +1246,16 @@ function runIntro(done) {
   SFX.unlock();
   const timers = [setTimeout(() => SFX.introLand(), 180), setTimeout(() => SFX.whoosh(), 1630), setTimeout(() => SFX.claude(), 2850)];
   let finished = false;
+  // Esc / Enter / Space skip it; any other key (Shift, Alt-Tab) no longer uses the listener up
+  const onKey = (e) => { if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') finish(); };
   const finish = () => {
-    if (finished) return; finished = true; timers.forEach(clearTimeout);
+    if (finished) return; finished = true; timers.forEach(clearTimeout); removeEventListener('keydown', onKey);
     el.classList.add('out'); done();
     setTimeout(() => el.remove(), 700);
   };
   timers.push(setTimeout(finish, 5400));
   el.addEventListener('pointerdown', () => { SFX.unlock(); finish(); });
-  addEventListener('keydown', (e) => { if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') finish(); }, { once: true });
+  addEventListener('keydown', onKey);
 }
 function reveal() {
   // the panel assembles itself: header drops in, the rail slides in, the page settles piece by piece
@@ -1315,6 +1324,7 @@ function renderApp(a) {
   if (u) { $('#updVer').textContent = u.version; $('#updBtn').title = u.notes || ''; }
 }
 $('#updBtn').addEventListener('click', async () => {
+  if ($('#restarting').classList.contains('on')) return;   // already updating
   SFX.switchOn();
   $('#restartTitle').textContent = `Updating to ${$('#updVer').textContent}`;
   $('#restarting').classList.add('on');
@@ -1385,8 +1395,10 @@ function showBanner(kind) {
     inp.hidden = true;
     $('#bannerTitle').textContent = 'One-time set-up for the game mod';
     $('#bannerText').textContent = S.running ? 'Close the game first. Set-up installs the trainer mod and turns on modded mode and server mods.' : 'Installs the trainer mod (and UE4SS if needed) and turns on modded mode and server mods.';
-    btn.textContent = 'Set up'; btn.disabled = !!S.running;
+    btn.disabled = !!S.running;
+    if (!btn.classList.contains('busy')) btn.textContent = 'Set up';
     btn.onclick = async () => {
+      if (btn.classList.contains('busy')) return;
       SFX.tick(); btn.classList.add('busy'); btn.textContent = 'Setting up';
       const r = await api('/api/setup', {});
       btn.classList.remove('busy');
@@ -1419,7 +1431,8 @@ function renderLicense(l) {
   requestAnimationFrame(placeNav);
   $('#licInfo').textContent = l.owner ? 'Owner: you make the keys (Keys page).'
     : l.ok ? `Licensed to ${l.name}. ${l.expires ? `Runs until ${fmtDate(l.expires)} (${daysLeft(l.expires)} day${daysLeft(l.expires) === 1 ? '' : 's'} left).` : 'Never runs out.'}` : 'No key';
-  $('#licRemove').textContent = l.owner ? 'Remove owner key' : 'Remove key';
+  // while a first click has armed it (3 s), it keeps saying so: a state push must not hide the warning
+  $('#licRemove').textContent = Date.now() - removeArmed < 3000 ? 'Click again to remove' : l.owner ? 'Remove owner key' : 'Remove key';
   $('#licRemove').hidden = !l.ok; $('#licOwner').hidden = !!l.owner;
   if (l.owner && (!was || !was.owner)) loadKeys();
   if (l.ok) setTimeout(maybeTour, 900);
@@ -1509,6 +1522,7 @@ $('#kDur').addEventListener('click', (e) => {
 $('#kGen').onclick = async () => {
   const name = $('#kName').value.trim(); if (!name) { SFX.error(); $('#kName').focus(); toast('Who is the key for?', 'Enter a name first.', 'error'); return; }
   const duration = $('#kDur button.on').dataset.v;
+  if ($('#kGen').classList.contains('busy')) return;
   $('#kGen').classList.add('busy');
   const r = await api('/api/owner/generate', { name, duration, note: $('#kNote').value });
   $('#kGen').classList.remove('busy');
@@ -1793,7 +1807,9 @@ let OV = null, ovTimer = null;
 function ovSettings(o) {
   if (!o) return;
   OV = o;
-  $('#ovOn').checked = !!o.on; $('#ovPos').value = o.pos; $('#ovSize').value = o.size; $('#ovOpacity').value = o.opacity;
+  $('#ovOn').checked = !!o.on; $('#ovPos').value = o.pos; $('#ovSize').value = o.size;
+  // the slider you are dragging keeps your value (a state push mid-drag set it back to the saved one)
+  if (ovSliding || document.activeElement === $('#ovOpacity')) OV.opacity = Number($('#ovOpacity').value); else $('#ovOpacity').value = o.opacity;
   $('#ovParts').checked = !!o.parts; $('#ovNumbers').checked = !!o.numbers;
   ovPreviewStyle();
   ovNote();
@@ -1829,6 +1845,7 @@ function ovPreviewPaint(hit) {
   setHTML('#ovpParts', OVP.parts.map((p) => `<div class="p${p.broken ? ' broken' : ''}"><div class="r"><span>${esc(p.n)}</span><em>${p.broken ? 'BROKEN' : pctOf(p.c, p.m)}</em></div><div class="b"><i style="width:${p.broken ? 0 : p.c / p.m * 100}%"></i></div></div>`).join(''));
 }
 function ovPreviewTick() {
+  if (!document.hasFocus()) return;   // the panel is behind the game: the preview waits (it cost CPU for hours)
   const c = $('#ovPrev');
   if (OVP.cur <= 0) {   // defeated: fade out, a fresh one sweeps in
     c.classList.add('gone');
@@ -1912,8 +1929,10 @@ $('#ovParts').addEventListener('change', (e) => { e.target.checked ? SFX.switchO
 $('#ovNumbers').addEventListener('change', (e) => { e.target.checked ? SFX.switchOn() : SFX.switchOff(); ovSave({ numbers: e.target.checked }); });
 $('#ovPos').addEventListener('change', (e) => { SFX.tick(); ovSave({ pos: e.target.value }); });
 $('#ovSize').addEventListener('change', (e) => { SFX.tick(); ovSave({ size: e.target.value }); });
-$('#ovOpacity').addEventListener('input', (e) => { if (OV) { OV.opacity = Number(e.target.value); ovPreviewStyle(); } });
-$('#ovOpacity').addEventListener('change', (e) => ovSave({ opacity: Number(e.target.value) }));
+// from its first move until the change is saved, the slider is yours: no state push sets it back
+let ovSliding = false;
+$('#ovOpacity').addEventListener('input', (e) => { ovSliding = true; if (OV) { OV.opacity = Number(e.target.value); ovPreviewStyle(); } });
+$('#ovOpacity').addEventListener('change', async (e) => { await ovSave({ opacity: Number(e.target.value) }); ovSliding = false; });
 document.addEventListener('visibilitychange', ovPreviewRun);
 ovPreviewPaint();
 
@@ -2082,6 +2101,7 @@ async function bcMake(req) {
   BC.req = req;
   bcStage('bcMaking');
   $('#bcMakingSub').textContent = 'Working through the 1.14.7 gear for your choices.';
+  htmlCache.delete('#bcProg');   // a new run starts its list from the top (the cache kept the finished one)
   setHTML('#bcProg', BC_PROG.map((t) => `<li><i></i>${esc(t)}</li>`).join(''));
   const items = $$('#bcProg li');
   let i = 0;
@@ -2183,7 +2203,7 @@ function bcShow(v, req) {
       </div>
     </div>
   </div>`;
-  $('#bcResult').innerHTML = html;
+  htmlCache.delete('#bcResult'); $('#bcResult').innerHTML = html;   // an error shown again after this is redrawn
   bcStage('bcResult');
   requestAnimationFrame(() => placeInd($('#bcTabSeg')));
 }
@@ -2375,6 +2395,7 @@ function updateDock() {
 }
 
 async function runItems(job, btn) {
+  if (btn && btn.classList.contains('busy')) return false;   // Enter / Space again while it runs: not sent twice
   if (btn) btn.classList.add('busy');
   if ('Notification' in window && Notification.permission === 'default') { try { Notification.requestPermission().then(updateNotifBtn); } catch {} }
   const r = await api('/api/items', job);
@@ -2428,8 +2449,13 @@ function curOf(id) {
   const cs = ((SAVE && SAVE.characters) || []).filter((c) => charId() === '*' || c.id === charId());
   return cs.length ? Math.max(...cs.map((c) => (c.items || {})[id] || 0)) : 0;
 }
+let curDeferred = false;
 function renderCur() {
   if (!CAT) return;
+  // typing in an amount: the list is rebuilt when you leave the box, not under your cursor (focus and keys were lost)
+  const f = document.activeElement;
+  if (f && f.tagName === 'INPUT' && $('#groups').contains(f)) { curDeferred = true; return; }
+  curDeferred = false;
   $('#groups').innerHTML = CAT.groups.map((g) => `<div class="group"><h4>${esc(g.title || '')}</h4><div class="list">${(g.items || []).map((i) => {
     const v = edits[i.id] ?? curOf(i.id);
     return `<div class="cur"><div>${esc(i.name)}<small>${esc(i.blurb || i.id)}</small></div><input data-id="${esc(i.id)}" inputmode="numeric" value="${v.toLocaleString('en-US')}" class="${edits[i.id] != null ? 'changed' : ''}" aria-label="${esc(i.name)}"><button class="chipbtn" data-max="${esc(i.id)}">Max</button></div>`;
@@ -2449,6 +2475,7 @@ $('#groups').addEventListener('click', (e) => {
   const i = b.parentElement.querySelector('input'); i.value = MAXV.toLocaleString('en-US'); i.classList.add('changed'); i.classList.remove('flash'); void i.offsetWidth; i.classList.add('flash');
   $('#applyCur').disabled = false;
 });
+$('#groups').addEventListener('focusout', () => { if (curDeferred) setTimeout(() => { if (curDeferred) renderCur(); }, 0); });
 $('#maxAll').onclick = () => { SFX.step(5); CAT.groups.forEach((g) => (g.items || []).forEach((i) => { edits[i.id] = MAXV; })); renderCur(); $$('#groups input').forEach((i) => i.classList.add('flash')); };
 $('#applyCur').onclick = async (e) => {
   const n = Object.keys(edits).length;
@@ -2523,7 +2550,11 @@ const FPS = (() => {
       for (const a of document.getAnimations()) {
         if (a.playState === 'running') { a.pause(); own.add(a); continue; }   // it was moving freely until now
         if (!own.has(a) || a.playState !== 'paused') continue;
-        const t = (a.currentTime || 0) + dt, end = a.effect ? a.effect.getComputedTiming().endTime : Infinity;
+        const end = a.effect ? a.effect.getComputedTiming().endTime : Infinity;
+        // an endless one (a spinner, a glow) on a page or element that is not shown: left paused, not stepped. Stepping
+        // every hidden one cost 10-20% of a CPU core all the time; it carries on from where it was when shown again
+        if (end === Infinity) { const el = a.effect && a.effect.target; if (!el || !el.isConnected || !el.checkVisibility({ visibilityProperty: true })) continue; }   // pages are hidden with visibility
+        const t = (a.currentTime || 0) + dt;
         if (end !== Infinity && t >= end) { own.delete(a); a.finish(); } else a.currentTime = t;
       }
     }, 1000 / fps);

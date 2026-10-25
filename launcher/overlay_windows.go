@@ -154,13 +154,19 @@ func ovExeOf(hwnd uintptr) string {
 	return syscall.UTF16ToString(buf[:n])
 }
 
+// ovIsGameClass: an Unreal window. Checked again on the remembered window every second too: after the game closes,
+// Windows can give its window handle to another program's window, which must not keep the overlay open
+func ovIsGameClass(hwnd uintptr) bool {
+	var cls [64]uint16
+	ovGetClassNameW.Call(hwnd, uintptr(unsafe.Pointer(&cls[0])), 64)
+	return syscall.UTF16ToString(cls[:]) == "UnrealWindow"
+}
+
 var ovEnumCb = syscall.NewCallback(func(hwnd, _ uintptr) uintptr {
 	if v, _, _ := procIsWindowVisible.Call(hwnd); v == 0 {
 		return 1
 	}
-	cls := make([]uint16, 64)
-	ovGetClassNameW.Call(hwnd, uintptr(unsafe.Pointer(&cls[0])), 64)
-	if syscall.UTF16ToString(cls) != "UnrealWindow" {
+	if !ovIsGameClass(hwnd) {
 		return 1
 	}
 	// your game only: the hidden server copies run the same exe but never show a window
@@ -174,7 +180,7 @@ var ovEnumCb = syscall.NewCallback(func(hwnd, _ uintptr) uintptr {
 func ovFindGame() uintptr {
 	if ovGameWnd != 0 {
 		if ok, _, _ := ovIsWindow.Call(ovGameWnd); ok != 0 {
-			if v, _, _ := procIsWindowVisible.Call(ovGameWnd); v != 0 {
+			if v, _, _ := procIsWindowVisible.Call(ovGameWnd); v != 0 && ovIsGameClass(ovGameWnd) {
 				return ovGameWnd
 			}
 		}
