@@ -1,5 +1,5 @@
 {
-  "version": "3.9.3",
+  "version": "3.9.4",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Fixed \"Could not check for updates: another update is running\". An update that was stopped part way (for example when Lantern Client restarted while it was checking) left a lock file that blocked every update for 15 minutes; the lock now records which process holds it and is cleared as soon as that process is gone. If an update really is installing, the panel says so and checks again by itself."
+  "notes": "Behemoth overlay: a severed tail (or any part the game refills the instant it breaks) now shows BROKEN. The game's break event names only the behemoth, so the overlay now finds the broken part right after it: the one whose health is at 0, is removed, or jumps back up (part health never rises otherwise). Once found, it stays BROKEN until a new behemoth. After updating, close the game fully and start it again."
 }

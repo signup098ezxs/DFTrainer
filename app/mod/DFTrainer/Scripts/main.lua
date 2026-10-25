@@ -10,7 +10,7 @@
 -- file. Otherwise it looks for behemoths every 1 to 2 seconds and checks their health every 150 ms and on every hit.
 -- Only property reads and writes are used. Logged as [DFTrainer] in UE4SS.log.
 
-local MOD_VERSION  = "6.2"
+local MOD_VERSION  = "6.3"
 local TICK_MS      = 150    -- how often behemoth health is checked while the multiplier is on
 local RESCAN_EVERY = 2.0    -- seconds between searches for behemoths
 local READ_EVERY   = 0.5    -- seconds between reads of the toggles file
@@ -599,6 +599,7 @@ local function trackJson(e)
         clean(e.key), clean(e.cls), math.max(hp, 0), mx, e.atTime or 0, e.n or 0, tostring(hp <= 0), table.concat(ps, ","), stg)
 end
 
+local resolveBreak   -- defined with the break events below; called by the tracking loop
 local function trackTick(now)
     if not T.track or not TrackFile then
         if not Tk.cleared and TrackFile then os.remove(TrackFile) Tk.cleared = true Tk.lastBody = nil end
@@ -631,8 +632,14 @@ local function trackTick(now)
                 if c and was and ((was > 0 and c <= 0) or (was <= 0 and c > 0)) then
                     log(string.format("overlay: %s %s %s (%.0f/%s)", e.cls, p.name, c <= 0 and "broke" or "back", c, tostring(m)))
                 end
-                if c ~= nil then e.partLast[p.name] = c end   -- a missing reading keeps the last real one for comparing
+                if c ~= nil then
+                    e.partLast[p.name] = c   -- a missing reading keeps the last real one for comparing
+                    e.partLow = e.partLow or {}
+                    local low = e.partLow[p.name]
+                    if not low or c <= low.v or now - low.at > 1.5 then e.partLow[p.name] = { v = c, at = now } end
+                end
             end
+            if e.pending then local okR, errR = pcall(resolveBreak, e, now) if not okR then logOnce("resolve:" .. tostring(errR), "overlay: break check error: " .. tostring(errR)) e.pending = nil end end
             if hit then Tk.n = Tk.n + 1 e.at, e.atTime, e.n = now, os.time(), Tk.n end
             if hp and hp <= 0 and not e.deadAt then e.deadAt = now end
             if e.deadAt and now - e.deadAt > TRACK_LINGER then e.at = nil end
@@ -726,6 +733,7 @@ local brokeFnOk = nil
 local function markBroken(e, p, how)
     if e.broke[p.name] then return end
     e.broke[p.name] = how
+    e.lastMarkAt = os.clock()
     log(string.format("overlay: %s %s broken (%s)", e.cls, p.name, how))
 end
 local function partsBrokenIn(best)
@@ -754,11 +762,68 @@ end
 -- The game's own "a part broke" events (its mastery and combat telemetry listen to them; on the hunt server). The
 -- part is found from what the event carries (the part component, its part actor, or its name); if that cannot be
 -- matched, every part of the behemoths being fought is asked IsBroken at once.
-local breakEventLogged = false
-local function onPartBrokenEvent(...)
+-- Which part broke. The game's break events (seen in 3.9.2's logs) carry only the behemoth, its parts' IsBroken stayed
+-- false, and a tail's health is refilled in the same instant it breaks, so neither a 0 nor IsBroken ever shows. What
+-- does show, right after the game says "a part broke on this behemoth", is the broken part itself: its health is at 0
+-- now, or its health object is gone, or its health jumps back up (the refill: part health never rises otherwise, apart
+-- from regrowing after a break). That part, and only that part, is marked broken. If none does within 4 seconds, the
+-- break is logged as not identified and no part is marked.
+local BREAK_WINDOW = 4.0
+local breakEvents = 0
+local function armBreak(e, why)
+    local now = os.clock()
+    -- the same break reported by several of the game's listeners: one window, measured from the first
+    if e.pending and now - e.pending.at < 0.5 then return end
+    if e.lastMarkAt and now - e.lastMarkAt < 1 then return end   -- this break was just identified
+    local before, gone = {}, {}
+    for _, p in ipairs(e.parts) do
+        if not e.broke[p.name] then
+            local c = p.read()
+            if c ~= nil and c <= 0 then markBroken(e, p, why .. ", health 0") return end
+            -- the lowest real reading of the last 1.5 s: a refill sampled just before the event still counts
+            local low = e.partLow and e.partLow[p.name]
+            before[p.name] = (low and now - low.at <= 1.5 and low.v) or e.partLast[p.name]
+            if c == nil and e.partLast[p.name] ~= nil then gone[#gone + 1] = p end
+        end
+    end
+    if #gone == 1 then markBroken(e, gone[1], why .. ", its health object removed") return end
+    e.pending = { at = now, why = why, before = before }
+end
+-- called on every sample while a break is waiting to be identified
+resolveBreak = function(e, now)
+    local pb = e.pending
+    if not pb then return end
+    local best, bestRise = nil, 0
+    for _, p in ipairs(e.parts) do
+        if not e.broke[p.name] then
+            local c, m = p.read()
+            local b = pb.before[p.name]
+            if c ~= nil and c <= 0 then markBroken(e, p, pb.why .. ", health 0") e.pending = nil return end
+            if c ~= nil and b ~= nil and m and m > 0 then
+                local rise = (c - b) / m
+                if rise > bestRise then best, bestRise = p, rise end
+            end
+        end
+    end
+    if best and bestRise >= 0.1 then
+        local c, m = best.read()
+        markBroken(e, best, string.format("%s, its health refilled from %.0f to %.0f of %.0f", pb.why, pb.before[best.name] or 0, c or 0, m or 0))
+        e.pending = nil
+    elseif now - pb.at > BREAK_WINDOW then
+        local snap = {}
+        for _, p in ipairs(e.parts) do
+            local c, m = p.read()
+            if not e.broke[p.name] and m and m > 0 then snap[#snap + 1] = string.format("%s %s->%s", p.name, tostring(pb.before[p.name] and math.floor(pb.before[p.name])), tostring(c and math.floor(c))) end
+        end
+        log("overlay: " .. e.cls .. ": a part broke (" .. pb.why .. ") but it could not be told which; none marked. " .. table.concat(snap, ", "))
+        e.pending = nil
+    end
+end
+
+local function onPartBrokenEvent(hookName, ...)
     if not T.track then return end
     local args, names = { ... }, {}
-    local matched = false
+    local matched, behs = false, {}
     for i = 2, #args do
         local ok, v = pcall(function() return args[i]:get() end)
         if ok and v ~= nil then
@@ -766,6 +831,7 @@ local function onPartBrokenEvent(...)
             if n then
                 names[#names + 1] = n
                 for _, e in pairs(Tk.list) do
+                    if n == e.key then behs[#behs + 1] = e end
                     for _, p in ipairs(e.parts) do
                         local cn, an = p.comp and nameOf(p.comp), p.actor and nameOf(p.actor)
                         if n == cn or n == an or (#n > 2 and (n == p.raw or (an and an:sub(-#n - 1) == "_" .. n) or (cn and cn:sub(-#n - 1) == "." .. n))) then
@@ -776,8 +842,19 @@ local function onPartBrokenEvent(...)
             end
         end
     end
-    if not breakEventLogged then breakEventLogged = true log("overlay: part break event from the game, carrying: " .. (#names > 0 and table.concat(names, " | ") or "nothing readable")) end
-    if not matched then pcall(partsBrokenFromGame) end
+    breakEvents = breakEvents + 1
+    if breakEvents <= 20 then log("overlay: break event " .. hookName .. " carrying: " .. (#names > 0 and table.concat(names, " | ") or "nothing readable")) end
+    if matched then Tk.lastBody = nil return end
+    pcall(partsBrokenFromGame)   -- the game's own IsBroken, where it answers
+    -- the event names the behemoth (or nothing: then the behemoths hit in the last few seconds)
+    if #behs == 0 then
+        local now = os.clock()
+        for _, e in pairs(Tk.list) do if e.at and now - e.at < 5 then behs[#behs + 1] = e end end
+    end
+    for _, e in ipairs(behs) do
+        local okA, errA = pcall(armBreak, e, "the game's break event")
+        if not okA then logOnce("arm:" .. tostring(errA), "overlay: break check error: " .. tostring(errA)) end
+    end
     Tk.lastBody = nil   -- written at the next tick
 end
 
@@ -1118,7 +1195,8 @@ log(hooked and "hit hook ready" or ("hit hook not available (" .. tostring(hookE
 local brkHooks = {}
 for _, fn in ipairs({ "/Script/Archon.ArchonTelemetryComponent_Combat:RecordBehemothPartBroken", "/Script/Archon.MasteryComponent:OnBehemothPartBroken",
                       "/Script/Archon.Objective_BehemothParts:OnPartBroken" }) do
-    if pcall(RegisterHook, fn, function(...) local a = { ... } pcall(onPartBrokenEvent, table.unpack(a)) end) then brkHooks[#brkHooks + 1] = fn:match("%.([%w_]+:[%w_]+)$") end
+    local short = fn:match(":([%w_]+)$")
+    if pcall(RegisterHook, fn, function(...) local a = { ... } pcall(onPartBrokenEvent, short, table.unpack(a)) end) then brkHooks[#brkHooks + 1] = fn:match("%.([%w_]+:[%w_]+)$") end
 end
 log("part break events hooked: " .. (#brkHooks > 0 and table.concat(brkHooks, ", ") or "none (breaks come from IsBroken and health)"))
 
