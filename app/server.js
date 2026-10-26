@@ -317,8 +317,10 @@ setInterval(() => {
 
 // ---------------------------------------------------------------- in-game switches
 const TOGGLE_DEFAULTS = { refresh: false, refreshFn: '' };
-// the behemoth overlay (anyone's panel, not just the owner's): the mod tracks behemoths only while it is on
+// the behemoth overlay (anyone's panel, not just the owner's): the mod tracks behemoths only while Lantern's own card
+// is the one showing (with Dauntless Forever's Boss Health Bar, the default since 3.9.21, the mod does no searches)
 const overlayOn = () => !!(settings.overlay && settings.overlay.on);
+const lanternOverlay = () => overlayOn() && settings.overlay.engine === 'lantern';
 // instant refresh is the owner's: anyone else's client keeps the mod locked
 const isOwner = () => !!LIC.status().owner;
 function readToggles(p) {
@@ -338,7 +340,7 @@ function writeToggles(p, t) {
   if (p.modDir && fs.existsSync(p.modDir)) {
     const f = path.join(p.modDir, 'trainer-toggles.json');
     // not the owner: the mod gets the defaults and "locked"
-    const out = { ...(isOwner() ? { ...clean, locked: false } : { ...TOGGLE_DEFAULTS, locked: true }), track: overlayOn() };
+    const out = { ...(isOwner() ? { ...clean, locked: false } : { ...TOGGLE_DEFAULTS, locked: true }), track: lanternOverlay() };
     fs.mkdirSync(path.join(p.modDir, 'track'), { recursive: true });
     // each copy of the game that ever ran left a track file: those over an hour old are done with
     try { const td = path.join(p.modDir, 'track'); for (const f of fs.readdirSync(td)) { const full = path.join(td, f); if (Date.now() - fs.statSync(full).mtimeMs > 3600000) fs.unlinkSync(full); } } catch {}
@@ -703,9 +705,13 @@ function syncMod(gameRunning) {
 // its folder while the overlay is on. The overlay itself is "Lantern Client.exe --overlay": a small click-through
 // window over the game, drawn natively, that asks this panel for GET /api/overlay/state ten times a second. Names come
 // from the game's own kill tokens (TOKEN_KILL_COUNT_LERAWR_BETA = "Kill Token: Rogue Embermane").
-// While it is on, Dauntless Forever's Boss Health Bar (same job, built into its loader) is switched off, and back on
-// when the overlay is turned off, so two bars never show.
-const OVERLAY_DEFAULTS = { on: false, pos: 'top', size: 'm', opacity: 0.85, parts: true, numbers: true };
+// engine 'df' (default, 3.9.21): the overlay is Dauntless Forever's Boss Health Bar, built into its loader. It reads
+// the game's memory directly, so it costs nothing in co-op, where the mod's object searches made the game hitch; the
+// mod tracks nothing then and Lantern's own window is not started. engine 'lantern': Lantern's own card (names,
+// element, stagger, BROKEN parts), with DF's bar switched off. Either way two bars never show, and turning the
+// overlay off puts DF's bar back the way it was (bossbarBefore).
+const OVERLAY_DEFAULTS = { on: false, engine: 'df', pos: 'top', size: 'm', opacity: 0.85, parts: true, numbers: true };
+const OVERLAY_ENGINES = ['df', 'lantern'];
 const OVERLAY_POS = ['top', 'top-left', 'top-right', 'right'];
 const OVERLAY_SIZE = { s: 0.85, m: 1, l: 1.2 };
 const THEME_COLORS = { aether: ['#3cebff', '#4ff3ff', '#0b5f6d'], ember: ['#ff8a3d', '#ffa866', '#7a3410'], verdant: ['#4ff096', '#7cf5b0', '#0d5e35'],
@@ -783,18 +789,29 @@ function overlayStyle() {
 function bossbarOn(p) {
   try { return !/^\s*bossbar\s*=\s*off\s*$/mi.test(fs.readFileSync(path.join(p.dataDir, 'mods.txt'), 'utf8')); } catch { return true; }
 }
-async function overlayBossbar(p, on) {
-  // overlay on: Dauntless Forever's own bar goes off (remembered); overlay off: it comes back if it was on before
+async function overlayBossbar(p) {
+  // overlay on: DF's bar on for engine 'df', off for 'lantern' (its state before is remembered the first time it is
+  // changed); overlay off: it goes back to that. DF's loader reads it when the game starts.
   const o = settings.overlay || {};
-  if (on && bossbarOn(p)) { const r = await runTool(p, 'ue4ss.cjs', ['mod', 'Boss Health Bar', 'off']); if (r && r.ok) { o.restoreBossbar = true; settings.overlay = o; saveSettings(); } }
-  if (!on && o.restoreBossbar) { await runTool(p, 'ue4ss.cjs', ['mod', 'Boss Health Bar', 'on']); delete o.restoreBossbar; settings.overlay = o; saveSettings(); }
+  if (o.restoreBossbar) { o.bossbarBefore = true; delete o.restoreBossbar; }   // 3.9.20 and older remembered only "was on"
+  const want = o.on ? (o.engine || 'df') === 'df' : o.bossbarBefore;
+  if (typeof want === 'boolean') {
+    const cur = bossbarOn(p);
+    if (cur !== want) {
+      const r = await runTool(p, 'ue4ss.cjs', ['mod', 'Boss Health Bar', want ? 'on' : 'off']);
+      if (r && r.ok && o.on && o.bossbarBefore === undefined) o.bossbarBefore = cur;
+      if (!(r && r.ok)) { settings.overlay = o; saveSettings(); return; }
+    }
+  }
+  if (!o.on) delete o.bossbarBefore;
+  settings.overlay = o; saveSettings();
 }
 let overlayPid = 0, overlayTriedAt = 0;
 // the overlay is part of launcher 1.6.0 and later (an older one would just open the panel window)
 const launcherHasOverlay = () => { const v = String(process.env.DFT_LAUNCHER_VERSION || '0').split('.').map(Number); return v[0] > 1 || (v[0] === 1 && v[1] >= 6); };
 function overlayAlive() { if (!overlayPid) return false; try { process.kill(overlayPid, 0); return true; } catch { overlayPid = 0; return false; } }
 function ensureOverlay(running) {
-  if (!LAUNCHER || !launcherHasOverlay() || !overlayOn() || !running || overlayAlive() || !LIC.ok() || Date.now() - overlayTriedAt < 10000) return;
+  if (!LAUNCHER || !launcherHasOverlay() || !lanternOverlay() || !running || overlayAlive() || !LIC.ok() || Date.now() - overlayTriedAt < 10000) return;
   overlayTriedAt = Date.now();
   try {
     // not windowsHide: Windows would apply a hidden start to the overlay's window too
@@ -824,7 +841,7 @@ async function buildState() {
     modStale: MOD_VERSION ? procs.filter((s) => s.v !== MOD_VERSION).length : 0, modVersion: MOD_VERSION,
     escalation: running && inEscalation,
     rulesPending: rulesPending(p),
-    overlay: { ...overlaySettings(), restoreBossbar: undefined, running: overlayAlive() },
+    overlay: { ...overlaySettings(), restoreBossbar: undefined, bossbarBefore: undefined, running: overlayAlive() },
     queue: queue.map((j) => ({ what: describe(j) })), history,
     deliveries: deliveries.filter((d) => d.status === 'saved').map((d) => ({ what: d.what, at: d.at })),
   };
@@ -1030,12 +1047,13 @@ const routes = {
   },
   'GET /api/overlay/state': async () => {
     const p = places(), o = overlaySettings();
-    if (!o.on || !p.pkg) return { ok: true, on: false };
+    if (!o.on || o.engine !== 'lantern' || !p.pkg) return { ok: true, on: false };   // "off" also closes a running Lantern window
     return { ok: true, on: true, running: await backendUp(), style: overlayStyle(), b: overlayTrack(p), q: null };
   },
   'POST /api/overlay': async (b) => {
-    const p = places(), o = overlaySettings(), was = o.on;
+    const p = places(), o = overlaySettings(), was = o.on, wasEngine = o.engine;
     if (typeof b.on === 'boolean') o.on = b.on;
+    if (OVERLAY_ENGINES.includes(b.engine)) o.engine = b.engine;
     if (OVERLAY_POS.includes(b.pos)) o.pos = b.pos;
     if (Object.prototype.hasOwnProperty.call(OVERLAY_SIZE, b.size)) o.size = b.size;
     if (typeof b.opacity === 'number' && b.opacity >= 0.4 && b.opacity <= 1) o.opacity = Math.round(b.opacity * 100) / 100;
@@ -1043,11 +1061,11 @@ const routes = {
     if (typeof b.numbers === 'boolean') o.numbers = b.numbers;
     settings.overlay = { ...(settings.overlay || {}), ...o }; saveSettings();
     if (p.pkg) {
-      if (o.on !== was) { try { await overlayBossbar(p, o.on); } catch {} }
+      if (o.on !== was || o.engine !== wasEngine) { try { await overlayBossbar(p); } catch {} }
       writeToggles(p, readToggles(p));
       ensureOverlay(await backendUp());
     }
-    return { ok: true, overlay: { ...overlaySettings(), restoreBossbar: undefined, running: overlayAlive() } };
+    return { ok: true, overlay: { ...overlaySettings(), restoreBossbar: undefined, bossbarBefore: undefined, running: overlayAlive() } };
   },
   'POST /api/queue/clear': async () => { queue.length = 0; settings.queue = queue; saveSettings(); return { ok: true }; },
   'GET /api/prefs': async () => settings.prefs || {},
@@ -1157,6 +1175,8 @@ function listen(tries = 0) {
     console.log(`DF Trainer panel: ${url}`);   // older launchers (before the rename) look for this line
     writeRunning(url);
     try { const p = places(); if (p.pkg) writeToggles(p, LIC.ok() ? readToggles(p) : (settings.toggles || {})); } catch {}
+    // an overlay turned on before 3.9.21 had DF's bar switched off: it is now the default engine, so it goes back on
+    try { const p = places(); if (p.pkg && overlayOn()) overlayBossbar(p).catch(() => {}); } catch {}
     backendUp().then((up) => { syncMod(up); if (!up) devModsOff(places()); }).catch(() => {});
     tickState().catch(() => {});
     openWindow(url);

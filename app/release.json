@@ -1,5 +1,5 @@
 {
-  "version": "3.9.20",
+  "version": "3.9.21",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Overlay lag: the game mod searched every game object for behemoths every 2 s, player states every 5 s and parts every 10 s during a fight, on the game's own thread (each search pauses the game ~35 ms in your game, ~18 ms on a hunt server; up to ~245 ms at once). Now it searches only when a hit lands on a behemoth it does not know yet, re-links parts through their own components, does at most two searches per game frame, and a hunt server stops re-checking what it is. In a simulated 90 s fight: 106 searches down to 19 in your game, 148 to 36 on a hunt server. The mod log now notes the cost once a minute (game mod 7.5; close the game fully to load it)."
+  "notes": "Overlay: now uses Dauntless Forever's own Boss Health Bar by default (Settings > Behemoth overlay > Style). It is built into DF's loader and reads the game directly, so there is no lag in co-op; the game mod does no searches at all then. Lantern's own card (element, stagger, BROKEN parts) is still there as a choice, but can make the game stutter in co-op. If you had the overlay on, DF's bar is switched back on for you. Start the game again for the change to apply."
 }

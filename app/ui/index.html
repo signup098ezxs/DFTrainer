@@ -323,6 +323,8 @@ nav > button.settab.on svg { transform: rotate(60deg); }
 .ovgrid .setrow:first-child { border-top: 0; }
 .ovnote { margin: 4px 0 10px; color: var(--ash); font-size: 12.5px; min-height: 1em; }
 .ovnote.warn { color: #f3d9ae; }
+#ovCard.ovdf .ovlantern { display: none; }
+#ovCard.ovdf .ovgrid { grid-template-columns: minmax(0, 1fr); }
 .ovstage { position: relative; height: 270px; margin: 6px 0 10px; border-radius: 12px; overflow: hidden; border: 1px solid var(--seam);
   background: radial-gradient(120% 90% at 20% 110%, #5b6b3a 0%, transparent 55%), radial-gradient(90% 70% at 85% 0%, #c9a46a 0%, transparent 60%), linear-gradient(160deg, #6f7f86, #2c3a35 60%, #1a2322); }
 .ovstage::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.05), rgba(0,0,0,.25)); pointer-events: none; }
@@ -1036,14 +1038,15 @@ div.lrow { cursor: default; }
           <div class="ovgrid">
             <div>
               <div class="setrow"><div class="lbl"><b>Show in game</b><small>The behemoth you are fighting, over the game: its name, health and each part's health. Click-through, and only while the game is in front.</small></div><div class="ctl"><label class="sw sm"><input type="checkbox" id="ovOn"><span class="track"></span><span class="knob"></span></label></div></div>
-              <div class="setrow"><div class="lbl"><b>Position</b><small>Where it sits on the game's screen.</small></div><div class="ctl"><select id="ovPos"><option value="top">Top centre</option><option value="top-left">Top left</option><option value="top-right">Top right</option><option value="right">Right side</option></select></div></div>
-              <div class="setrow"><div class="lbl"><b>Size</b><small>Grows with the game's resolution too.</small></div><div class="ctl"><select id="ovSize"><option value="s">Small</option><option value="m">Medium</option><option value="l">Large</option></select></div></div>
-              <div class="setrow"><div class="lbl"><b>Background</b><small>How solid the card behind the bars is.</small></div><div class="ctl"><input type="range" id="ovOpacity" min="0.4" max="1" step="0.05"></div></div>
-              <div class="setrow"><div class="lbl"><b>Part health</b><small>Head, legs, tail... as thin bars under the health bar.</small></div><div class="ctl"><label class="sw sm"><input type="checkbox" id="ovParts" checked><span class="track"></span><span class="knob"></span></label></div></div>
-              <div class="setrow"><div class="lbl"><b>Health numbers</b><small>Exact health under the bar.</small></div><div class="ctl"><label class="sw sm"><input type="checkbox" id="ovNumbers" checked><span class="track"></span><span class="knob"></span></label></div></div>
+              <div class="setrow"><div class="lbl"><b>Style</b><small>Dauntless Forever's Boss Health Bar reads the game directly: no lag, also in co-op. Lantern's card adds element, stagger and BROKEN parts, but can make the game stutter in co-op. Applies the next time the game starts.</small></div><div class="ctl"><select id="ovEngine"><option value="df">Dauntless Forever bar (smooth)</option><option value="lantern">Lantern card (more detail)</option></select></div></div>
+              <div class="setrow ovlantern"><div class="lbl"><b>Position</b><small>Where it sits on the game's screen.</small></div><div class="ctl"><select id="ovPos"><option value="top">Top centre</option><option value="top-left">Top left</option><option value="top-right">Top right</option><option value="right">Right side</option></select></div></div>
+              <div class="setrow ovlantern"><div class="lbl"><b>Size</b><small>Grows with the game's resolution too.</small></div><div class="ctl"><select id="ovSize"><option value="s">Small</option><option value="m">Medium</option><option value="l">Large</option></select></div></div>
+              <div class="setrow ovlantern"><div class="lbl"><b>Background</b><small>How solid the card behind the bars is.</small></div><div class="ctl"><input type="range" id="ovOpacity" min="0.4" max="1" step="0.05"></div></div>
+              <div class="setrow ovlantern"><div class="lbl"><b>Part health</b><small>Head, legs, tail... as thin bars under the health bar.</small></div><div class="ctl"><label class="sw sm"><input type="checkbox" id="ovParts" checked><span class="track"></span><span class="knob"></span></label></div></div>
+              <div class="setrow ovlantern"><div class="lbl"><b>Health numbers</b><small>Exact health under the bar.</small></div><div class="ctl"><label class="sw sm"><input type="checkbox" id="ovNumbers" checked><span class="track"></span><span class="knob"></span></label></div></div>
               <p class="ovnote" id="ovNote"></p>
             </div>
-            <div class="ovstage" id="ovStage" aria-label="Preview">
+            <div class="ovstage ovlantern" id="ovStage" aria-label="Preview">
               <div class="ovcard" id="ovPrev" data-pos="top">
                 <div class="ovhead"><b id="ovpName">Rogue Embermane</b><span id="ovpPct">100%</span></div>
                 <div class="ovel"><i></i><span class="e">Blaze</span><span class="w">&nbsp;·&nbsp; weak to <b>Frost</b></span></div>
@@ -1807,6 +1810,7 @@ function ovSettings(o) {
   if (!o) return;
   OV = o;
   $('#ovOn').checked = !!o.on; $('#ovPos').value = o.pos; $('#ovSize').value = o.size;
+  $('#ovEngine').value = o.engine === 'lantern' ? 'lantern' : 'df'; $('#ovCard').classList.toggle('ovdf', o.engine !== 'lantern');
   // the slider you are dragging keeps your value (a state push mid-drag set it back to the saved one)
   if (ovSliding || document.activeElement === $('#ovOpacity')) OV.opacity = Number($('#ovOpacity').value); else $('#ovOpacity').value = o.opacity;
   $('#ovParts').checked = !!o.parts; $('#ovNumbers').checked = !!o.numbers;
@@ -1817,7 +1821,10 @@ function ovNote() {
   const n = $('#ovNote'); if (!OV || !S) return;
   const setup = !S.ue4ss || !S.modInstalled || !S.modOn, modeOff = !setup && !(S.mode && S.mode.on && S.mode.servers);
   let t = '', warn = false;
-  if (!OV.on) t = 'Off. Dauntless Forever\'s own Boss Health Bar is untouched.';
+  const df = OV.engine !== 'lantern';
+  if (!OV.on) t = 'Off. Dauntless Forever\'s own Boss Health Bar is left as it was.';
+  else if (df && !(S.mode && S.mode.on)) { t = 'Paused: Dauntless Forever\'s Boss Health Bar is part of Modded mode, which is off. Turn it back on at the top for hunts.'; warn = true; }
+  else if (df) t = 'On: Dauntless Forever\'s Boss Health Bar shows the nearest behemoth and its parts (borderless or windowed mode). Ctrl+Alt+arrow keys move it, Ctrl+Alt+Home centres it.' + (S.running ? ' A change applies the next time the game starts.' : '');
   else if (setup) { t = 'Needs the game mod: press Set up at the top (with the game closed).'; warn = true; }
   else if (modeOff) { t = 'Paused: Modded mode is off (Dauntless Forever advises that for escalations). Turn it back on at the top for hunts.'; warn = true; }
   else if (S.escalation) { t = 'In an escalation: Dauntless Forever says Modded mode can crash in busy escalations. The overlay works, but turning Modded mode off for escalations is the safe choice.'; warn = true; }
@@ -1878,6 +1885,7 @@ $('#ovOn').addEventListener('change', (e) => { e.target.checked ? SFX.switchOn()
 $('#ovParts').addEventListener('change', (e) => { e.target.checked ? SFX.switchOn() : SFX.switchOff(); ovSave({ parts: e.target.checked }); });
 $('#ovNumbers').addEventListener('change', (e) => { e.target.checked ? SFX.switchOn() : SFX.switchOff(); ovSave({ numbers: e.target.checked }); });
 $('#ovPos').addEventListener('change', (e) => { SFX.tick(); ovSave({ pos: e.target.value }); });
+$('#ovEngine').addEventListener('change', (e) => { SFX.tick(); $('#ovCard').classList.toggle('ovdf', e.target.value !== 'lantern'); ovSave({ engine: e.target.value }); });
 $('#ovSize').addEventListener('change', (e) => { SFX.tick(); ovSave({ size: e.target.value }); });
 // from its first move until the change is saved, the slider is yours: no state push sets it back
 let ovSliding = false;
