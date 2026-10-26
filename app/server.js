@@ -768,25 +768,45 @@ function readTrack(file) {
   const g = trackGood.get(file);
   return g && Date.now() - g.at < 1000 ? g.t : null;
 }
+// 7.1: your own game says which behemoth you are fighting (of those being hit, the one nearest to you); a hunt server
+// on this PC (when you host) has every behemoth's real health and parts and lists those being hit. Yours is matched in
+// that list by kind and place, since actor names differ between your game and the server. Without your game's pick
+// (an older mod, or no hit yet), the hunt server's latest hit, as before.
+const near2 = (a, b) => (Array.isArray(a) && Array.isArray(b) ? (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2 : Infinity);
+function pickTrack(tracks) {
+  let mine = null, best = null;
+  for (const t of tracks) {
+    if (t.role === 'game' && (!mine || (t.b.at || 0) > (mine.b.at || 0))) mine = t;
+    const score = [t.role === 'server' ? 1 : 0, t.b.at || 0, (t.b.parts || []).length, t.b.n || 0];
+    if (!best || later(score, best.score)) best = { t, score };
+  }
+  if (!mine) return best ? best.t.b : null;
+  let match = null, d = Infinity;
+  for (const t of tracks) {
+    if (t.role !== 'server') continue;
+    for (const e of [t.b, ...(Array.isArray(t.list) ? t.list : [])]) {
+      if (!e || e.cls !== mine.b.cls) continue;
+      const dd = near2(e.loc, mine.b.loc);
+      if (!match || dd < d) { match = e; d = dd; }
+    }
+  }
+  return match || mine.b;
+}
 function overlayTrack(p) {
   if (ovCache && Date.now() - ovCacheAt < 80) return ovCache;
-  let best = null;
+  const tracks = [];
   const dir = p.modDir && path.join(p.modDir, 'track');
   try {
     const now = Date.now() / 1000;
     for (const f of fs.readdirSync(dir)) {
       if (!f.endsWith('.json')) continue;
       const t = readTrack(path.join(dir, f));
-      if (!t || !t.b || now - (t.time || 0) > 4) continue;
-      const score = [t.role === 'server' ? 1 : 0, t.b.at || 0, (t.b.parts || []).length, t.b.n || 0];
-      // a hunt server first (it owns the fight: health and parts as they really are), your game only without one;
-      // then the latest hit
-      if (!best || later(score, best.score)) best = { t, score };
+      if (t && t.b && now - (t.time || 0) <= 4) tracks.push(t);
     }
   } catch {}
   ovCacheAt = Date.now();
-  if (!best) return (ovCache = null);
-  const b = best.t.b;
+  const b = pickTrack(tracks);
+  if (!b) return (ovCache = null);
   const who = BEHEMOTHS.resolveBehemoth(b.cls, { gameRow: b.nm || b.mn, gameArch: b.da, gameClass: b.dc,
     tokens: catalog(p).behemoths, codeNames: catalog(p).codeNames, log: panelLog });
   const el = who, stg = Array.isArray(b.stg) && b.stg[1] > 0 ? b.stg : null;

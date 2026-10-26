@@ -10,7 +10,7 @@
 -- Only property reads are used (7.0 removed the damage multiplier: the hunt server rewrites a behemoth's health from
 -- its ability system on every hit, so a written health never stuck). Logged as [DFTrainer] in UE4SS.log.
 
-local MOD_VERSION  = "7.0"
+local MOD_VERSION  = "7.1"
 local TICK_MS      = 150    -- how often the mod's loop runs
 local RESCAN_EVERY = 2.0    -- seconds between searches for players (instant refresh)
 local READ_EVERY   = 0.5    -- seconds between reads of the toggles file
@@ -192,7 +192,7 @@ local function rescan(now)
     lastRescan = now
     local isGame, owners = false, {}
     for _, pc in ipairs(findAll(PC_CLASSES)) do
-        if isLocal(pc) then isGame = true end
+        if isLocal(pc) then isGame, S.localPC = true, pc end   -- your controller: where you are (the overlay)
         if T.refresh then
             local okP, pawn = pcall(function() return pc.Pawn end)
             if okP and valid(pawn) then
@@ -333,6 +333,8 @@ local TRACK_PARTS  = 3.0     -- seconds between part searches for a behemoth tha
 local TRACK_REBIND = 10.0    -- seconds between part searches once found (a part actor can be replaced in a fight)
 local TRACK_LINGER = 4.0     -- seconds a dead behemoth stays on the overlay
 local TRACK_BEAT   = 1.0     -- seconds: rewrite the file this often even when nothing changed
+local TRACK_MINE   = 15.0    -- seconds: a behemoth hit this recently can be the one you are fighting
+local TRACK_LIST   = 6       -- a hunt server lists this many recently hit behemoths (the panel picks yours)
 local TrackFile = Base and (Base .. "/track/" .. ProcId .. ".json")
 local Tk = { list = {}, lastScan = -100, lastWrite = -100, lastBody = nil, n = 0, cleared = true }
 
@@ -465,7 +467,9 @@ local function trackScan(now)
                 end
                 -- the regular re-check is for the behemoth being fought; the others only until their parts are found
                 local again = (#e.parts == 0 and now - e.partsAt >= TRACK_PARTS) or (e.at and now - e.partsAt >= TRACK_REBIND) or e.partsLost
-                if S.roleKnown and S.role == "server" and again then   -- parts are read on hunt servers only
+                -- 7.1: your own game reads parts too (named properties only, as on the servers): a player who joins
+                -- someone else's game has no hunt server on their PC, so this is the only place they can come from
+                if S.roleKnown and again then
                     e.partsAt = now
                     sets = sets or findAll({ "ArchonHealthAttributeSet" })
                     comps = comps or findAll({ "MonsterPartComponent" })   -- one search per scan, shared by every behemoth
@@ -557,6 +561,43 @@ local function stagReader(set)
     end
 end
 
+-- where an actor is: its root component's RelativeLocation (the root of a behemoth or a player is not attached to
+-- anything, so that is its place in the world). Property reads only; nil when it cannot be read.
+local function locOf(a)
+    local okR, rc = pcall(getField, a, "RootComponent")
+    if not (okR and rc ~= nil and type(rc) ~= "number" and valid(rc)) then return nil end
+    local okL, l = pcall(getField, rc, "RelativeLocation")
+    if not okL or l == nil then return nil end
+    local okX, x, y, z = pcall(function() return l.X, l.Y, l.Z end)
+    if okX and type(x) == "number" and type(y) == "number" then return x, y, (type(z) == "number" and z or 0) end
+    return nil
+end
+-- your character, in your own game (nil on a hunt server: it has every player and cannot tell which one is you)
+local function myPawn()
+    if S.role ~= "game" or not (S.localPC and valid(S.localPC)) then return nil end
+    local ok, p = pcall(getField, S.localPC, "Pawn")
+    return (ok and p ~= nil and type(p) ~= "number" and valid(p)) and p or nil
+end
+-- the behemoth you are fighting: of those hit in the last 15 s, the one nearest to you (two players fighting two
+-- behemoths each get their own); on a hunt server, or when places cannot be read, the one hit last
+local function pickMine(now)
+    local recent = {}
+    for _, e in pairs(Tk.list) do if e.at and now - e.at < TRACK_MINE and valid(e.b) then recent[#recent + 1] = e end end
+    local pawn = myPawn()
+    local px, py, pz
+    if pawn then px, py, pz = locOf(pawn) end
+    local best, bestD = nil, nil
+    for _, e in ipairs(recent) do
+        local x, y, z = locOf(e.b)
+        e.x, e.y, e.z = x, y, z
+        local d = (px and x) and ((x - px) ^ 2 + (y - py) ^ 2 + (z - pz) ^ 2) or nil
+        if d and (not bestD or d < bestD) then best, bestD = e, d
+        elseif not bestD and (not best or e.at > best.at) then best = e end
+    end
+    if bestD then logOnce("mine:near", "overlay: picks the behemoth nearest to you among those being hit") end
+    return best, recent
+end
+
 local function trackJson(e)
     local rawHp = readNum(e.set, "CurrentHealth")
     local hp, mx = fin(rawHp or 0), fin(readNum(e.set, "MaxHealth") or 0)
@@ -604,6 +645,7 @@ local function trackJson(e)
     if e.metaName then stg = stg .. ',"mn":"' .. tostring(e.metaName):gsub('[%c"\\]', '') .. '"' end
     if e.dispArch then stg = stg .. ',"da":"' .. tostring(e.dispArch):gsub('[%c"\\]', '') .. '"' end
     if e.dispClass and e.dispClass ~= "" then stg = stg .. ',"dc":"' .. tostring(e.dispClass):gsub('[%c"\\]', '') .. '"' end
+    if e.x then stg = stg .. string.format(',"loc":[%.0f,%.0f,%.0f]', fin(e.x), fin(e.y), fin(e.z)) end
     return string.format('{"key":"%s","cls":"%s","cur":%.0f,"max":%.0f,"at":%d,"n":%d,"dead":%s,"parts":[%s]%s}',
         clean(e.key), clean(e.cls), math.max(hp, 0), mx, e.atTime or 0, e.n or 0, tostring(dead), table.concat(ps, ","), stg)
 end
@@ -658,10 +700,20 @@ local function trackTick(now)
             if hp and hp <= 0 and not e.deadAt then e.deadAt = now end
             if hp and hp > 0 then e.deadAt = nil end   -- 0 at spawn (health not filled in yet) is not dead
             if e.deadAt and now - e.deadAt > TRACK_LINGER then e.at = nil end
-            if e.at and (not best or e.at > best.at) then best = e end
         end
     end
+    local recent
+    best, recent = pickMine(now)
+    Tk.mine = best
     local body = best and trackJson(best) or "null"
+    -- a hunt server also lists the other behemoths being hit, with their places: the panel matches the one your own
+    -- game picked (actor names differ between your game and the server, so by kind and place)
+    if S.role == "server" and best then
+        table.sort(recent, function(a, b) return a.at > b.at end)
+        local more = {}
+        for _, e in ipairs(recent) do if e ~= best and #more < TRACK_LIST - 1 then more[#more + 1] = trackJson(e) end end
+        if #more > 0 then body = body .. ',"list":[' .. table.concat(more, ",") .. "]" end
+    end
     if body == Tk.lastBody and now - Tk.lastWrite < TRACK_BEAT then return end
     local f = io.open(TrackFile, "w")
     if not f then logOnce("notrack", "cannot write " .. TrackFile .. " (the panel creates the track folder)") return end
@@ -690,8 +742,7 @@ local stagSeen = {}
 local stagCompProps = {}   -- class -> { cur = name, max = name } or false
 local function isObj(v) return v ~= nil and type(v) ~= "number" and type(v) ~= "string" and type(v) ~= "boolean" and valid(v) end
 local function stagFromFunctions()
-    local best = nil
-    for _, e in pairs(Tk.list) do if e.at and (not best or e.at > best.at) then best = e end end
+    local best = Tk.mine   -- the behemoth the overlay shows (trackTick picks it)
     if not best or not valid(best.b) then return end
     -- 1. the behemoth's own meter
     local okC, c = pcall(callM, best.b, "GetCurrentStaggerHealth")

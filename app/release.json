@@ -1,5 +1,5 @@
 {
-  "version": "3.9.14",
+  "version": "3.9.15",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Fixes \"Node.js was not found\" for players who only set up 1.14.7: Lantern Client now finds the Node.js that Dauntless Forever's own set-up uses. The Damage setting is gone: the game resets a behemoth's health on every hit, so the multiplier never really worked (game mod 7.0)."
+  "notes": "Overlay in co-op: it now shows the behemoth you are fighting (the one nearest to you), not whichever one another player hit last, and a player who joins someone else's game can now get part health too (game mod 7.1)."
 }
