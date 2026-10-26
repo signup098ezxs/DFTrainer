@@ -356,30 +356,6 @@ nav > button.settab.on svg { transform: rotate(60deg); }
 .ovparts .p .k { margin-left: 4px; font-weight: 700; color: #ff8c9c; }
 .ovparts .p.broken .r em { color: #ff8c9c; letter-spacing: .06em; }
 .ovparts .p.broken .b { background: rgba(255, 140, 156, .12); box-shadow: inset 0 0 0 1px rgba(255, 140, 156, .28); }
-/* quest tracker preview: the in-game card's look */
-.qcard { --u: 1; --op: .85; position: absolute; z-index: 1; width: calc(218px * var(--u)); padding: calc(8px * var(--u)) calc(9px * var(--u)); border-radius: calc(8px * var(--u)); font-family: 'Chakra Petch', var(--display);
-  background: rgba(7, 11, 16, var(--op)); border: 1px solid rgba(var(--a-rgb), .3); box-shadow: 0 6px 22px rgba(0,0,0,.35); transition: left .35s var(--ease), top .35s var(--ease), opacity .25s; }
-.qcard::before { content: ""; position: absolute; left: 10%; right: 10%; top: -1px; height: 1px; background: linear-gradient(90deg, transparent, var(--a-light), transparent); }
-.qcard[data-pos="right"] { left: calc(100% - 12px - 218px * var(--u) - 18px * var(--u)); top: 34%; }
-.qcard[data-pos="left"] { left: 12px; top: 34%; }
-.qcard[data-pos="top-left"] { left: 12px; top: 12px; }
-.qcard[data-pos="top-right"] { left: calc(100% - 12px - 218px * var(--u) - 18px * var(--u)); top: 12px; }
-.qcard .qh { font-size: calc(7.5px * var(--u)); font-weight: 700; letter-spacing: .14em; color: rgba(158,181,191,.7); margin-bottom: calc(4px * var(--u)); }
-.qcard .q + .q { margin-top: calc(7px * var(--u)); padding-top: calc(6px * var(--u)); border-top: 1px solid rgba(255,255,255,.07); }
-.qcard .qt { display: flex; align-items: center; gap: calc(5px * var(--u)); font-size: calc(10px * var(--u)); font-weight: 600; color: #eff7f9; }
-.qcard .qt i { flex: none; width: calc(5px * var(--u)); height: calc(5px * var(--u)); border-radius: 50%; background: var(--aether); box-shadow: 0 0 6px var(--aether); }
-.qcard .qt i.side { background: #e9eef1; box-shadow: none; } .qcard .qt i.rumour { background: #c7a6ff; box-shadow: none; } .qcard .qt i.special { background: #ffd978; box-shadow: none; }
-.qcard .qt b { font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.qcard .qt em { font-style: normal; font-size: calc(7.5px * var(--u)); font-weight: 700; letter-spacing: .08em; color: var(--ok); }
-.qcard .qo { display: flex; justify-content: space-between; gap: 6px; margin-top: calc(3px * var(--u)); padding-left: calc(10px * var(--u)); font-size: calc(8.5px * var(--u)); font-weight: 600; color: #b9cad1; }
-.qcard .qo span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.qcard .qo em { font-style: normal; font-weight: 700; color: var(--a-light); font-variant-numeric: tabular-nums; transition: color .3s; }
-.qcard .qo.done { color: rgba(185,202,209,.5); } .qcard .qo.done em { color: var(--ok); }
-.qcard .qb { height: calc(2px * var(--u)); margin: calc(2px * var(--u)) 0 0 calc(10px * var(--u)); border-radius: 99px; background: rgba(255,255,255,.08); overflow: hidden; }
-.qcard .qb i { display: block; height: 100%; background: linear-gradient(90deg, var(--aether), var(--a-light)); transition: width .4s var(--ease); }
-.qchips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
-.qchips button { height: 28px; padding: 0 11px; border-radius: 99px; border: 1px solid var(--seam2); background: #13202a; color: var(--ash); font: 600 12px var(--display); cursor: pointer; transition: border-color .2s, color .2s, background .2s; }
-.qchips button.on { border-color: rgba(var(--a-rgb), .55); color: var(--frost); background: rgba(var(--a-rgb), .1); }
 .ovel { display: flex; align-items: center; margin-top: calc(3px * var(--u)); font-size: calc(8.5px * var(--u)); font-weight: 600; color: #9eb5bf; }
 .ovel i { width: calc(5px * var(--u)); height: calc(5px * var(--u)); margin-right: calc(4px * var(--u)); border-radius: 50%; background: #ff7a3d; }
 .ovel .e { color: #ff7a3d; } .ovel .w b { color: #80d9ff; font-weight: 600; }
@@ -1077,21 +1053,6 @@ div.lrow { cursor: default; }
             </div>
           </div>
         </div>
-        <div class="setcard wide" id="qtCard"><h3>Quest tracker</h3>
-          <div class="ovgrid">
-            <div>
-              <div class="setrow"><div class="lbl"><b>Show in game</b><small>The quests you are on, over the game: each objective and its progress (1/3), read from the game itself. Click-through, and only while the game is in front.</small></div><div class="ctl"><label class="sw sm"><input type="checkbox" id="qtOn"><span class="track"></span><span class="knob"></span></label></div></div>
-              <div class="setrow"><div class="lbl"><b>Quests to track</b><small>The game's own kinds of quest.</small></div><div class="ctl"><div class="qchips" id="qtCats"><button data-c="main">Main</button><button data-c="side">Side</button><button data-c="special">Special</button><button data-c="rumour">Rumours</button><button data-c="other">Other</button></div></div></div>
-              <div class="setrow"><div class="lbl"><b>How many</b><small>Quests shown at once. Unfinished ones first, then main before side.</small></div><div class="ctl"><select id="qtMax"><option value="1">1 quest</option><option value="2">2 quests</option><option value="3">3 quests</option><option value="4">4 quests</option></select></div></div>
-              <div class="setrow"><div class="lbl"><b>Position</b><small>Where it sits on the game's screen.</small></div><div class="ctl"><select id="qtPos"><option value="right">Right side</option><option value="left">Left side</option><option value="top-left">Top left</option><option value="top-right">Top right</option></select></div></div>
-              <p class="ovnote" id="qtNote"></p>
-            </div>
-            <div class="ovstage" aria-label="Preview">
-              <div class="qcard" id="qtPrev" data-pos="right"></div>
-              <span class="ovtag">Preview</span>
-            </div>
-          </div>
-        </div>
         <div class="setcard"><h3>Display</h3>
           <div class="setrow"><div class="lbl"><b>Window size</b><small>Resizes the window now and when it opens.</small></div><div class="ctl"><select id="setWin"><option value="auto">Fit screen</option><option value="1024x640">1024 x 640</option><option value="1180x760">1180 x 760</option><option value="1280x800">1280 x 800</option><option value="1440x900">1440 x 900</option></select></div></div>
           <div class="setrow"><div class="lbl"><b>Interface scale</b><small>Makes everything larger or smaller.</small></div><div class="ctl"><select id="setScale"><option value="0.9">90%</option><option value="1">100%</option><option value="1.1">110%</option><option value="1.25">125%</option></select></div></div>
@@ -1383,8 +1344,7 @@ function onState(s) {
   showBanner(setupNeeded ? 'setup' : modeOff ? 'modeoff' : null);
   syncToggles(s.toggles);
   if (s.overlay && (!OV || JSON.stringify(s.overlay) !== JSON.stringify(OV))) ovSettings(s.overlay); else ovNote();
-  if (s.quests && (!QT || JSON.stringify(s.quests) !== JSON.stringify(QT))) qtSettings(s.quests); else qtNote();
-  $('#pMod').hidden = !((LIC && LIC.owner) || (s.overlay && s.overlay.on) || (s.quests && s.quests.on));
+  $('#pMod').hidden = !((LIC && LIC.owner) || (s.overlay && s.overlay.on));
   renderRelay();
   renderQueue();
   setHTML('#paths', `Package ${esc(s.pkg)}<br>Game ${esc(s.gameDir || 'not set up yet')}`);
@@ -1412,7 +1372,7 @@ function onNote(n, fresh) {
 
 function showBanner(kind) {
   const b = $('#banner'), inp = $('#pkgInput'), btn = $('#bannerBtn');
-  if ((kind === 'setup' || kind === 'modeoff') && !(LIC && LIC.owner) && !(S && S.overlay && S.overlay.on) && !(S && S.quests && S.quests.on)) kind = null;   // instant refresh (owner), the overlay and the quest tracker need the game mod
+  if ((kind === 'setup' || kind === 'modeoff') && !(LIC && LIC.owner) && !(S && S.overlay && S.overlay.on)) kind = null;   // instant refresh (owner) and the overlay need the game mod
   placeBanner();
   b.classList.toggle('show', !!kind);
   if (!kind) return;
@@ -1427,7 +1387,7 @@ function showBanner(kind) {
     const off = kind === 'modeoff';
     $('#bannerTitle').textContent = off ? 'Modded mode is off' : 'One-time set-up for the game mod';
     $('#bannerText').textContent = off
-      ? 'The overlay and quest tracker need Modded mode (UE4SS) in your game and its servers, so they are paused. Dauntless Forever advises keeping it off for escalations, where it can crash. Turn it back on for hunts' + (S.running ? ' once the game is closed.' : '.')
+      ? 'The overlay needs Modded mode (UE4SS) in your game and its servers, so they are paused. Dauntless Forever advises keeping it off for escalations, where it can crash. Turn it back on for hunts' + (S.running ? ' once the game is closed.' : '.')
       : S.running ? 'Close the game first. Set-up installs the trainer mod and turns on modded mode and server mods.' : 'Installs the trainer mod (and UE4SS if needed) and turns on modded mode and server mods.';
     btn.disabled = !!S.running;
     const label = off ? 'Turn Modded mode on' : 'Set up';
@@ -1910,59 +1870,6 @@ async function ovSave(patch) {
   const r = await api('/api/overlay', patch);
   if (r.ok) ovSettings(r.overlay); else { SFX.error(); toast('Not saved', r.error, 'error'); }
 }
-/* quest tracker (Settings): its switches, and a preview with pretend quests (the real ones come from the game) */
-let QT = null;
-const QTP = {
-  quests: [{ t: 'A New Threat', c: 'main', o: [['Hunt a Shrike', 1, 3], ['Gather Aetherdust', 4, 10]] }, { t: 'Rumour: Umbral Helm', c: 'rumour', o: [['Break a Gnasher\'s tail', 0, 2]] }],
-  tick() {   // progress now and then, like the game reporting it
-    if (Math.random() < 0.6) return;
-    const q = this.quests[Math.floor(Math.random() * this.quests.length)], o = q.o.find((x) => x[1] < x[2]);
-    if (o) o[1]++; else q.o.forEach((x) => { x[1] = 0; });
-    qtPaint();
-  },
-};
-function qtPaint() {
-  if (!QT) return;
-  const list = QTP.quests.filter((q) => QT.cats[q.c]).slice(0, QT.max);
-  setHTML('#qtPrev', list.length ? '<div class="qh">QUESTS</div>' + list.map((q) => {
-    const done = q.o.every((o) => o[1] >= o[2]);
-    return `<div class="q"><div class="qt"><i class="${q.c}"></i><b>${esc(q.t)}</b>${done ? '<em>COMPLETE</em>' : ''}</div>${done ? '' : q.o.map(([d, c, r]) => `<div class="qo${c >= r ? ' done' : ''}"><span>${esc(d)}</span><em>${c}/${r}</em></div><div class="qb"><i style="width:${Math.min(100, c / r * 100)}%"></i></div>`).join('')}</div>`;
-  }).join('') : '<div class="qh">QUESTS</div><div class="qo"><span>No category picked</span></div>');
-}
-function qtSettings(q) {
-  if (!q) return;
-  QT = q;
-  $('#qtOn').checked = !!q.on; $('#qtPos').value = q.pos; $('#qtMax').value = String(q.max);
-  $$('#qtCats button').forEach((b) => b.classList.toggle('on', !!q.cats[b.dataset.c]));
-  const c = $('#qtPrev'); c.dataset.pos = q.pos;
-  if (OV) { c.style.setProperty('--u', { s: 0.85, m: 1, l: 1.15 }[OV.size] || 1); c.style.setProperty('--op', OV.opacity); }
-  qtPaint(); qtNote();
-}
-function qtNote() {
-  const n = $('#qtNote'); if (!QT || !S) return;
-  const setup = !S.ue4ss || !S.modInstalled || !S.modOn, modeOff = !setup && !(S.mode && S.mode.on);
-  let t = '', warn = false;
-  if (!QT.on) t = 'Off.';
-  else if (setup) { t = 'Needs the game mod: press Set up at the top (with the game closed).'; warn = true; }
-  else if (modeOff) { t = 'Paused: Modded mode is off. Turn it back on at the top.'; warn = true; }
-  else if (S.escalation) { t = 'In an escalation: Dauntless Forever says Modded mode can crash in busy escalations.'; warn = true; }
-  else if (!S.app || !S.app.managed) { t = 'Shows in game when Lantern Client is opened from its own app.'; warn = true; }
-  else t = 'On: your quests appear in game, and update as the game reports progress.';
-  n.textContent = t; n.classList.toggle('warn', warn);
-}
-async function qtSave(patch) {
-  QT = { ...(QT || {}), ...patch, cats: { ...((QT || {}).cats || {}), ...(patch.cats || {}) } }; qtPaint(); qtNote();
-  const r = await api('/api/quests', patch);
-  if (r.ok) qtSettings(r.quests); else { SFX.error(); toast('Not saved', r.error, 'error'); }
-}
-$('#qtOn').addEventListener('change', (e) => { e.target.checked ? SFX.switchOn() : SFX.switchOff(); qtSave({ on: e.target.checked }); });
-$('#qtPos').addEventListener('change', (e) => { SFX.tick(); qtSave({ pos: e.target.value }); });
-$('#qtMax').addEventListener('change', (e) => { SFX.tick(); qtSave({ max: Number(e.target.value) }); });
-$('#qtCats').addEventListener('click', (e) => {
-  const b = e.target.closest('button'); if (!b || !QT) return;
-  const on = !QT.cats[b.dataset.c]; on ? SFX.switchOn() : SFX.switchOff();
-  b.classList.toggle('on', on); qtSave({ cats: { [b.dataset.c]: on } });
-});
 $('#ovOn').addEventListener('change', (e) => { e.target.checked ? SFX.switchOn() : SFX.switchOff(); ovSave({ on: e.target.checked }); });
 $('#ovParts').addEventListener('change', (e) => { e.target.checked ? SFX.switchOn() : SFX.switchOff(); ovSave({ parts: e.target.checked }); });
 $('#ovNumbers').addEventListener('change', (e) => { e.target.checked ? SFX.switchOn() : SFX.switchOff(); ovSave({ numbers: e.target.checked }); });

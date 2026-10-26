@@ -1,5 +1,5 @@
 {
-  "version": "3.9.16",
+  "version": "3.9.17",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Overlay: broken parts now show for players who join someone else's game. The game refills a broken part at once and only tells the host's server, so a joining player's overlay missed most breaks; now a part whose health jumps back up counts as broken, for everyone the same way (game mod 7.2)."
+  "notes": "Fixes game crashes with the overlay on (\"Crashdump written to ...\"): the game mod read game objects from a side thread, sometimes after the game had already freed them. It now reads them only on the game's own thread and never reuses an object it kept from before. The quest tracker is removed (game mod 7.3)."
 }

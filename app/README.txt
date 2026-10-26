@@ -31,7 +31,7 @@ FIRST TIME
      accepted, Enter takes you in, with a short welcome each time it opens. The key is kept: you enter it once.
   4. The first time, a short tour shows how to set up and what each page does (Settings > Show the tour replays it).
      (Windows may say it protects your PC the first time: the exe is not code-signed. "More info", "Run anyway".)
-  3. For the overlay or quest tracker: press "Set up" in the amber bar. It installs the game mod (and UE4SS, the mod loader, if you don't have it)
+  3. For the overlay: press "Set up" in the amber bar. It installs the game mod (and UE4SS, the mod loader, if you don't have it)
      and turns on Modded mode and "Also run mods on my servers" for 1.14.7.
   4. Press Play in the launcher. The "Mod" pill at the top lights up when the mod answers.
 
@@ -63,8 +63,8 @@ UPDATES (automatic)
 HOW THE GAME MOD WORKS (and why it needs server mods)
   Dauntless runs every hunt on a hidden server copy of the game on your PC, and that server owns behemoth health.
   The Lantern Client mod (UE4SS Lua) runs in your game and in those server copies; the panel writes its switches to
-  trainer-toggles.json in the mod's folder and every copy reads it twice a second. With the overlay, the quest
-  tracker and Instant refresh off, the mod does nothing else, so it costs nothing in game.
+  trainer-toggles.json in the mod's folder and every copy reads it twice a second. With the overlay and Instant refresh
+  off, the mod does nothing else, so it costs nothing in game.
 
 GOOD TO KNOW
   - The in-game parts could not be tested in the real game when they were written (no Windows or game there). The
