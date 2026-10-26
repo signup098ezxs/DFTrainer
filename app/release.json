@@ -1,5 +1,5 @@
 {
-  "version": "3.9.15",
+  "version": "3.9.16",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Overlay in co-op: it now shows the behemoth you are fighting (the one nearest to you), not whichever one another player hit last, and a player who joins someone else's game can now get part health too (game mod 7.1)."
+  "notes": "Overlay: broken parts now show for players who join someone else's game. The game refills a broken part at once and only tells the host's server, so a joining player's overlay missed most breaks; now a part whose health jumps back up counts as broken, for everyone the same way (game mod 7.2)."
 }

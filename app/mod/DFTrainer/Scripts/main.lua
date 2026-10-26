@@ -10,7 +10,7 @@
 -- Only property reads are used (7.0 removed the damage multiplier: the hunt server rewrites a behemoth's health from
 -- its ability system on every hit, so a written health never stuck). Logged as [DFTrainer] in UE4SS.log.
 
-local MOD_VERSION  = "7.1"
+local MOD_VERSION  = "7.2"
 local TICK_MS      = 150    -- how often the mod's loop runs
 local RESCAN_EVERY = 2.0    -- seconds between searches for players (instant refresh)
 local READ_EVERY   = 0.5    -- seconds between reads of the toggles file
@@ -651,6 +651,7 @@ local function trackJson(e)
 end
 
 local resolveBreak   -- defined with the break events below; called by the tracking loop
+local refillBreaks   -- the same rule without an event (your own game never gets one)
 local function trackTick(now)
     if not T.track or not TrackFile then
         if not Tk.cleared and TrackFile then os.remove(TrackFile) Tk.cleared = true Tk.lastBody = nil end
@@ -696,6 +697,7 @@ local function trackTick(now)
                 end
             end
             if e.pending then local okR, errR = pcall(resolveBreak, e, now) if not okR then logOnce("resolve:" .. tostring(errR), "overlay: break check error: " .. tostring(errR)) e.pending = nil end end
+            if not e.pending then local okF, errF = pcall(refillBreaks, e) if not okF then logOnce("refill:" .. tostring(errF), "overlay: refill check error: " .. tostring(errF)) end end
             if hit then Tk.n = Tk.n + 1 e.at, e.atTime, e.n = now, os.time(), Tk.n end
             if hp and hp <= 0 and not e.deadAt then e.deadAt = now end
             if hp and hp > 0 then e.deadAt = nil end   -- 0 at spawn (health not filled in yet) is not dead
@@ -860,6 +862,31 @@ local function armBreak(e, why)
     e.pending = { at = now, why = why, before = before }
 end
 -- called on every sample while a break is waiting to be identified
+-- 7.2: the game's break events fire on the hunt server only, and a broken part is refilled at once, often before
+-- your game reads it at 0. A player who joins someone else's game has no hunt server on their PC, so their overlay
+-- missed most breaks (25 Oct: the host's server marked 7 on a Skraev, the game 2). In your own game a refill alone
+-- marks the break, by the rule resolveBreak uses: the part's health rose 10%+ of max from its low of the last 1.5 s
+-- and is back to 90%+, or rose 50%+ and is at 70%+, while no other part rose by a quarter (several parts rising
+-- together is the game rescaling health, as when a player joins; nothing is marked then). Hunt servers use it too,
+-- besides their break events, so the host's overlay and a joining player's follow the same rule
+refillBreaks = function(e)
+    local best, bestRise, secondRise, bc, bm, low = nil, 0, 0, nil, nil, nil
+    for _, p in ipairs(e.parts) do
+        local lw = e.partLow and e.partLow[p.name]
+        if lw and not e.broke[p.name] then
+            local c, m = p.read()
+            if c and m and m > 0 then
+                local rise = (c - lw.v) / m
+                if rise > bestRise then best, secondRise, bestRise, bc, bm, low = p, bestRise, rise, c, m, lw.v
+                elseif rise > secondRise then secondRise = rise end
+            end
+        end
+    end
+    if best and secondRise < 0.25 and ((bestRise >= 0.1 and bc >= 0.9 * bm) or (bestRise >= 0.5 and bc >= 0.7 * bm)) then
+        markBroken(e, best, string.format("its health refilled from %.0f to %.0f of %.0f, no break event needed", low, bc, bm))
+    end
+end
+
 resolveBreak = function(e, now)
     local pb = e.pending
     if not pb then return end
