@@ -477,7 +477,6 @@ h2 { margin: 0; font: 600 21px/1.2 var(--display); letter-spacing: .01em; }
 .strip > div { padding: 14px 16px 12px; min-width: 0; }
 .strip > div + div { border-left: 1px solid var(--seam); }
 .strip .top { display: flex; align-items: center; gap: 14px; }
-#dmgCard { margin: 0 0 12px; }
 .strip h3 { margin: 0; font: 600 16px/1.2 var(--display); }
 .strip .sub { color: var(--ash); font-size: 12px; }
 .readout { margin-left: auto; font: 700 21px/1 var(--display); color: var(--frost); font-variant-numeric: tabular-nums; transition: color .3s, text-shadow .3s; }
@@ -977,14 +976,6 @@ div.lrow { cursor: default; }
     <section id="tab-rules">
       <div class="head"><div><h2>Game rules</h2><p class="lede">Applies the next time you press Play.</p></div></div>
       <div class="wrap">
-        <div class="strip" id="dmgCard" hidden>
-          <div>
-            <div class="top"><div class="glyph" id="gDmg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg></div>
-              <div><h3>Damage</h3><div class="sub">Against behemoths. Owner only, works at once (needs the game mod)</div></div><span class="readout" id="dmgVal">x1</span></div>
-            <div class="seg" id="dmgSeg"><span class="ind"></span></div>
-            <div class="state" id="liveDmg"></div>
-          </div>
-        </div>
         <div class="list" id="rules"></div>
       </div>
     </section>
@@ -1394,7 +1385,6 @@ function onState(s) {
   if (s.overlay && (!OV || JSON.stringify(s.overlay) !== JSON.stringify(OV))) ovSettings(s.overlay); else ovNote();
   if (s.quests && (!QT || JSON.stringify(s.quests) !== JSON.stringify(QT))) qtSettings(s.quests); else qtNote();
   $('#pMod').hidden = !((LIC && LIC.owner) || (s.overlay && s.overlay.on) || (s.quests && s.quests.on));
-  liveInfo(procs);
   renderRelay();
   renderQueue();
   setHTML('#paths', `Package ${esc(s.pkg)}<br>Game ${esc(s.gameDir || 'not set up yet')}`);
@@ -1422,7 +1412,7 @@ function onNote(n, fresh) {
 
 function showBanner(kind) {
   const b = $('#banner'), inp = $('#pkgInput'), btn = $('#bannerBtn');
-  if ((kind === 'setup' || kind === 'modeoff') && !(LIC && LIC.owner) && !(S && S.overlay && S.overlay.on) && !(S && S.quests && S.quests.on)) kind = null;   // Damage (owner), the overlay and the quest tracker need the game mod
+  if ((kind === 'setup' || kind === 'modeoff') && !(LIC && LIC.owner) && !(S && S.overlay && S.overlay.on) && !(S && S.quests && S.quests.on)) kind = null;   // instant refresh (owner), the overlay and the quest tracker need the game mod
   placeBanner();
   b.classList.toggle('show', !!kind);
   if (!kind) return;
@@ -1437,7 +1427,7 @@ function showBanner(kind) {
     const off = kind === 'modeoff';
     $('#bannerTitle').textContent = off ? 'Modded mode is off' : 'One-time set-up for the game mod';
     $('#bannerText').textContent = off
-      ? 'The overlay, quest tracker and damage multiplier need Modded mode (UE4SS) in your game and its servers, so they are paused. Dauntless Forever advises keeping it off for escalations, where it can crash. Turn it back on for hunts' + (S.running ? ' once the game is closed.' : '.')
+      ? 'The overlay and quest tracker need Modded mode (UE4SS) in your game and its servers, so they are paused. Dauntless Forever advises keeping it off for escalations, where it can crash. Turn it back on for hunts' + (S.running ? ' once the game is closed.' : '.')
       : S.running ? 'Close the game first. Set-up installs the trainer mod and turns on modded mode and server mods.' : 'Installs the trainer mod (and UE4SS if needed) and turns on modded mode and server mods.';
     btn.disabled = !!S.running;
     const label = off ? 'Turn Modded mode on' : 'Set up';
@@ -1470,7 +1460,7 @@ function renderLicense(l) {
       : l.state === 'invalid' ? 'The saved key is not valid. Paste the one you were given below, then confirm it.'
       : 'Paste the key you were given into the box (Ctrl+V), then confirm it.';
   }
-  $('#keysTab').hidden = $('#ownerLabel').hidden = $('#dmgCard').hidden = !l.owner;
+  $('#keysTab').hidden = $('#ownerLabel').hidden = !l.owner;
   $('#pMod').hidden = !l.owner;
   if (!l.owner && activeTab() === 'keys') goTab('items', true);
   requestAnimationFrame(placeNav);
@@ -1646,9 +1636,8 @@ let introDone = false, tourOn = false, tourI = 0, TOUR = [];
 function tourSteps() {
   const owner = LIC && LIC.owner, setup = $('#banner').classList.contains('show');
   return [
-    { title: `Welcome${LIC && LIC.name && !owner ? ', ' + esc(LIC.name) : ''}`, body: `<p>Lantern Client sits next to Dauntless Forever (1.14.7): an item giver that works while you play, currencies and game rules${owner ? ', plus a damage multiplier for the owner' : ''}.</p><p>This quick tour shows how to set it up and what each page does. It takes about a minute.</p>` },
+    { title: `Welcome${LIC && LIC.name && !owner ? ', ' + esc(LIC.name) : ''}`, body: `<p>Lantern Client sits next to Dauntless Forever (1.14.7): an item giver that works while you play, currencies and game rules${''}.</p><p>This quick tour shows how to set it up and what each page does. It takes about a minute.</p>` },
     { target: '.pills', title: 'Status at a glance', body: '<ul><li><b>Live</b>: the panel is connected and updating in real time.</li><li><b>Game</b>: whether Dauntless Forever is running.</li><li><b>Mod</b>: whether the in-game mod is set up and answering.</li></ul>' },
-    ...(!owner ? [] : [{ tab: 'rules', target: setup ? '#banner' : '#dmgCard', title: 'Damage (owner only)', body: `<p><b>Damage</b> on the Game rules page multiplies your damage to behemoths, up to one hit, at once.</p><p>It needs the Lantern game mod: with the game <b>closed</b>, press <b>Set up</b>${setup ? ' here' : ''}. It installs the mod (and UE4SS if needed) and turns on modded mode and server mods.</p>${setup ? '' : '<p>Your set-up is already done: the Mod light shows it.</p>'}` }]),
     { tab: 'items', target: '#tab-items .search', title: 'Give items', body: '<p>Search the whole 1.14.7 catalog (weapons, armour, lanterns, parts, omnicells, gliders, pets, skins and every cosmetic), tick what you want and press <b>Give</b>.</p><ul><li><b>Max weapon levels</b> takes every weapon type to level 20.</li><li><b>Unlock all cosmetics</b> unlocks every cosmetic in one click.</li><li><b>Cells</b> (switch at the top) gives every cell at once, at +3 or every level.</li><li><b>Remove items</b> takes unused gear and cosmetics away in bulk: a smaller inventory means less stutter in game.</li></ul><p>With the game closed, gifts go into your save. While you play, they arrive live and are announced in game chat.</p>' },
     { target: '#charSel', title: 'Who gets it', body: '<p>Pick which character receives gifts, or all of them. While you play, it follows the character you are on.</p>' },
     { tab: 'parts', target: 'nav > button[data-tab="parts"]', title: 'Parts', body: '<p>Every behemoth part for the weapon and armour you have equipped, up to <b>90 of each</b>, in one press. Parts only: no other materials. Works while you play.</p>' },
@@ -2342,16 +2331,10 @@ function placeInd(seg) {
   ind.style.transform = `translateX(${on.offsetLeft}px)`;
 }
 
-/* ================================================= damage (Game rules, owner only) and the mod's switches */
-const DMG = [[1, 'x1'], [2, 'x2'], [5, 'x5'], [10, 'x10'], [50, 'x50'], [1000, 'One hit']];
-$('#dmgSeg').insertAdjacentHTML('beforeend', DMG.map(([v, l]) => `<button data-v="${v}">${l}</button>`).join(''));
+/* ================================================= the mod's switches */
 let holdUntil = 0;
 function syncToggles(t) {
   if (Date.now() < holdUntil) return;   // don't fight a click in flight
-  $$('#dmgSeg button').forEach((b) => b.classList.toggle('on', Number(b.dataset.v) === t.damage));
-  placeInd($('#dmgSeg'));
-  setReadout('#dmgVal', t.damage >= 1000 ? 'One hit' : 'x' + t.damage, t.damage > 1);
-  $('#gDmg').classList.toggle('lit', t.damage > 1);
   $('#tRefresh').checked = !!t.refresh;
 }
 function setReadout(sel, text, lit) {
@@ -2365,24 +2348,7 @@ async function setToggle(o) {
   if (r.ok) { S.toggles = r.toggles; syncToggles(r.toggles); }
   else { SFX.error(); toast('Could not switch that', r.error, 'error'); }
 }
-$('#dmgSeg').addEventListener('click', (e) => {
-  const b = e.target.closest('button'); if (!b || b.classList.contains('on')) return;
-  const i = DMG.findIndex(([v]) => v === Number(b.dataset.v));
-  SFX.step(i);
-  $$('#dmgSeg button').forEach((x) => x.classList.toggle('on', x === b)); placeInd($('#dmgSeg'));
-  const v = Number(b.dataset.v);
-  setReadout('#dmgVal', v >= 1000 ? 'One hit' : 'x' + v, v > 1); $('#gDmg').classList.toggle('lit', v > 1);
-  setToggle({ damage: v });
-});
 
-function liveState(id, kind, text) { const el = $(id); el.className = 'state ' + kind; el.textContent = text; }
-
-function liveInfo(procs) {
-  if (!procs.length) { liveState('#liveDmg', S.running ? 'warn' : '', S.running ? 'The mod is not answering. Did you restart the game after set-up?' : 'Starts working when you play.'); return; }
-  const srv = procs.filter((p) => p.role === 'server'), beh = srv.reduce((n, p) => n + (p.behemoths || 0), 0);
-  if (!srv.length) { liveState('#liveDmg', 'warn', 'Needs the mod on your servers too (set-up turns that on).'); return; }
-  liveState('#liveDmg', beh ? 'ok' : '', beh ? `${beh} behemoth${beh > 1 ? 's' : ''} nearby.` : (S.toggles && S.toggles.damage > 1 ? 'No behemoths nearby.' : 'Ready.'));
-}
 
 /* ================================================= give items */
 const ORDER = ['Weapons', 'Armour', 'Lanterns', 'Weapon parts', 'Omnicells', 'Crowns and accessories', 'Hair and face', 'Armour skins', 'Weapon skins', 'Lantern skins', 'Dyes', 'Emotes', 'Hunt arrivals', 'Emojis', 'Titles', 'Banners', 'Flares', 'Gliders', 'Pets'];

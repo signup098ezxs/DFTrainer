@@ -375,7 +375,7 @@ func launch(noUpdate bool) {
 		}
 		logf("version %s did not start: %v", v, err)
 		if errors.Is(err, errNoNode) {
-			fatal("Node.js was not found.\n\nOpen the Dauntless Forever launcher, pick 1.6.2 and run its Set up once (it installs Node.js), then open Lantern Client again.")
+			fatal("Node.js was not found.\n\nOpen the Dauntless Forever launcher, pick 1.14.7 and run its Set up once (it sets up Node.js), then open Lantern Client again.")
 		}
 		// a version that does not start: back to the one before. Only a panel that stopped by itself (its own error)
 		// marks the version as never to be used again; a slow start (a busy PC, a virus scan of the new files) or a
@@ -464,7 +464,9 @@ func lastLines(s string, n int) string {
 	return strings.Join(lines, "\n")
 }
 
-// findNode: the Node.js Dauntless Forever's set-up recorded (config.json of the 1.6.2 package), then one on PATH.
+// findNode: the Node.js Dauntless Forever's set-up recorded (config.json of any of its packages: 1.14.7, 1.6.2...),
+// then one on PATH. A player who only ever set up 1.14.7 has no 1.6.2 package: its config.json names the launcher's
+// own portable Node (<Dauntless Forever>\resources\runtime\node\node.exe).
 func findNode() string {
 	if n := os.Getenv("DFT_NODE"); n != "" && fileExists(n) {
 		return n
@@ -477,7 +479,10 @@ func findNode() string {
 		pkgs = append(pkgs, st.Package)
 	}
 	if la := os.Getenv("LOCALAPPDATA"); la != "" {
-		pkgs = append(pkgs, filepath.Join(la, "DauntlessForever", "versions", "1.6.2"), filepath.Join(la, "DauntlessOffline", "versions", "1.6.2"))
+		for _, launcher := range []string{"DauntlessForever", "DauntlessOffline"} {
+			dirs, _ := filepath.Glob(filepath.Join(la, launcher, "versions", "*"))
+			pkgs = append(pkgs, dirs...)
+		}
 	}
 	if p := os.Getenv("DF_PACKAGE"); p != "" {
 		pkgs = append([]string{p}, pkgs...)

@@ -1,18 +1,18 @@
 -- SPDX-License-Identifier: AGPL-3.0-only
--- Lantern Client: the owner's damage multiplier against behemoths, behemoth tracking for the Lantern overlay, for
--- Dauntless 1.14.7 (Dauntless Forever / UE4SS 3.0.1), and the experimental instant inventory refresh.
+-- Lantern Client: behemoth tracking for the Lantern overlay, the quest tracker, for Dauntless 1.14.7 (Dauntless
+-- Forever / UE4SS 3.0.1), and the experimental instant inventory refresh.
 --
 -- The panel writes trainer-toggles.json into this mod's folder; this script reads it twice a second. The folder is
--- shared by your game and every hidden server copy (they all run the same exe), so the multiplier reaches the hunt
--- servers, which own behemoth health ("Also run mods on my servers" must be on).
+-- shared by your game and every hidden server copy (they all run the same exe), so the overlay can read behemoth
+-- health on the hunt servers, which own it ("Also run mods on my servers" must be on).
 --
--- Kept light on purpose: with the multiplier at x1, the overlay off and instant refresh off, it only reads that small
--- file. Otherwise it looks for behemoths every 1 to 2 seconds and checks their health every 150 ms and on every hit.
--- Only property reads and writes are used. Logged as [DFTrainer] in UE4SS.log.
+-- Kept light on purpose: with the overlay, quests and instant refresh off, it only reads that small file.
+-- Only property reads are used (7.0 removed the damage multiplier: the hunt server rewrites a behemoth's health from
+-- its ability system on every hit, so a written health never stuck). Logged as [DFTrainer] in UE4SS.log.
 
-local MOD_VERSION  = "6.9"
-local TICK_MS      = 150    -- how often behemoth health is checked while the multiplier is on
-local RESCAN_EVERY = 2.0    -- seconds between searches for behemoths
+local MOD_VERSION  = "7.0"
+local TICK_MS      = 150    -- how often the mod's loop runs
+local RESCAN_EVERY = 2.0    -- seconds between searches for players (instant refresh)
 local READ_EVERY   = 0.5    -- seconds between reads of the toggles file
 local STATUS_EVERY = 2.0    -- seconds between status heartbeats for the panel
 local PC_CLASSES   = { "player_controller_bp_C", "ArchonPlayerController", "PlayerController" }
@@ -56,10 +56,6 @@ end
 local function fin(v)
     if type(v) ~= "number" or v ~= v or v > 1e15 or v < -1e15 then return 0 end
     return v
-end
-local function writeNum(o, prop, v)
-    local ok = pcall(function() o[prop] = v end)
-    return ok
 end
 local function under(objPath, ownerPath)
     return objPath and ownerPath and objPath:sub(1, #ownerPath + 1) == ownerPath .. "."
@@ -135,16 +131,15 @@ if Base then LogFile = Base .. "/logs/" .. os.date("%Y%m%d-%H%M%S") .. "-" .. Pr
 if Base then log("mod folder: " .. Base .. " (process " .. ProcId .. ")") else log("could not find the mod folder; the panel cannot reach this process") end
 
 ---------------------------------------------------------------- toggles (flat JSON written by the panel)
-local T = { damage = 1, refresh = false, refreshFn = "", locked = false, track = false, quests = false }
+local T = { refresh = false, refreshFn = "", locked = false, track = false, quests = false }
 local togglesText = ""
 
 local function parseToggles(s)
     local function flag(k) return s:find('"' .. k .. '"%s*:%s*true') ~= nil end
-    T.damage  = math.max(1, math.min(1000, tonumber(s:match('"damage"%s*:%s*(%-?[%d%.]+)')) or 1))
     T.refresh = flag("refresh")
     T.refreshFn = s:match('"refreshFn"%s*:%s*"([%w_]*)"') or ""
-    T.locked = flag("locked")   -- not the owner's panel: no multiplier, no refresh
-    if T.locked then T.damage, T.refresh = 1, false end
+    T.locked = flag("locked")   -- not the owner's panel: no refresh
+    if T.locked then T.refresh = false end
     T.track = flag("track")     -- the behemoth overlay is on (anyone's panel)
     T.quests = flag("quests")   -- the quest tracker is on (anyone's panel)
 end
@@ -158,12 +153,12 @@ local function readToggles()
     if s ~= togglesText and s:find("}", 1, true) then
         togglesText = s
         parseToggles(s)
-        log(string.format("toggles: damage=x%g refresh=%s track=%s quests=%s", T.damage, tostring(T.refresh), tostring(T.track), tostring(T.quests)))
+        log(string.format("toggles: refresh=%s track=%s quests=%s", tostring(T.refresh), tostring(T.track), tostring(T.quests)))
     end
 end
 
 ---------------------------------------------------------------- what is in this process
-local S = { role = "server", behemoths = {}, owners = {} }
+local S = { role = "server", owners = {} }
 local lastRescan = -100
 
 -- your game is the only copy with a local player (your screen and keyboard); server copies only have remote
@@ -212,63 +207,7 @@ local function rescan(now)
     S.roleKnown = true
     S.owners = owners
 
-    local behemoths = {}
-    if T.damage > 1 then
-        local okB, blist = true, search("ArchonBehemoth")
-        local sets = (okB and blist and #blist > 0) and findAll({ "ArchonHealthAttributeSet" }) or {}
-        for _, b in ipairs(okB and blist or {}) do
-            if valid(b) then
-                local bp = pathOf(b)
-                local best, bestMax = nil, 0
-                for _, s in ipairs(sets) do
-                    if under(pathOf(s), bp) then
-                        local m = readNum(s, "MaxHealth") or 0
-                        if m > bestMax then best, bestMax = s, m end
-                    end
-                end
-                if best then
-                    local key = nameOf(best)
-                    local last = nil
-                    for _, ob in ipairs(S.behemoths) do if ob.key == key then last = ob.last end end
-                    behemoths[#behemoths + 1] = { set = best, key = key, last = last }
-                end
-            end
-        end
-    end
-    S.behemoths = behemoths
-    local summary = string.format("%s: %d behemoth(s)", S.role, #behemoths)
-    if summary ~= S.lastSummary then S.lastSummary = summary log(summary) end
-end
-
----------------------------------------------------------------- damage multiplier
--- every health drop on a behemoth is repeated (mult - 1) more times, never below 1 HP, so the game's own hit still
--- lands the kill
-local function tick()
-    if T.damage <= 1 then
-        -- off: the last health is forgotten, so turning it on again never multiplies the damage dealt meanwhile
-        for _, b in ipairs(S.behemoths) do b.last = nil end
-        return
-    end
-    local now = os.clock()
-    if now - lastRescan >= RESCAN_EVERY then rescan(now) end
-    -- the hunt server owns the behemoth's health; your game only shows what it sends (multiplying there too would
-    -- multiply the server's already multiplied drop again, on your screen)
-    if not (S.roleKnown and S.role == "server") then return end
-    for _, b in ipairs(S.behemoths) do
-        if valid(b.set) then
-            local hp = readNum(b.set, "CurrentHealth")
-            if hp then
-                if b.last and hp < b.last then
-                    local want = math.max(1, hp - (b.last - hp) * (T.damage - 1))
-                    if want < hp and writeNum(b.set, "CurrentHealth", want) then
-                        logOnce("dmg", string.format("damage x%g working: behemoth %.0f -> %.0f (%s)", T.damage, hp, want, S.role))
-                        hp = want
-                    end
-                end
-                b.last = hp
-            end
-        end
-    end
+    if S.role ~= S.lastSummary then S.lastSummary = S.role log("role: " .. S.role) end
 end
 
 ---------------------------------------------------------------- experimental: make the game load its inventory again
@@ -1228,8 +1167,8 @@ local function writeStatus(now)
     local f = io.open(StatusFile, "w")
     if not f then logOnce("nostatus", "cannot write " .. StatusFile .. " (the panel creates the status folder when it installs the mod)") return end
     local fns = invFns and table.concat({ table.unpack(invFns, 1, math.min(#invFns, 6)) }, ",") or ""
-    f:write(string.format('{"v":"%s","role":"%s","time":%d,"behemoths":%d,"damage":%g,"invFns":"%s","called":"%s","calledAt":%d}',
-        MOD_VERSION, S.role, os.time(), #S.behemoths, T.damage, clean(fns), clean(S.called or ""), S.calledAt or 0))
+    f:write(string.format('{"v":"%s","role":"%s","time":%d,"invFns":"%s","called":"%s","calledAt":%d}',
+        MOD_VERSION, S.role, os.time(), clean(fns), clean(S.called or ""), S.calledAt or 0))
     f:close()
 end
 
@@ -1239,11 +1178,9 @@ local function step()
     if now - lastRead >= READ_EVERY then
         lastRead = now
         readToggles()
-        if T.refresh and now - lastRescan >= RESCAN_EVERY and T.damage <= 1 then rescan(now) end
+        if T.refresh and now - lastRescan >= RESCAN_EVERY then rescan(now) end
         pcall(checkRefresh)
     end
-    local ok, err = pcall(tick)
-    if not ok then logOnce("tick:" .. tostring(err), "tick error: " .. tostring(err)) end
     if T.quests and now - (Qs.timerAt or -100) >= 1 then
         Qs.timerAt = now
         local okQ, errQ = pcall(questTick, now, false)
@@ -1253,7 +1190,7 @@ local function step()
     if not okT then logOnce("track:" .. tostring(errT), "overlay error: " .. tostring(errT)) end
     if now - lastStatus >= STATUS_EVERY then
         -- role only, until it is known to be your game (a game never becomes a server)
-        if T.damage <= 1 and not T.refresh and S.role ~= "game" and now - lastRescan >= 10 then pcall(rescan, now) end
+        if not T.refresh and S.role ~= "game" and now - lastRescan >= 10 then pcall(rescan, now) end
         pcall(writeStatus, now)
     end
 end
@@ -1264,17 +1201,16 @@ LoopAsync(TICK_MS, function()
     return false
 end)
 
--- a hit lands: the multiplier and the overlay answer at once, on the game's own thread (only while one of them is on)
--- Repeaters land many hits a second: the multiplier answers each (30 a second at most), the overlay 8 a second at
--- most (it reads every part and writes a file, so not on every bullet)
-local lastHitTick, lastHitTrack = -1, -1
+-- a hit lands: the overlay answers at once, on the game's own thread (only while it or the quest tracker is on)
+-- Repeaters land many hits a second: the overlay answers 8 a second at most (it reads every part and writes a file,
+-- so not on every bullet)
+local lastHitTrack = -1
 local hooked, hookErr = pcall(function()
     RegisterHook("/Script/Archon.ArchonCombatTextComponent:MulticastSendMultitypeCombatText", function()
         if PendingRefresh then onGameThread(function() end) end   -- an instant refresh waiting for the game's thread
-        if T.damage <= 1 and not T.track and not T.quests then return end
+        if not T.track and not T.quests then return end
         local now = os.clock()
         Tk.hitAt = now
-        if T.damage > 1 and now - lastHitTick >= 0.03 then lastHitTick = now onGameThread(tick) end
         if T.track and now - lastHitTrack >= 0.125 then
             lastHitTrack = now
             onGameThread(trackTick, now)   -- the overlay moves with the hit, not on the next timer tick
@@ -1304,4 +1240,4 @@ for _, fn in ipairs({ "/Script/Archon.HUDObjectiveTracker:OnQuestObjectiveUpdate
 end
 log("quest events hooked: " .. (#qHooks > 0 and table.concat(qHooks, ", ") or "none (the tracker reads every second instead)"))
 
-log("loaded (v" .. MOD_VERSION .. ": damage multiplier, overlay tracking with stagger and broken parts, quest tracker, instant refresh)")
+log("loaded (v" .. MOD_VERSION .. ": overlay tracking with stagger and broken parts, quest tracker, instant refresh)")

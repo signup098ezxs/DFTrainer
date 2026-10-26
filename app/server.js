@@ -10,7 +10,7 @@
 //     data\announce.txt (the backend says that file's text in chat every 2 s), and logs\requests.jsonl is followed so
 //     the panel knows the moment the game loads your inventory again: "delivered".
 //   - the game mod: trainer-toggles.json in the DFTrainer UE4SS mod's folder (game + hidden servers read it): the
-//     owner's damage multiplier against behemoths, and the experimental instant inventory refresh.
+//     behemoth overlay, quest tracker and the owner's experimental instant inventory refresh.
 //   - game rules: data\rules.txt, like the launcher's Game Rules page.
 //
 //   node server.js [--package "<...>\versions\1.14.7"] [--no-open] [--port 61777]
@@ -316,31 +316,30 @@ setInterval(() => {
 }, 1000);
 
 // ---------------------------------------------------------------- in-game switches
-const TOGGLE_DEFAULTS = { damage: 1, refresh: false, refreshFn: '' };
+const TOGGLE_DEFAULTS = { refresh: false, refreshFn: '' };
 // the behemoth overlay (anyone's panel, not just the owner's): the mod tracks behemoths only while it is on
 const overlayOn = () => !!(settings.overlay && settings.overlay.on);
 // the quest tracker overlay (anyone's panel): the mod reads quests only while it is on
 const questsOn = () => !!(settings.quests && settings.quests.on);
-// the damage multiplier is the owner's: anyone else's client keeps the mod locked (x1)
+// instant refresh is the owner's: anyone else's client keeps the mod locked
 const isOwner = () => !!LIC.status().owner;
 function readToggles(p) {
   const t = p.modDir ? readJson(path.join(p.modDir, 'trainer-toggles.json'), null) : null;
   if (!isOwner()) return { ...TOGGLE_DEFAULTS };
-  // a file written while no owner key was present says x1 "locked": it is not the owner's setting, so it is ignored
+  // a file written while no owner key was present says "locked": it is not the owner's setting, so it is ignored
   const all = { ...TOGGLE_DEFAULTS, ...(settings.toggles || {}), ...(t && !t.locked ? t : {}) };
-  return { damage: all.damage, refresh: all.refresh, refreshFn: all.refreshFn };
+  return { refresh: all.refresh, refreshFn: all.refreshFn };
 }
 let lockLogsGone = false;
 function writeToggles(p, t) {
   const clean = {
-    damage: Math.min(1000, Math.max(1, Number(t.damage) || 1)),
     refresh: !!t.refresh, refreshFn: /^[A-Za-z_]\w{0,80}$/.test(String(t.refreshFn || '')) ? String(t.refreshFn) : '',
   };
-  // the owner's settings are kept only from the owner's panel (without the key, x1 must not overwrite them)
+  // the owner's settings are kept only from the owner's panel (without the key, defaults must not overwrite them)
   if (isOwner()) { settings.toggles = clean; saveSettings(); }
   if (p.modDir && fs.existsSync(p.modDir)) {
     const f = path.join(p.modDir, 'trainer-toggles.json');
-    // not the owner: the mod gets x1 and "locked"
+    // not the owner: the mod gets the defaults and "locked"
     const out = { ...(isOwner() ? { ...clean, locked: false } : { ...TOGGLE_DEFAULTS, locked: true }), track: overlayOn(), quests: questsOn() };
     fs.mkdirSync(path.join(p.modDir, 'track'), { recursive: true });
     fs.mkdirSync(path.join(p.modDir, 'quests'), { recursive: true });
@@ -993,7 +992,7 @@ const routes = {
     return r;
   },
   'GET /api/feed': async () => feed,
-  // the owner (Damage) or anyone who turned the behemoth overlay on
+  // the owner or anyone who turned the behemoth overlay or quest tracker on
   'POST /api/setup': async () => (isOwner() || overlayOn() || questsOn()) ? setup() : { ok: false, error: 'Turn on the behemoth overlay or the quest tracker in Settings first.' },
   'POST /api/toggles': async (b) => {
     if (!isOwner()) return { ok: false, error: 'The game mod is the owner\'s.' };

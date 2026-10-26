@@ -45,6 +45,7 @@ func extraNodePaths() []string {
 	for _, env := range []string{"ProgramFiles", "ProgramFiles(x86)", "LOCALAPPDATA"} {
 		if d := os.Getenv(env); d != "" {
 			out = append(out, filepath.Join(d, "nodejs", "node.exe"))
+			out = append(out, filepath.Join(d, "Programs", "nodejs", "node.exe")) // the per-user Node.js installer
 		}
 	}
 	return out

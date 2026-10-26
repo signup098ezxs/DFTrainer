@@ -1,5 +1,5 @@
 {
-  "version": "3.9.13",
+  "version": "3.9.14",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Timeweave armour: all four pieces now show their real names (Timeweave Helm, Robes, Gauntlets, Leggings), and the Parts page gives the shards they take to craft and upgrade, Rampaging Shard included (Fenroar and Frostwolf gear get their parts now too). New on Parts: Add Aetherdust, 1,000 to 5,000 at a time, added exactly. 700+ other items that showed a made-up name now show the game's own."
+  "notes": "Fixes \"Node.js was not found\" for players who only set up 1.14.7: Lantern Client now finds the Node.js that Dauntless Forever's own set-up uses. The Damage setting is gone: the game resets a behemoth's health on every hit, so the multiplier never really worked (game mod 7.0)."
 }
