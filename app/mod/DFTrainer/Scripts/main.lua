@@ -10,7 +10,7 @@
 -- Only property reads are used (7.0 removed the damage multiplier: the hunt server rewrites a behemoth's health from
 -- its ability system on every hit, so a written health never stuck). Logged as [DFTrainer] in UE4SS.log.
 
-local MOD_VERSION  = "7.4"
+local MOD_VERSION  = "7.5"
 local TICK_MS      = 150    -- how often the mod's loop runs
 local RESCAN_EVERY = 2.0    -- seconds between searches for players (instant refresh)
 local READ_EVERY   = 0.5    -- seconds between reads of the toggles file
@@ -80,9 +80,13 @@ end
 -- cache, which made them cheap, crashed the game while it loaded many items at once; the panel turns it off).
 local InGT = false            -- true while a game-thread event runs
 local searchLogs = 0   -- the first searches are timed in the log (os.clock is wall time in UE4SS on Windows)
+-- 7.5: each search costs the game a pause (logged 26 Oct: 32-37 ms in your game, 16-22 ms on a hunt server, with the
+-- object cache off), so they are counted, and once a minute the log says what the overlay cost the game's thread
+local Cost = { n = 0, ms = 0, worst = 0, at = nil }
 local function search(cls)
     local t0 = os.clock()
     local ok, list = pcall(FindAllOf, cls)
+    Cost.n, Cost.ms = Cost.n + 1, Cost.ms + (os.clock() - t0) * 1000
     if searchLogs < 12 then
         searchLogs = searchLogs + 1
         log(string.format("search %s: %d found in %.1f ms", cls, (ok and type(list) == "table") and #list or 0, (os.clock() - t0) * 1000))
@@ -94,10 +98,13 @@ local function onGameThread(fn, ...)
     local was = InGT
     InGT = true
     local now = os.clock()
+    Cost.passN = Cost.n
     if onGameThreadRole then pcall(onGameThreadRole, now) end
     if PendingRefresh and runPendingRefresh then pcall(runPendingRefresh) end
     local ok, err = pcall(fn, ...)
     InGT = was
+    local took = (os.clock() - now) * 1000
+    if took > Cost.worst then Cost.worst = took end
     return ok, err
 end
 local function findAll(classes)
@@ -208,7 +215,8 @@ local function rescan(now)
     if not InGT then return end   -- 7.3: searches and reads on the game's thread only
     lastRescan = now
     local isGame, owners = false, {}
-    for _, pc in ipairs(findAll(PC_CLASSES)) do
+    local owners0 = findAll(PC_CLASSES)
+    for _, pc in ipairs(owners0) do
         if isLocal(pc) then isGame, S.localPCPath = true, pathOf(pc) end   -- your controller: where you are (the overlay)
         if T.refresh then
             local okP, pawn = pcall(function() return pc.Pawn end)
@@ -219,6 +227,13 @@ local function rescan(now)
         end
     end
     if not isGame and S.role ~= "game" then isGame = hasLocalPlayer() end
+    -- 7.5: a copy with players' controllers and none of them local, three times over 30 s, is a hunt server for good
+    -- (it looked again every 10 s for its whole life before: five searches, ~90 ms, each time)
+    if not isGame and #owners0 > 0 then
+        S.serverSeen = (S.serverSeen or 0) + 1
+        S.serverFirst = S.serverFirst or now
+        if S.serverSeen >= 3 and now - S.serverFirst >= 30 and not S.serverSure then S.serverSure = true log("role: hunt server, sure (no more role checks)") end
+    end
     -- once your game, always your game (a server copy never gets a local player)
     S.role = (isGame or S.role == "game") and "game" or "server"
     S.roleKnown = true
@@ -229,7 +244,7 @@ end
 -- at the start of each game-thread event: which copy of the game this is, until known to be your game (a game never
 -- becomes a server; a server copy looks again every 10 s)
 function onGameThreadRole(now)
-    if not S.roleKnown or (S.role ~= "game" and now - lastRescan >= 10) then rescan(now) end
+    if not S.roleKnown or (S.role ~= "game" and not S.serverSure and now - lastRescan >= 10) then rescan(now) end
 end
 
 ---------------------------------------------------------------- experimental: make the game load its inventory again
@@ -356,7 +371,10 @@ local function clean(s) return (tostring(s or ""):gsub('[^%w_ .,:/>-]', '')) end
 local TRACK_SCAN   = 2.0     -- seconds between searches for behemoths while tracking (7.3: on the game's thread)
 local TRACK_STALE  = 30.0    -- seconds without a hit before the overlay's last reading is dropped
 local TRACK_PARTS  = 3.0     -- seconds between part searches for a behemoth that has none linked yet
-local TRACK_REBIND = 10.0    -- seconds between part searches once found (a part actor can be replaced in a fight)
+local TRACK_REBIND = 2.0     -- seconds between part re-links once found (7.5: through each part's own component, no search)
+local TRACK_PS     = 30.0    -- seconds between searches for player states (stagger damage; 5 s before 7.5)
+local TRACK_SAFETY = 20.0    -- 7.5: a behemoth search at most this often when every hit is explained by a known one
+local TRACK_TRIES  = 3       -- searches for the parts of a behemoth that has none, before only trying while it is hit
 local TRACK_LINGER = 4.0     -- seconds a dead behemoth stays on the overlay
 local TRACK_BEAT   = 1.0     -- seconds: rewrite the file this often even when nothing changed
 local TRACK_MINE   = 15.0    -- seconds: a behemoth hit this recently can be the one you are fighting
@@ -478,78 +496,146 @@ local function refreshKept(now)
     Tk.playerStates = ps
 end
 
+-- 7.5: a found behemoth's parts are linked again through their own components (kept by path, found again each pass):
+-- the component names the part actor in use now. Only when that actor or its health object changed is there a search,
+-- for health sets only; only a component that is gone needs the full part search. Before 7.5 every fought behemoth's
+-- parts were searched for again every 10 s (two searches, ~70 ms in your game).
+local function relinkParts(e, shared)
+    local need = false
+    local links = {}
+    for i, p in ipairs(e.parts) do
+        if not p.comp then return "full" end
+        local a = linkedActor(p.comp)
+        if not a then return "full" end
+        local ap = pathOf(a)
+        links[i] = { a = a, ap = ap }
+        if ap ~= p.actorPath or not p.set then need = true end
+    end
+    if not need then return "ok" end
+    if not shared.sets and not shared.room(1) then return "later" end
+    shared.sets = shared.sets or findAll({ "ArchonHealthAttributeSet" })
+    for i, p in ipairs(e.parts) do
+        local l = links[i]
+        if l.ap ~= p.actorPath or not p.set then
+            if l.ap ~= p.actorPath then
+                logOnce("swap:" .. e.key .. p.name, string.format("overlay: %s %s: the game replaced its part actor (last health %s)%s", e.cls, p.name,
+                    tostring(e.partLast[p.name]), e.broke[p.name] and ", broken" or ""))
+            end
+            local st = partSet(l.a, shared.sets)
+            p.actor, p.actorPath = l.a, l.ap
+            p.set, p.setPath = st, st and pathOf(st)
+        end
+    end
+    return "relinked"
+end
+
+-- 7.5: at most two searches in one pass of the game's thread (a pass with more holds the game up for one long frame:
+-- 245 ms at the first hit of a fight before); what is left waits for the next scan
+local PASS_SEARCHES = 2
 local function trackScan(now)
     Tk.lastScan = now
-    if now - (Tk.psAt or -100) >= 5 then
+    local n0 = Cost.passN or Cost.n
+    local function room(k) return (Cost.n - n0) + k <= PASS_SEARCHES end
+    if now - (Tk.psAt or -100) >= TRACK_PS and next(Tk.list) ~= nil and room(1) then
         Tk.psAt = now
         Tk.playerStates = findAll({ "ArchonPlayerState" })
         Tk.psPaths = {}
         for _, ps in ipairs(Tk.playerStates) do Tk.psPaths[#Tk.psPaths + 1] = pathOf(ps) end
     end
-    local found = {}
-    local bl = findAll({ "ArchonBehemoth" })
-    local sets, comps = nil, nil
-    for _, b in ipairs(bl) do
-        local key = nameOf(b)
-        if key then
-            local e = Tk.list[key]
-            if not e then
-                sets = sets or findAll({ "ArchonHealthAttributeSet" })
-                local path = pathOf(b)
-                local st = path and healthSetUnder(sets, path)
-                if st then
-                    e = { key = key, b = b, path = path, set = st, setPath = pathOf(st), cls = (key:match("^(%S+)") or ""), last = nil, at = nil,
-                          parts = {}, partsAt = -100, partLast = {}, breaks = {}, broke = {} }
-                    Tk.list[key] = e
-                end
-            end
-            if e then
-                found[key] = true
-                if not e.gameName and (e.nameTries or 0) < 20 then
-                    e.nameTries = (e.nameTries or 0) + 1
-                    local okN, fn = pcall(getField, b, "BehemothFullName")
-                    local okM, mn = pcall(getField, b, "BehemothMetadataName")
-                    local function txt(v) if v == nil then return nil end if type(v) == "string" then return v end local ok2, t = pcall(function() return v:ToString() end) return ok2 and type(t) == "string" and t or nil end
-                    local full, meta = okN and txt(fn), okM and txt(mn)
-                    if full and full ~= "" and full ~= "None" then e.gameName = full end
-                    if meta and meta ~= "" and meta ~= "None" then e.metaName = meta end
-                    if e.gameName or e.nameTries == 20 then
-                        logOnce("name:" .. e.cls, string.format("overlay: %s is called %s by the game (metadata %s)", e.cls, tostring(e.gameName), tostring(e.metaName)))
+    local shared = { room = room }
+    -- 7.5: the behemoth search (every 2 s before) only when there is none known yet, when hits have landed for a second
+    -- with none of the known behemoths losing health (a new one), or every 20 s as a safety net
+    -- (hits that land on players, or on something that is no behemoth, explain nothing either: each search that finds
+    -- nothing new doubles the wait for the next such one, up to 20 s)
+    local unexplained = Tk.unexplainedSince and now - Tk.unexplainedSince >= 1.0 and now - (Tk.bScan or -100) >= (Tk.uxWait or 0)
+    if (next(Tk.list) == nil or unexplained or now - (Tk.bScan or -100) >= TRACK_SAFETY) and room(1) then
+        Tk.bScan = now
+        Tk.unexplainedSince = nil
+        local found, added = {}, false
+        for _, b in ipairs(findAll({ "ArchonBehemoth" })) do
+            local key = nameOf(b)
+            if key then
+                local e = Tk.list[key]
+                -- one without a health set (seen on 26 Oct: 3 behemoth objects, one of them never hit) is looked at again
+                -- only once a minute, not with every search
+                Tk.noSet = Tk.noSet or {}
+                if not e and now - (Tk.noSet[key] or -100) >= 60 and (shared.sets or room(1)) then
+                    shared.sets = shared.sets or findAll({ "ArchonHealthAttributeSet" })
+                    local path = pathOf(b)
+                    local st = path and healthSetUnder(shared.sets, path)
+                    if not st then Tk.noSet[key] = now end
+                    if st then
+                        Tk.noSet[key] = nil
+                        added = true
+                        e = { key = key, b = b, path = path, set = st, setPath = pathOf(st), cls = (key:match("^(%S+)") or ""), last = nil, at = nil,
+                              parts = {}, partsAt = -100, partTries = 0, partLast = {}, breaks = {}, broke = {} }
+                        Tk.list[key] = e
                     end
                 end
-                -- the regular re-check is for the behemoth being fought; the others only until their parts are found
-                local again = (#e.parts == 0 and now - e.partsAt >= TRACK_PARTS) or (e.at and now - e.partsAt >= TRACK_REBIND) or e.partsLost
-                -- 7.1: your own game reads parts too (named properties only, as on the servers): a player who joins
-                -- someone else's game has no hunt server on their PC, so this is the only place they can come from
-                if S.roleKnown and again then
-                    e.partsAt = now
-                    sets = sets or findAll({ "ArchonHealthAttributeSet" })
-                    comps = comps or findAll({ "MonsterPartComponent" })   -- one search per scan, shared by every behemoth
-                    local ok, ps = pcall(findParts, e, sets, comps)
-                    e.partsLost = false
-                    if ok then
-                        local was = {}
-                        for _, p in ipairs(e.parts) do was[p.name] = p.actor end
-                        for _, p in ipairs(ps) do
-                            if was[p.name] and was[p.name] ~= p.actor and nameOf(was[p.name]) ~= nameOf(p.actor) then
-                                logOnce("swap:" .. e.key .. p.name, string.format("overlay: %s %s: the game replaced its part actor (last health %s)%s", e.cls, p.name,
-                                    tostring(e.partLast[p.name]), e.broke[p.name] and ", broken" or ""))
-                            end
+                if e then found[key] = true end
+            end
+        end
+        -- gone only when the behemoth object itself is gone (one search not listing it is not enough: dropping the entry
+        -- would also drop which parts broke in this fight)
+        for key, e in pairs(Tk.list) do if not found[key] and not valid(e.b) then Tk.list[key] = nil end end
+        if unexplained and not added then Tk.uxWait = math.min(TRACK_SAFETY, math.max(TRACK_SCAN, (Tk.uxWait or 0) * 2)) else Tk.uxWait = 0 end
+    end
+    for key, e in pairs(Tk.list) do
+        local b = e.b
+        if b and not e.gameName and (e.nameTries or 0) < 20 then
+            e.nameTries = (e.nameTries or 0) + 1
+            local okN, fn = pcall(getField, b, "BehemothFullName")
+            local okM, mn = pcall(getField, b, "BehemothMetadataName")
+            local function txt(v) if v == nil then return nil end if type(v) == "string" then return v end local ok2, t = pcall(function() return v:ToString() end) return ok2 and type(t) == "string" and t or nil end
+            local full, meta = okN and txt(fn), okM and txt(mn)
+            if full and full ~= "" and full ~= "None" then e.gameName = full end
+            if meta and meta ~= "" and meta ~= "None" then e.metaName = meta end
+            if e.gameName or e.nameTries == 20 then
+                logOnce("name:" .. e.cls, string.format("overlay: %s is called %s by the game (metadata %s)", e.cls, tostring(e.gameName), tostring(e.metaName)))
+            end
+        end
+        -- 7.1: your own game reads parts too (named properties only, as on the servers): a player who joins someone
+        -- else's game has no hunt server on their PC, so this is the only place they can come from
+        if b and S.roleKnown then
+            local full = false
+            if #e.parts == 0 then
+                -- none found yet: a few tries, then only while it is being hit (some behemoths have none)
+                full = room((shared.sets and 0 or 1) + (shared.comps and 0 or 1)) and now - e.partsAt >= TRACK_PARTS and ((e.partTries or 0) < TRACK_TRIES or (e.at and now - e.at < 5 and now - e.partsAt >= 15))
+            elseif e.partsLost or (e.at and now - e.partsAt >= TRACK_REBIND) then
+                e.partsAt = now
+                e.partsLost = false
+                local okR, r = pcall(relinkParts, e, shared)
+                if okR and r == "later" then e.partsLost = true e.partsAt = -100 end
+                full = (not okR or r == "full") and room((shared.sets and 0 or 1) + (shared.comps and 0 or 1))
+                if (not okR or r == "full") and not full then e.partsLost = true e.partsAt = -100 end
+                if not okR then logOnce("relink:" .. tostring(r), "overlay: part re-link error: " .. tostring(r)) end
+            end
+            if full then
+                e.partsAt = now
+                e.partTries = (e.partTries or 0) + 1
+                shared.sets = shared.sets or findAll({ "ArchonHealthAttributeSet" })
+                shared.comps = shared.comps or findAll({ "MonsterPartComponent" })   -- one search per scan, shared by every behemoth
+                local ok, ps = pcall(findParts, e, shared.sets, shared.comps)
+                e.partsLost = false
+                if ok then
+                    local was = {}
+                    for _, p in ipairs(e.parts) do was[p.name] = p.actorPath end
+                    for _, p in ipairs(ps) do
+                        if was[p.name] and was[p.name] ~= p.actorPath then
+                            logOnce("swap:" .. e.key .. p.name, string.format("overlay: %s %s: the game replaced its part actor (last health %s)%s", e.cls, p.name,
+                                tostring(e.partLast[p.name]), e.broke[p.name] and ", broken" or ""))
                         end
-                        local before = #e.parts
-                        e.parts = ps
-                        if #ps > 0 and before == 0 then
-                            log(string.format("overlay: %s has %d part(s) (%s)", e.cls, #ps, S.role))
-                            pcall(logParts, e)
-                        end
-                    else logOnce("parts:" .. tostring(ps), "overlay: part search failed: " .. tostring(ps)) end
-                end
+                    end
+                    local before = #e.parts
+                    e.parts = ps
+                    if #ps > 0 and before == 0 then
+                        log(string.format("overlay: %s has %d part(s) (%s)", e.cls, #ps, S.role))
+                        pcall(logParts, e)
+                    end
+                else logOnce("parts:" .. tostring(ps), "overlay: part search failed: " .. tostring(ps)) end
             end
         end
     end
-    -- gone only when the behemoth object itself is gone (one search not listing it is not enough: dropping the entry
-    -- would also drop which parts broke in this fight)
-    for key, e in pairs(Tk.list) do if not found[key] and not valid(e.b) then Tk.list[key] = nil end end
 end
 
 
@@ -714,6 +800,7 @@ local function trackTick(now)
     -- the game loads the most, it never searches); a hunt server searches every second
     local nearFight = S.role ~= "game" or (Tk.hitAt and now - Tk.hitAt < 30)
     if nearFight and now - Tk.lastScan >= TRACK_SCAN then trackScan(now) end
+    local anyHit = false
     -- what dropped since last time: that behemoth becomes the one to show
     local best = nil
     for key, e in pairs(Tk.list) do
@@ -758,11 +845,15 @@ local function trackTick(now)
             end
             if e.pending then local okR, errR = pcall(resolveBreak, e, now) if not okR then logOnce("resolve:" .. tostring(errR), "overlay: break check error: " .. tostring(errR)) e.pending = nil end end
             if not e.pending then local okF, errF = pcall(refillBreaks, e) if not okF then logOnce("refill:" .. tostring(errF), "overlay: refill check error: " .. tostring(errF)) end end
-            if hit then Tk.n = Tk.n + 1 e.at, e.atTime, e.n = now, os.time(), Tk.n end
+            if hit then Tk.n = Tk.n + 1 e.at, e.atTime, e.n = now, os.time(), Tk.n anyHit = true end
             if hp and hp <= 0 and not e.deadAt then e.deadAt = now end
             if hp and hp > 0 then e.deadAt = nil end   -- 0 at spawn (health not filled in yet) is not dead
             if e.deadAt and now - e.deadAt > TRACK_LINGER then e.at = nil end
         end
+    end
+    -- 7.5: a hit that no known behemoth's health shows (for a second) means a new one: the next scan searches
+    if Tk.hitAt == now then
+        if anyHit then Tk.unexplainedSince, Tk.uxWait = nil, 0 elseif not Tk.unexplainedSince then Tk.unexplainedSince = now end
     end
     local recent
     best, recent = pickMine(now)
@@ -1076,6 +1167,12 @@ local function step()
     local okT, errT = pcall(trackBeat, now)
     if not okT then logOnce("track:" .. tostring(errT), "overlay error: " .. tostring(errT)) end
     if now - lastStatus >= STATUS_EVERY then pcall(writeStatus, now) end
+    -- 7.5: once a minute, what the overlay cost the game's thread (only when it searched)
+    Cost.at = Cost.at or now
+    if now - Cost.at >= 60 then
+        if Cost.n > 0 then log(string.format("cost last minute: %d search(es), %.0f ms searching, longest game-thread pass %.0f ms", Cost.n, Cost.ms, Cost.worst)) end
+        Cost.n, Cost.ms, Cost.worst, Cost.at = 0, 0, 0, now
+    end
 end
 
 LoopAsync(TICK_MS, function()
