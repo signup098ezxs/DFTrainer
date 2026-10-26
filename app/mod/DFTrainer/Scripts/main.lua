@@ -10,7 +10,7 @@
 -- Only property reads are used (7.0 removed the damage multiplier: the hunt server rewrites a behemoth's health from
 -- its ability system on every hit, so a written health never stuck). Logged as [DFTrainer] in UE4SS.log.
 
-local MOD_VERSION  = "7.3"
+local MOD_VERSION  = "7.4"
 local TICK_MS      = 150    -- how often the mod's loop runs
 local RESCAN_EVERY = 2.0    -- seconds between searches for players (instant refresh)
 local READ_EVERY   = 0.5    -- seconds between reads of the toggles file
@@ -746,6 +746,10 @@ local function trackTick(now)
                     log(string.format("overlay: %s %s %s (%.0f/%s)", e.cls, p.name, c <= 0 and "broke" or "back", c, tostring(m)))
                 end
                 if c ~= nil then
+                    -- 7.4: the reading before this one, however old (readings come with hits now, 7.3; a slow weapon
+                    -- hits every 2 s, so "the low of the last 1.5 s" alone missed the refill on the breaking hit)
+                    e.partPrev = e.partPrev or {}
+                    if was ~= nil and was ~= c then e.partPrev[p.name] = was end
                     e.partLast[p.name] = c   -- a missing reading keeps the last real one for comparing
                     e.partLow = e.partLow or {}
                     local low = e.partLow[p.name]
@@ -930,7 +934,10 @@ local function armBreak(e, why)
             if c ~= nil and c <= 0 then markBroken(e, p, why .. ", health 0") return end
             -- the lowest real reading of the last 1.5 s: a refill sampled just before the event still counts
             local low = e.partLow and e.partLow[p.name]
-            before[p.name] = (low and now - low.at <= 1.5 and low.v) or e.partLast[p.name]
+            local b = (low and now - low.at <= 1.5 and low.v) or e.partLast[p.name]
+            local prev = e.partPrev and e.partPrev[p.name]   -- 7.4: the reading before the last, however old
+            if prev and (not b or prev < b) then b = prev end
+            before[p.name] = b
             if c == nil and e.partLast[p.name] ~= nil then gone[#gone + 1] = p end
         end
     end
@@ -949,11 +956,14 @@ refillBreaks = function(e)
     local best, bestRise, secondRise, bc, bm, low = nil, 0, 0, nil, nil, nil
     for _, p in ipairs(e.parts) do
         local lw = e.partLow and e.partLow[p.name]
-        if lw and not e.broke[p.name] then
+        local prev = e.partPrev and e.partPrev[p.name]
+        local base = lw and lw.v
+        if prev and (not base or prev < base) then base = prev end   -- the previous reading, however old (7.4)
+        if base and not e.broke[p.name] then
             local c, m = p.read()
             if c and m and m > 0 then
-                local rise = (c - lw.v) / m
-                if rise > bestRise then best, secondRise, bestRise, bc, bm, low = p, bestRise, rise, c, m, lw.v
+                local rise = (c - base) / m
+                if rise > bestRise then best, secondRise, bestRise, bc, bm, low = p, bestRise, rise, c, m, base
                 elseif rise > secondRise then secondRise = rise end
             end
         end
