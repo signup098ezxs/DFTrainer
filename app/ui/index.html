@@ -572,6 +572,9 @@ input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border: 0; bord
 .rule b { font: 600 14.5px/1.3 var(--display); }
 .rule p { margin: 2px 0 0; color: var(--ash); font-size: 12.5px; max-width: 78ch; }
 .rule .seg { margin-top: 8px; }
+.rulesnote p b { font: inherit; font-weight: 600; color: var(--frost); }
+.rulesnote .rulespending { margin-top: 6px; color: var(--ember); }
+.rulesnote .rulespending[hidden] { display: none; }
 
 /* ------------------------------------------------ live feed */
 .feed { position: relative; padding-left: 26px; }
@@ -1327,6 +1330,7 @@ $('#checkUpd').addEventListener('click', () => { SFX.tick(); $('#checkUpd').text
 
 function onState(s) {
   S = s;
+  showRulesPending();
   renderApp(s.app);
   renderLicense(s.license);
   if (s.license && !s.license.ok) return;
@@ -2480,17 +2484,22 @@ $('nav > button[data-tab="parts"]').addEventListener('click', () => { renderPart
 
 /* ================================================= rules */
 function renderRules() {
-  const { defs, picks } = CAT.rules;
-  $('#rules').innerHTML = defs.map((r) => `<div class="rule"><b>${esc(r.title)}${r.tested === false ? ' <span class="tag dim" title="Dauntless Forever marks this 1.14.7 rule as not yet checked in game">Untested</span>' : ''}</b><p>${esc(r.blurb || '')}</p><div class="seg" data-k="${esc(r.key)}"><span class="ind"></span>${r.choices.map(([v, l]) => `<button data-v="${esc(v)}" class="${String(picks[r.key]) === v ? 'on' : ''}">${esc(l)}</button>`).join('')}</div></div>`).join('') || '<div class="empty">This package has no game rules.</div>';
+  const { defs, picks, invalid = [] } = CAT.rules;
+  const rate = (r) => r.key !== 'host_rules';
+  const card = (r) => `<div class="rule"><b>${esc(r.title)}${r.tested === false ? ' <span class="tag dim" title="Dauntless Forever marks this 1.14.7 rule as not yet checked in game">Untested</span>' : ''}${invalid.includes(r.key) ? ' <span class="tag reset" title="rules.txt held a value this version does not offer; the default is used and will be written on the next change">Reset to default</span>' : ''}</b><p>${esc(r.blurb || '')}</p><div class="seg" data-k="${esc(r.key)}"><span class="ind"></span>${r.choices.map(([v, l]) => `<button data-v="${esc(v)}" class="${String(picks[r.key]) === v ? 'on' : ''}">${esc(l)}</button>`).join('')}</div></div>`;
+  const host = defs.filter((r) => !rate(r));
+  $('#rules').innerHTML = defs.length ? `<div class="rule rulesnote"><p><b>Where these apply:</b> single player, and games you host for friends or LAN while <b>When you host</b> is on <b>Use my rules</b>. They do not apply in games open to everyone (Allow randoms, Play online), in someone else's game (theirs apply) or on Forever worlds. Changes take effect the next time the game starts.</p><p class="rulespending"${S && S.rulesPending ? '' : ' hidden'}><b>Changed while the game is running:</b> close the game (and Host Mode) and press Play again to use the new rules.</p></div>`
+    + defs.filter(rate).map(card).join('') + host.map(card).join('') : '<div class="empty">This package has no game rules.</div>';
   requestAnimationFrame(() => $$('#rules .seg').forEach(placeInd));
 }
+function showRulesPending() { const e = $('#rules .rulespending'); if (e) e.hidden = !(S && S.rulesPending); }
 $('#rules').addEventListener('click', async (e) => {
   const b = e.target.closest('.seg button'); if (!b || b.classList.contains('on')) return;
   const seg = b.parentElement, k = seg.dataset.k;
   SFX.step([...seg.querySelectorAll('button')].indexOf(b));
   seg.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b)); placeInd(seg);
   const r = await api('/api/rules', { [k]: b.dataset.v });
-  if (r.ok) { CAT.rules = r.rules; toast('Rule saved', S && S.running ? 'It applies the next time you press Play.' : ''); } else { SFX.error(); toast('Not saved', r.error, 'error'); }
+  if (r.ok) { CAT.rules = r.rules; if (S) S.rulesPending = r.rules.pending; showRulesPending(); if (!(r.rules.invalid || []).length) $$('#rules .tag.reset').forEach((t) => t.remove()); toast('Rule saved', S && S.running ? 'It applies the next time the game starts.' : ''); } else { SFX.error(); toast('Not saved', r.error, 'error'); }
 });
 
 /* ================================================= save + characters */

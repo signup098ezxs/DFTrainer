@@ -1,5 +1,5 @@
 {
-  "version": "3.9.18",
+  "version": "3.9.19",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Overlay: broken parts show again with slow weapons. Since 3.9.17 the overlay reads health only when you hit, and a hammer or axe hits every couple of seconds, so a part refilled on its breaking hit could be missed; it is now compared with the reading before, however old (game mod 7.4)."
+  "notes": "Game rules: the tab now shows \"When you host\" (Use my rules / Standard rules), says where the rates apply (single player and games you host for friends or LAN with Use my rules; not in games open to everyone, someone else's game or Forever worlds), and warns on the tab when a rule was changed while the game runs (it applies after a restart). A value this version no longer offers falls back to the default and is never written back, so it cannot stop the game's backend from starting."
 }

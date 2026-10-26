@@ -608,28 +608,37 @@ function inventoryLoaded(p, characterId) {
 setInterval(() => { try { followLog(); } catch {} }, 600);
 
 // ---------------------------------------------------------------- game rules (data\rules.txt)
-function rulesInfo(p) {
-  const defs = (readJson(path.join(p.pkg, 'rules.json'), {}).rules || []).filter((r) => r.key !== 'host_rules');
-  const picks = {};
-  try {
-    for (const l of fs.readFileSync(path.join(p.dataDir, 'rules.txt'), 'utf8').split(/\r?\n/)) {
-      const m = /^\s*([a-z_]+)\s*=\s*(\S+)\s*$/.exec(l); if (m) picks[m[1]] = m[2];
-    }
-  } catch {}
-  for (const r of defs) if (picks[r.key] == null) picks[r.key] = r.default;
-  return { defs, picks };
+// DF reads rules.txt once when its backend starts, and a value that is not one of a rule's choices stops the backend from
+// starting. So picks are checked against the current choices (an invalid or stale one falls back to the default and is
+// never written back), and while the game runs the panel says when the file differs from what the game started with.
+let rulesAtStart = null;   // the rules in effect when the panel saw the game start (null: game closed or not seen)
+function readRules(p) {
+  const defs = readJson(path.join(p.pkg, 'rules.json'), {}).rules || [];
+  const raw = {}, picks = {}, invalid = [];
+  let text = ''; try { text = fs.readFileSync(path.join(p.dataDir, 'rules.txt'), 'utf8'); } catch {}
+  for (const l of text.split(/\r?\n/)) {
+    const m = /^\s*([a-z_]+)\s*=\s*(\S+)\s*$/.exec(l); if (m) raw[m[1]] = m[2];
+  }
+  for (const r of defs) {
+    if (raw[r.key] != null && (r.choices || []).some((c) => c[0] === raw[r.key])) picks[r.key] = raw[r.key];
+    else { if (raw[r.key] != null) invalid.push(r.key); if (r.default != null) picks[r.key] = String(r.default); }
+  }
+  return { defs, picks, invalid };
 }
+const rulesKey = (p) => JSON.stringify(readRules(p).picks);
+const rulesPending = (p) => rulesAtStart != null && rulesAtStart !== rulesKey(p);
+function rulesInfo(p) { return { ...readRules(p), pending: rulesPending(p) }; }
 function writeRules(p, want) {
-  const all = readJson(path.join(p.pkg, 'rules.json'), {}).rules || [];
-  const { picks } = rulesInfo(p);
-  for (const r of all) {
+  const { defs, picks } = readRules(p);
+  for (const r of defs) {
     const v = want[r.key];
     if (v != null && (r.choices || []).some((c) => c[0] === String(v))) picks[r.key] = String(v);
   }
   const lines = ['# Game Rules, written by the launcher (Game Rules page). Takes effect the next time you press Play.'];
-  for (const r of all) if (picks[r.key] != null) lines.push(`${r.key}=${picks[r.key]}`);
+  for (const r of defs) if (picks[r.key] != null) lines.push(`${r.key}=${picks[r.key]}`);
   fs.mkdirSync(p.dataDir, { recursive: true });
-  fs.writeFileSync(path.join(p.dataDir, 'rules.txt'), lines.join('\r\n') + '\r\n');
+  const f = path.join(p.dataDir, 'rules.txt');
+  fs.writeFileSync(f + '.tmp', lines.join('\r\n') + '\r\n'); fs.renameSync(f + '.tmp', f);
   return rulesInfo(p);
 }
 
@@ -814,6 +823,7 @@ async function buildState() {
     // live copies of the game running another version of the mod than this panel's (restart the game to update them)
     modStale: MOD_VERSION ? procs.filter((s) => s.v !== MOD_VERSION).length : 0, modVersion: MOD_VERSION,
     escalation: running && inEscalation,
+    rulesPending: rulesPending(p),
     overlay: { ...overlaySettings(), restoreBossbar: undefined, running: overlayAlive() },
     queue: queue.map((j) => ({ what: describe(j) })), history,
     deliveries: deliveries.filter((d) => d.status === 'saved').map((d) => ({ what: d.what, at: d.at })),
@@ -832,6 +842,7 @@ async function tickState() {
     const n = s.processes.length;
     if (n && !lastProcCount) note('mod', 'Mod connected', `${s.processes.filter((x) => x.role === 'game').length ? 'Game' : 'No game'} + ${s.processes.filter((x) => x.role === 'server').length} server(s)`);
     lastProcCount = n;
+    if (s.running !== lastRunning) { const p = places(); rulesAtStart = s.running && p.pkg ? rulesKey(p) : null; }
     lastRunning = s.running;
     ensureOverlay(s.running);
   }
