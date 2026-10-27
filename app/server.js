@@ -198,7 +198,7 @@ const listNames = (p, ids, max = 2) => {
 };
 
 // ---------------------------------------------------------------- helpers
-// Is the game's backend up? Asked by the state ticks, the overlay (ten times a second) and every gift: one answer is
+// Is the game's backend up? Asked by the state ticks, the overlay (30 times a second) and every gift: one answer is
 // shared for up to a second (maxAge 0 asks fresh), so the backend is not knocked on a dozen times a second.
 let upCache = { at: 0, v: false, p: null };
 function backendUp(maxAge = 1000) {
@@ -713,7 +713,7 @@ function syncMod(gameRunning) {
 // ---------------------------------------------------------------- behemoth overlay
 // The game mod (in your game and in each hunt server) writes the behemoth you are fighting to track\<process>.json in
 // its folder while the overlay is on. The overlay itself is "Lantern Client.exe --overlay": a small click-through
-// window over the game, drawn natively, that asks this panel for GET /api/overlay/state ten times a second. Names come
+// window over the game, drawn natively, that asks this panel for GET /api/overlay/state 30 times a second. Names come
 // from the game's own kill tokens (TOKEN_KILL_COUNT_LERAWR_BETA = "Kill Token: Rogue Embermane").
 // engine 'df' (default, 3.9.21): the overlay is Dauntless Forever's Boss Health Bar, built into its loader. It reads
 // the game's memory directly, so it costs nothing in co-op, where the mod's object searches made the game hitch; the
@@ -767,7 +767,7 @@ function pickTrack(tracks) {
   return match || mine.b;
 }
 function overlayTrack(p) {
-  if (ovCache && Date.now() - ovCacheAt < 80) return ovCache;
+  if (ovCache && Date.now() - ovCacheAt < 25) return ovCache;   // 3.9.27: 25 ms (was 80), the overlay asks 30 times a second
   const tracks = [];
   const dir = p.modDir && path.join(p.modDir, 'track');
   try {

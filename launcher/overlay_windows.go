@@ -5,7 +5,7 @@ package main
 // The behemoth overlay on screen: "Lantern Client.exe --overlay <panel address> <token>", started by the panel while
 // the game runs and the overlay is on. A click-through, always-on-top layered window that never takes focus, sitting
 // over the game's window and shown only while the game is the window in front (as Dauntless Forever's Boss Health
-// Bar does). It asks the panel for the behemoth ten times a second and draws with overlay_draw.go: only while
+// Bar does). It asks the panel for the behemoth 30 times a second and draws with overlay_draw.go: only while
 // something moves (up to 60 frames a second), otherwise it just waits. It quits by itself when the game closes, the
 // overlay is turned off or the panel stops answering.
 
@@ -130,7 +130,8 @@ func (f *ovFeed) poll(base, token string) {
 			f.failed++
 		}
 		f.mu.Unlock()
-		time.Sleep(100 * time.Millisecond)
+		// 1.6.14: 30 a second (was 10): the card follows hits within ~1/30 s; a local request, about 1 KB each
+		time.Sleep(33 * time.Millisecond)
 	}
 }
 
@@ -426,7 +427,7 @@ func runOverlay(base, token string) {
 		if moving || qmoving {
 			time.Sleep(16 * time.Millisecond)
 		} else {
-			time.Sleep(50 * time.Millisecond)
+			time.Sleep(20 * time.Millisecond) // 1.6.14: was 50; a new reading is drawn sooner (an idle wake draws nothing)
 		}
 	}
 }

@@ -1,5 +1,5 @@
 {
-  "version": "3.9.26",
+  "version": "3.9.27",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Lantern's card is smooth in co-op now: its numbers come from a small native tracker built into the game mod (game mod 8.0) that reads the game the way Dauntless Forever's Boss Health Bar does, with no object searches, about 12 times a second. If it cannot run, the old tracking takes over by itself. Names: behemoths the game only names in its gear texts are named now (Sahvyt, Frostwülf, Urska, Phaelanx, Alyra), from 'forged from ... trophies'. Pick the Lantern card in Settings > Behemoth overlay > Style, then close the game fully so the new mod loads."
+  "notes": "Overlay delay: the in-game card asks for new numbers 30 times a second (was 10), the panel keeps each answer 25 ms (was 80), and the card window picks a change up within 20 ms. A hit shows on the card up to about 0.2 s sooner. Drawing, animations and every feature are unchanged; the extra work is about 1% of one CPU core. (Launcher 1.6.14: Lantern Client updates itself.)"
 }

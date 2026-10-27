@@ -1,11 +1,11 @@
-# Test build of the native tracker DLL on any branch but main (main builds it inside the release workflow).
-# The DLL is kept as a workflow artifact; nothing is released.
+# Test builds on any branch but main (main builds both inside the release workflow): the native tracker DLL (kept as
+# a workflow artifact) and a Windows compile check of the launcher. Nothing is released.
 name: Native tracker
 
 on:
   push:
     branches-ignore: [main]
-    paths: ["native/**", "tools/build-native.sh", ".github/workflows/native.yml"]
+    paths: ["native/**", "launcher/**", "tools/build-native.sh", ".github/workflows/native.yml"]
   workflow_dispatch:
 
 jobs:
@@ -27,3 +27,12 @@ jobs:
         with:
           name: lantern_native
           path: app/mod/DFTrainer/native/lantern_native.dll
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: launcher/go.mod
+      - name: Launcher compiles for Windows
+        working-directory: launcher
+        env:
+          GOOS: windows
+          GOARCH: amd64
+        run: go vet ./... && go build -o /dev/null .
