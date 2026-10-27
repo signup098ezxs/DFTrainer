@@ -10,7 +10,7 @@
 -- Only property reads are used (7.0 removed the damage multiplier: the hunt server rewrites a behemoth's health from
 -- its ability system on every hit, so a written health never stuck). Logged as [DFTrainer] in UE4SS.log.
 
-local MOD_VERSION  = "7.6.1"
+local MOD_VERSION  = "7.7"   -- 7.5's tracking; 7.6's search-free test (owner only) removed
 local TICK_MS      = 150    -- how often the mod's loop runs
 local RESCAN_EVERY = 2.0    -- seconds between searches for players (instant refresh)
 local READ_EVERY   = 0.5    -- seconds between reads of the toggles file
@@ -83,62 +83,7 @@ local searchLogs = 0   -- the first searches are timed in the log (os.clock is w
 -- 7.5: each search costs the game a pause (logged 26 Oct: 32-37 ms in your game, 16-22 ms on a hunt server, with the
 -- object cache off), so they are counted, and once a minute the log says what the overlay cost the game's thread
 local Cost = { n = 0, ms = 0, worst = 0, at = nil }
-local T = { refresh = false, refreshFn = "", locked = false, track = false, nosearch = false }   -- the panel's toggles (below)
--- 7.6 (owner's test, "nosearch"): no searches at all. The game tells the mod about each object of these classes as it
--- creates it (UE4SS NotifyOnNewObject, set up at load); only its path is kept, and a search becomes looking those
--- paths up in the game's object table (StaticFindObject, a hash lookup). The callback can run on a loading thread, so
--- it only appends to a list that the game thread reads on. Objects created before the mod loaded are not known.
--- 7.6.1: 3.9.22 looked up every path it had ever kept, on every pass. On 26 Oct 20:17 (traveling to a new island in
--- co-op) one of them was an object the game was tearing down: StaticFindObject returned it and UE4SS crashed checking
--- its class (UObjectBase::IsA, symbolized from the crash report). That was also the 0.5-3.7 s first-fight passes. Now
--- only paths on the map being played are looked up (from the hit's own object), and health sets and part components
--- only by name under a behemoth or part actor that is alive this pass; everything else stays a string.
-local REG_CLASSES = { PlayerController = "/Script/Engine.PlayerController", LocalPlayer = "/Script/Engine.LocalPlayer",
-    ArchonBehemoth = "/Script/Archon.ArchonBehemoth", ArchonHealthAttributeSet = "/Script/Archon.ArchonHealthAttributeSet",
-    MonsterPartComponent = "/Script/Archon.MonsterPartComponent", ArchonPlayerState = "/Script/Archon.ArchonPlayerState" }
-local REG_ALIAS = { player_controller_bp_C = "PlayerController", ArchonPlayerController = "PlayerController", ArchonLocalPlayer = "LocalPlayer" }
-local REG_UNDER = { ArchonHealthAttributeSet = true, MonsterPartComponent = true }   -- looked up only under a live owner
--- per class: registered, new paths, how many taken, paths kept; map = the package of the map being played
-local Reg = { on = {}, queue = {}, done = {}, known = {}, map = nil }
-local function regTake(k)
-    local q, kn = Reg.queue[k], Reg.known[k]
-    -- shortcut: the queue is never shrunk (another thread appends to it); a path is ~100 bytes, fine for one session
-    for i = Reg.done[k] + 1, #q do kn[q[i]] = true end
-    Reg.done[k] = #q
-    return kn
-end
--- a kept path on another map is never looked up again (that map, and what was on it, is gone or going)
-local function regHere(k, path)
-    if k == "LocalPlayer" then return true end
-    return path:sub(1, #Reg.map + 1) == Reg.map .. ":"
-end
-local function regKnown(k)
-    local out, kn = {}, regTake(k)
-    for path in pairs(kn) do
-        local o = regHere(k, path) and fresh(path)
-        if o then out[#out + 1] = o else kn[path] = nil end   -- freed or elsewhere: forgotten
-    end
-    return out
-end
--- the health sets / part components under one owner that is alive this pass (its path, from that live object)
-local function regUnder(k, owner)
-    local out, kn = {}, regTake(k)
-    for path in pairs(kn) do
-        if not regHere(k, path) then kn[path] = nil
-        elseif under(path, owner) then
-            local o = fresh(path)
-            if o then out[#out + 1] = o else kn[path] = nil end
-        end
-    end
-    return out
-end
 local function search(cls)
-    local k = REG_ALIAS[cls] or cls
-    -- without the map (no hit seen yet) it searches as before
-    if T.nosearch and Reg.on[k] and Reg.map then
-        if REG_UNDER[k] then return { reg = k } end   -- read through regUnder by healthSetUnder / findParts
-        return regKnown(k)
-    end
     local t0 = os.clock()
     local ok, list = pcall(FindAllOf, cls)
     Cost.n, Cost.ms = Cost.n + 1, Cost.ms + (os.clock() - t0) * 1000
@@ -166,7 +111,6 @@ local function findAll(classes)
     local out, seen = {}, {}
     for _, cls in ipairs(classes) do
         local ok, list = true, search(cls)
-        if list.reg then return list end   -- 7.6.1: sets / part components, looked up later under their owner
         for _, o in ipairs(ok and list or {}) do
             local n = nameOf(o)
             if n and not seen[n] and not n:find("Default__", 1, true) and valid(o) then
@@ -212,6 +156,7 @@ if Base then LogFile = Base .. "/logs/" .. os.date("%Y%m%d-%H%M%S") .. "-" .. Pr
 if Base then log("mod folder: " .. Base .. " (process " .. ProcId .. ")") else log("could not find the mod folder; the panel cannot reach this process") end
 
 ---------------------------------------------------------------- toggles (flat JSON written by the panel)
+local T = { refresh = false, refreshFn = "", locked = false, track = false }
 local togglesText = ""
 
 local function parseToggles(s)
@@ -219,9 +164,8 @@ local function parseToggles(s)
     T.refresh = flag("refresh")
     T.refreshFn = s:match('"refreshFn"%s*:%s*"([%w_]*)"') or ""
     T.locked = flag("locked")   -- not the owner's panel: no refresh
+    if T.locked then T.refresh = false end
     T.track = flag("track")     -- the behemoth overlay is on (anyone's panel)
-    T.nosearch = flag("nosearch")   -- 7.6: the owner's search-free test (see Reg)
-    if T.locked then T.refresh, T.nosearch = false, false end
 end
 
 local function readToggles()
@@ -233,27 +177,9 @@ local function readToggles()
     if s ~= togglesText and s:find("}", 1, true) then
         togglesText = s
         parseToggles(s)
-        log(string.format("toggles: refresh=%s track=%s nosearch=%s", tostring(T.refresh), tostring(T.track), tostring(T.nosearch)))
-        if T.nosearch and Reg.loaded and not next(Reg.on) then logOnce("nosearch:late", "search-free tracking: turned on after this copy of the game started; it searches as before until the game is restarted") end
+        log(string.format("toggles: refresh=%s track=%s", tostring(T.refresh), tostring(T.track)))
     end
 end
--- 7.6: the owner's search-free test is set up only if it is on when this copy of the game starts
-readToggles()
-if T.nosearch then
-    local ok = {}
-    for k, path in pairs(REG_CLASSES) do
-        Reg.queue[k], Reg.done[k], Reg.known[k] = {}, 0, {}
-        local q = Reg.queue[k]
-        local good = pcall(NotifyOnNewObject, path, function(o)
-            local n = nameOf(o)
-            if n and not n:find("Default__", 1, true) then q[#q + 1] = n:match("^%S+%s+(.+)$") end
-        end)
-        if good then Reg.on[k] = true ok[#ok + 1] = k else log("search-free tracking: cannot watch " .. path .. " (searched for as before)") end
-    end
-    table.sort(ok)
-    log("search-free tracking on (owner's test): watching " .. table.concat(ok, ", "))
-end
-Reg.loaded = true
 
 ---------------------------------------------------------------- what is in this process
 local S = { role = "server", owners = {} }
@@ -480,7 +406,6 @@ end
 local PART_LINKS = { "MonsterPartActor", "PartActor" }
 local function healthSetUnder(sets, path)
     local best, bestMax = nil, 0
-    if sets.reg then sets = path and regUnder(sets.reg, path) or {} end
     for _, st in ipairs(sets) do
         if under(pathOf(st), path) then
             local m = readNum(st, "MaxHealth") or 0
@@ -513,7 +438,6 @@ local function linkedActor(comp)
 end
 local function findParts(e, sets, comps)
     local parts, seen = {}, {}
-    if comps.reg then comps = regUnder(comps.reg, e.path) end
     for _, comp in ipairs(comps) do
         if under(pathOf(comp), e.path) then
             local actor = linkedActor(comp)
@@ -1246,7 +1170,7 @@ local function step()
     -- 7.5: once a minute, what the overlay cost the game's thread (only when it searched)
     Cost.at = Cost.at or now
     if now - Cost.at >= 60 then
-        if Cost.n > 0 or (T.nosearch and Cost.worst > 0) then log(string.format("cost last minute: %d search(es), %.0f ms searching, longest game-thread pass %.0f ms%s", Cost.n, Cost.ms, Cost.worst, (T.nosearch and next(Reg.on)) and " (search-free)" or "")) end
+        if Cost.n > 0 then log(string.format("cost last minute: %d search(es), %.0f ms searching, longest game-thread pass %.0f ms", Cost.n, Cost.ms, Cost.worst)) end
         Cost.n, Cost.ms, Cost.worst, Cost.at = 0, 0, 0, now
     end
 end
@@ -1262,18 +1186,10 @@ end)
 -- so not on every bullet)
 local lastHitTrack = -1
 local hooked, hookErr = pcall(function()
-    RegisterHook("/Script/Archon.ArchonCombatTextComponent:MulticastSendMultitypeCombatText", function(ctx)
+    RegisterHook("/Script/Archon.ArchonCombatTextComponent:MulticastSendMultitypeCombatText", function()
         if PendingRefresh then onGameThread(function() end) end   -- an instant refresh waiting for the game's thread
         if not T.track then return end
         local now = os.clock()
-        -- 7.6.1: the map being played, from the hit's own component (alive while its event runs)
-        if T.nosearch and next(Reg.on) and now - (Reg.mapAt or -100) >= 2 then
-            Reg.mapAt = now
-            local okC, c = pcall(function() return ctx:get() end)
-            local p = okC and c ~= nil and type(c) ~= "number" and pathOf(c)
-            local m = p and p:match("^([^:]+):")
-            if m and m ~= Reg.map then Reg.map = m log("search-free tracking: map " .. m) end
-        end
         Tk.hitAt = now
         if T.track and now - lastHitTrack >= 0.125 then
             lastHitTrack = now

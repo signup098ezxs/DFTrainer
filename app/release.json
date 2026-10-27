@@ -1,5 +1,5 @@
 {
-  "version": "3.9.23",
+  "version": "3.9.24",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Owner's test fix (game mod 7.6.1): Search-free tracking crashed the game on 26 Oct when going to a new island in co-op. It looked up every object it had ever seen on each hit, and one was an object the game was tearing down. It now only looks up objects on the island you are on, and health and parts only under the behemoth being fought. That also removes the long pause at the first fight with a behemoth. Close the game fully so the new mod loads."
+  "notes": "The owner's Search-free tracking test is removed (game mod 7.7 is 7.5's tracking again). The overlay stays as in 3.9.21: Dauntless Forever's Boss Health Bar by default (no lag in co-op), or Lantern's card (element, stagger, BROKEN parts; best in single player). Close the game fully so the new mod loads."
 }

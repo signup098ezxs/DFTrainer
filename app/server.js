@@ -316,8 +316,7 @@ setInterval(() => {
 }, 1000);
 
 // ---------------------------------------------------------------- in-game switches
-// nosearch (mod 7.6, owner's test): Lantern's card tracks without object searches; read when the game starts
-const TOGGLE_DEFAULTS = { refresh: false, refreshFn: '', nosearch: false };
+const TOGGLE_DEFAULTS = { refresh: false, refreshFn: '' };
 // the behemoth overlay (anyone's panel, not just the owner's): the mod tracks behemoths only while Lantern's own card
 // is the one showing (with Dauntless Forever's Boss Health Bar, the default since 3.9.21, the mod does no searches)
 const overlayOn = () => !!(settings.overlay && settings.overlay.on);
@@ -329,13 +328,12 @@ function readToggles(p) {
   if (!isOwner()) return { ...TOGGLE_DEFAULTS };
   // a file written while no owner key was present says "locked": it is not the owner's setting, so it is ignored
   const all = { ...TOGGLE_DEFAULTS, ...(settings.toggles || {}), ...(t && !t.locked ? t : {}) };
-  return { refresh: all.refresh, refreshFn: all.refreshFn, nosearch: !!all.nosearch };
+  return { refresh: all.refresh, refreshFn: all.refreshFn };
 }
 let lockLogsGone = false;
 function writeToggles(p, t) {
   const clean = {
     refresh: !!t.refresh, refreshFn: /^[A-Za-z_]\w{0,80}$/.test(String(t.refreshFn || '')) ? String(t.refreshFn) : '',
-    nosearch: !!t.nosearch,
   };
   // the owner's settings are kept only from the owner's panel (without the key, defaults must not overwrite them)
   if (isOwner()) { settings.toggles = clean; saveSettings(); }
