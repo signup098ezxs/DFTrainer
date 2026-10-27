@@ -62,8 +62,12 @@ jobs:
       # the owner's native tracker DLL goes into the game mod's folder before the app zip is made
       - name: Native tracker
         if: steps.v.outputs.skip != 'true'
+        timeout-minutes: 10
+        env:
+          DEBIAN_FRONTEND: noninteractive
         run: |
-          sudo apt-get install -y -qq g++-mingw-w64-x86-64 >/dev/null
+          sudo -E apt-get update -qq
+          sudo -E apt-get install -y -qq --no-install-recommends g++-mingw-w64-x86-64 >/dev/null
           bash tools/build-native.sh
 
       - name: Build and sign
