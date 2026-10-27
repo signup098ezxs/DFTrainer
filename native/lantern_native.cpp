@@ -357,6 +357,11 @@ static DWORD WINAPI files_thread(void*) {
 }
 
 // ---------------------------------------------------------------------------- start
+static bool readable(uintptr_t p, size_t n) {   // committed, readable memory (another exe may not reach that far)
+    MEMORY_BASIC_INFORMATION mi;
+    if (!VirtualQuery((void*)p, &mi, sizeof(mi)) || mi.State != MEM_COMMIT || (mi.Protect & (PAGE_NOACCESS | PAGE_GUARD))) return false;
+    return p + n <= (uintptr_t)mi.BaseAddress + mi.RegionSize;
+}
 static DWORD WINAPI init_thread(void*) {
     wchar_t lp[MAX_PATH + 64]; SYSTEMTIME t; GetLocalTime(&t);
     swprintf(lp, MAX_PATH + 64, L"%ls\\logs\\native-%04d%02d%02d-%02d%02d%02d-%lu.log", g_dir, t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute, t.wSecond, GetCurrentProcessId());
@@ -364,7 +369,8 @@ static DWORD WINAPI init_thread(void*) {
     g_base = (uintptr_t)GetModuleHandleA(0);
     logf_("Lantern native tracker (3.9.25) loaded, exe base %p", (void*)g_base);
     static const uint8_t listenCall[5] = { 0xE8, 0x0B, 0x79, 0x77, 0xFC };
-    if (memcmp((void*)(g_base + A::LoadMapListenCall), listenCall, 5) != 0) { logf_("not the 1.14.7 exe: off"); return 0; }
+    if (!readable(g_base + A::LoadMapListenCall, 5) || !readable(g_base + A::GameEngineTick, 4) || !readable(g_base + A::GWorld, 8) ||
+        memcmp((void*)(g_base + A::LoadMapListenCall), listenCall, 5) != 0) { logf_("not the 1.14.7 exe: off"); return 0; }
     static const uint8_t tickStart[4] = { 0x48, 0x8B, 0xC4, 0x48 };
     if (memcmp((void*)(g_base + A::GameEngineTick), tickStart, 4) != 0) { logf_("the engine tick is already hooked (Dauntless Forever's Boss Health Bar is on?): off"); return 0; }
     InitializeCriticalSection(&g_jsonLock);
