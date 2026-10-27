@@ -1,5 +1,5 @@
 {
-  "version": "3.9.24",
+  "version": "3.9.25",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "The owner's Search-free tracking test is removed (game mod 7.7 is 7.5's tracking again). The overlay stays as in 3.9.21: Dauntless Forever's Boss Health Bar by default (no lag in co-op), or Lantern's card (element, stagger, BROKEN parts; best in single player). Close the game fully so the new mod loads."
+  "notes": "Owner's test: Settings > Behemoth overlay > Style Lantern card > Native tracking. The card's numbers then come from a small native tracker (built into the game mod, game mod 7.8) that reads the game the way Dauntless Forever's Boss Health Bar does: no object searches, so no stutter in co-op, with Lantern's names, element and BROKEN parts. Close the game fully after turning it on; its log is logs\\\\native-*.log in the game mod's folder. Nothing changes for anyone else."
 }
