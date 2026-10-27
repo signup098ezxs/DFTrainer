@@ -1038,8 +1038,7 @@ div.lrow { cursor: default; }
           <div class="ovgrid">
             <div>
               <div class="setrow"><div class="lbl"><b>Show in game</b><small>The behemoth you are fighting, over the game: its name, health and each part's health. Click-through, and only while the game is in front.</small></div><div class="ctl"><label class="sw sm"><input type="checkbox" id="ovOn"><span class="track"></span><span class="knob"></span></label></div></div>
-              <div class="setrow"><div class="lbl"><b>Style</b><small>Dauntless Forever's Boss Health Bar reads the game directly: no lag, also in co-op. Lantern's card adds element, stagger and BROKEN parts; best in single player (it can make the game stutter in co-op). Applies the next time the game starts.</small></div><div class="ctl"><select id="ovEngine"><option value="df">Dauntless Forever bar (smooth)</option><option value="lantern">Lantern card (more detail)</option></select></div></div>
-              <div class="setrow ovlantern" id="ovNativeRow" hidden><div class="lbl"><b>Native tracking</b><small>Owner's test: the card's numbers come from a small native tracker that reads the game the way Dauntless Forever's bar does (no searches, so no co-op stutter). Close the game fully after turning it on; its log is logs\native-*.log in the game mod's folder.</small></div><div class="ctl"><label class="sw sm"><input type="checkbox" id="tNative" aria-label="Native tracking"><span class="track"></span><span class="knob"></span></label></div></div>
+              <div class="setrow"><div class="lbl"><b>Style</b><small>Dauntless Forever's Boss Health Bar reads the game directly: no lag, also in co-op. Lantern's card adds Lantern's names, element and BROKEN parts, read the same direct way, so it is smooth in co-op too. Applies the next time the game starts.</small></div><div class="ctl"><select id="ovEngine"><option value="df">Dauntless Forever bar (smooth)</option><option value="lantern">Lantern card (more detail)</option></select></div></div>
               <div class="setrow ovlantern"><div class="lbl"><b>Position</b><small>Where it sits on the game's screen.</small></div><div class="ctl"><select id="ovPos"><option value="top">Top centre</option><option value="top-left">Top left</option><option value="top-right">Top right</option><option value="right">Right side</option></select></div></div>
               <div class="setrow ovlantern"><div class="lbl"><b>Size</b><small>Grows with the game's resolution too.</small></div><div class="ctl"><select id="ovSize"><option value="s">Small</option><option value="m">Medium</option><option value="l">Large</option></select></div></div>
               <div class="setrow ovlantern"><div class="lbl"><b>Background</b><small>How solid the card behind the bars is.</small></div><div class="ctl"><input type="range" id="ovOpacity" min="0.4" max="1" step="0.05"></div></div>
@@ -2256,8 +2255,6 @@ let holdUntil = 0;
 function syncToggles(t) {
   if (Date.now() < holdUntil) return;   // don't fight a click in flight
   $('#tRefresh').checked = !!t.refresh;
-  $('#tNative').checked = !!t.native;
-  $('#ovNativeRow').hidden = !(LIC && LIC.owner);
 }
 function setReadout(sel, text, lit) {
   const r = $(sel); if (r.textContent !== text) { r.textContent = text; r.classList.remove('bump'); void r.offsetWidth; r.classList.add('bump'); }
@@ -2362,9 +2359,7 @@ $('#give').addEventListener('click', async () => {
 });
 $('#btnSurge').onclick = (e) => runItems({ action: 'maxweapons', character: charId(), label: 'Max weapon levels' }, e.currentTarget);
 $('#btnCos').onclick = (e) => runItems({ action: 'addcosmetic', character: charId(), list: 'all', label: 'Unlock all cosmetics' }, e.currentTarget);
-$('#tRefresh').addEventListener('change', (e) => { e.target.checked ? SFX.switchOn() : SFX.switchOff(); setToggle({ refresh: e.target.checked }); });
-$('#tNative').addEventListener('change', (e) => { e.target.checked ? SFX.switchOn() : SFX.switchOff(); setToggle({ native: e.target.checked }); });
-function renderRelay() {
+$('#tRefresh').addEventListener('change', (e) => { e.target.checked ? SFX.switchOn() : SFX.switchOff(); setToggle({ refresh: e.target.checked }); });function renderRelay() {
   const live = !!S.running, rel = $('#relay');
   rel.classList.toggle('live', live);
   $('#relayTitle').textContent = live ? 'Live delivery' : 'Game closed';

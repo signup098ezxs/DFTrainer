@@ -1,5 +1,5 @@
 {
-  "version": "3.9.25",
+  "version": "3.9.26",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Owner's test: Settings > Behemoth overlay > Style Lantern card > Native tracking. The card's numbers then come from a small native tracker (built into the game mod, game mod 7.8) that reads the game the way Dauntless Forever's Boss Health Bar does: no object searches, so no stutter in co-op, with Lantern's names, element and BROKEN parts. Close the game fully after turning it on; its log is logs\\\\native-*.log in the game mod's folder. Nothing changes for anyone else."
+  "notes": "Lantern's card is smooth in co-op now: its numbers come from a small native tracker built into the game mod (game mod 8.0) that reads the game the way Dauntless Forever's Boss Health Bar does, with no object searches, about 12 times a second. If it cannot run, the old tracking takes over by itself. Names: behemoths the game only names in its gear texts are named now (Sahvyt, Frostwülf, Urska, Phaelanx, Alyra), from 'forged from ... trophies'. Pick the Lantern card in Settings > Behemoth overlay > Style, then close the game fully so the new mod loads."
 }

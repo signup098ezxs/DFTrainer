@@ -144,7 +144,9 @@ function catalog(p) {
   const types = (picker.types || []).flatMap((t) => (t === 'Emotes' ? ['Emotes', 'Hunt arrivals'] : [t]));
   // what live.js needs for a gift while you play, from this same catalog (no second copy of it)
   let live = null;   // built on the first gift while you play
-  const codeNames = BEHEMOTHS.namesFromItems(full);   // ARMSTRONG -> Torgadoro, from the game's own item names
+  // ARMSTRONG -> Torgadoro, from the game's own item names; then (trusted more) MANTIS -> Sahvyt from its armour
+  // descriptions in the game text, "forged from Sahvyt trophies" (3.9.26: Sahvyt, Frostwülf, Urska, Phaelanx, Alyra)
+  const codeNames = new Map([...BEHEMOTHS.namesFromItems(full), ...BEHEMOTHS.namesFromTrophies(full, (i) => GAMETEXT.description(text, i))]);
   CATALOG = { gear, names, storage, groupOf, types, behemoths, codeNames, recipes,
     get live() { return live || (live = { storage, picker: new Set(gear.map((g) => g[0])), cosmetics: gear.filter((g) => g[3]).map((g) => g[0]) }); } };
   CATALOG_KEY = key;
@@ -316,8 +318,7 @@ setInterval(() => {
 }, 1000);
 
 // ---------------------------------------------------------------- in-game switches
-// native (3.9.25, owner's test): Lantern's card fed by the native tracker DLL (mod folder native\) instead of the Lua mod
-const TOGGLE_DEFAULTS = { refresh: false, refreshFn: '', native: false };
+const TOGGLE_DEFAULTS = { refresh: false, refreshFn: '' };
 // the behemoth overlay (anyone's panel, not just the owner's): the mod tracks behemoths only while Lantern's own card
 // is the one showing (with Dauntless Forever's Boss Health Bar, the default since 3.9.21, the mod does no searches)
 const overlayOn = () => !!(settings.overlay && settings.overlay.on);
@@ -329,13 +330,12 @@ function readToggles(p) {
   if (!isOwner()) return { ...TOGGLE_DEFAULTS };
   // a file written while no owner key was present says "locked": it is not the owner's setting, so it is ignored
   const all = { ...TOGGLE_DEFAULTS, ...(settings.toggles || {}), ...(t && !t.locked ? t : {}) };
-  return { refresh: all.refresh, refreshFn: all.refreshFn, native: !!all.native };
+  return { refresh: all.refresh, refreshFn: all.refreshFn };
 }
 let lockLogsGone = false;
 function writeToggles(p, t) {
   const clean = {
     refresh: !!t.refresh, refreshFn: /^[A-Za-z_]\w{0,80}$/.test(String(t.refreshFn || '')) ? String(t.refreshFn) : '',
-    native: !!t.native,
   };
   // the owner's settings are kept only from the owner's panel (without the key, defaults must not overwrite them)
   if (isOwner()) { settings.toggles = clean; saveSettings(); }
@@ -343,9 +343,10 @@ function writeToggles(p, t) {
     const f = path.join(p.modDir, 'trainer-toggles.json');
     // not the owner: the mod gets the defaults and "locked"
     const out = { ...(isOwner() ? { ...clean, locked: false } : { ...TOGGLE_DEFAULTS, locked: true }) };
-    // the native tracker runs only while Lantern's card is showing; then the Lua mod tracks nothing
-    out.native = isOwner() && clean.native && lanternOverlay();
-    out.track = lanternOverlay() && !out.native;
+    // 3.9.26: Lantern's card is fed by the native tracker (mod folder native\); the Lua mod tracks only if it is not
+    // running (the mod decides: track\native.json goes stale)
+    out.native = lanternOverlay();
+    out.track = lanternOverlay();
     fs.mkdirSync(path.join(p.modDir, 'track'), { recursive: true });
     // each copy of the game that ever ran left a track file: those over an hour old are done with
     try { const td = path.join(p.modDir, 'track'); for (const f of fs.readdirSync(td)) { const full = path.join(td, f); if (Date.now() - fs.statSync(full).mtimeMs > 3600000) fs.unlinkSync(full); } } catch {}

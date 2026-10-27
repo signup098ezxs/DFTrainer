@@ -61,5 +61,10 @@ function displayName(text, item) {
   const ns = String(item.source || '').split('/').pop().replace(/\.uasset$/i, '');
   return (ns && text.get(`${ns}::${item.id}|Display Name`)) || null;
 }
+// its description ("Head protection forged from Sahvyt trophies.")
+function description(text, item) {
+  const ns = String(item.source || '').split('/').pop().replace(/\.uasset$/i, '');
+  return (ns && text.get(`${ns}::${item.id}|Description`)) || null;
+}
 
-module.exports = { englishText, displayName, parseAt };
+module.exports = { englishText, displayName, description, parseAt };

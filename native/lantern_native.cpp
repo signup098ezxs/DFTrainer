@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Lantern Client native tracker for Dauntless 1.14.7 (owner's test, 3.9.25).
+// Lantern Client native tracker for Dauntless 1.14.7 (3.9.25 owner's test; 3.9.26 feeds Lantern's card for everyone).
 //
 // Does what Dauntless Forever's Boss Health Bar does (its loader bin\dxgi.dll, source d1147.cpp in the package's
 // source\Loader1147-*-source.zip, AGPL-3.0-only; the 1.14.7 addresses, the actor walk, the part links and the fenced
-// call below come from it), but draws nothing: it writes the behemoth to track\native-<process>.json in the Lantern
-// mod's folder, which the panel reads like the Lua mod's track files and shows on Lantern's own card.
+// call below come from it), but draws nothing: it writes the behemoth to track\native.json in the Lantern mod's
+// folder, which the panel reads like the Lua mod's track files and shows on Lantern's own card.
 // Why native: the Lua mod finds behemoths by searching every game object (20-165 ms each on the game's thread), which
 // made co-op stutter. This walks the world's actor lists directly, a few times a second, like DF's bar.
 //
-// Loaded by the Lantern Lua mod (package.loadlib) when the owner turns it on; it reads trainer-toggles.json itself
-// ("native":true) and stays idle otherwise. Only your own game does anything: a copy with no local player (a hunt
+// Loaded by the Lantern Lua mod (package.loadlib) while Lantern's card is on; it reads trainer-toggles.json itself
+// ("native":true) and stays idle otherwise. While its file is fresh the Lua mod tracks nothing. Only your own game does anything: a copy with no local player (a hunt
 // server) writes nothing. Log: logs\native-<date>-<process>.log in the mod's folder.
 //
 // Build (CI, tools/build.mjs runs it): x86_64-w64-mingw32-g++ -shared -O2 -static ... (see the build script)
@@ -312,7 +312,8 @@ static void (*orig_Tick)(void*, float, bool) = 0;
 static long g_ticks = 0;
 static void hook_Tick(void* engine, float dt, bool idle) {
     orig_Tick(engine, dt, idle);
-    if (!g_on || ++g_ticks % 15) return;
+    // every 5th frame (12 a second at 60 fps; DF's bar reads every 15th): the card follows hits closely
+    if (!g_on || ++g_ticks % 5) return;
     g_gameThread = GetCurrentThreadId();
     void* world = at<void*>(g_base + A::GWorld);
     if (!world) return;
@@ -327,17 +328,18 @@ static void hook_Tick(void* engine, float dt, bool idle) {
 static DWORD WINAPI files_thread(void*) {
     wchar_t toggles[MAX_PATH + 32], track[MAX_PATH + 64], tmp[MAX_PATH + 72];
     swprintf(toggles, MAX_PATH + 32, L"%ls\\trainer-toggles.json", g_dir);
-    swprintf(track, MAX_PATH + 64, L"%ls\\track\\native-%lu.json", g_dir, GetCurrentProcessId());
+    // one name: only your own game writes it (the Lua mod reads it to know the tracker is running)
+    swprintf(track, MAX_PATH + 64, L"%ls\\track\\native.json", g_dir);
     swprintf(tmp, MAX_PATH + 72, L"%ls.tmp", track);
     LONG lastSeq = -1; ULONGLONG lastWrite = 0, lastRead = 0; bool wrote = false;
     for (;;) {
-        Sleep(100);
+        Sleep(50);
         ULONGLONG now = GetTickCount64();
         if (now - lastRead >= 500) {
             lastRead = now;
             char t[2048] = ""; FILE* f = _wfopen(toggles, L"rb");
             if (f) { size_t n = fread(t, 1, sizeof(t) - 1, f); t[n] = 0; fclose(f); }
-            LONG on = strstr(t, "\"native\":true") && !strstr(t, "\"locked\":true");
+            LONG on = strstr(t, "\"native\":true") != 0;   // the panel sets it while Lantern's card is on
             if (on != g_on) { g_on = on; logf_("toggles: native %s", on ? "on" : "off"); }
         }
         if (!g_on || !g_noteGame) {
@@ -367,10 +369,10 @@ static DWORD WINAPI init_thread(void*) {
     swprintf(lp, MAX_PATH + 64, L"%ls\\logs\\native-%04d%02d%02d-%02d%02d%02d-%lu.log", g_dir, t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute, t.wSecond, GetCurrentProcessId());
     g_log = _wfopen(lp, L"w");
     g_base = (uintptr_t)GetModuleHandleA(0);
-    logf_("Lantern native tracker (3.9.25) loaded, exe base %p", (void*)g_base);
+    logf_("Lantern native tracker (3.9.26) loaded, exe base %p", (void*)g_base);
     static const uint8_t listenCall[5] = { 0xE8, 0x0B, 0x79, 0x77, 0xFC };
     if (!readable(g_base + A::LoadMapListenCall, 5) || !readable(g_base + A::GameEngineTick, 4) || !readable(g_base + A::GWorld, 8) ||
-        memcmp((void*)(g_base + A::LoadMapListenCall), listenCall, 5) != 0) { logf_("not the 1.14.7 exe: off"); return 0; }
+        memcmp((void*)(g_base + A::LoadMapListenCall), listenCall, 5) != 0) { logf_("not the player's 1.14.7 game (a hunt server copy, which DF patches there, or another build): off"); return 0; }
     static const uint8_t tickStart[4] = { 0x48, 0x8B, 0xC4, 0x48 };
     if (memcmp((void*)(g_base + A::GameEngineTick), tickStart, 4) != 0) { logf_("the engine tick is already hooked (Dauntless Forever's Boss Health Bar is on?): off"); return 0; }
     InitializeCriticalSection(&g_jsonLock);

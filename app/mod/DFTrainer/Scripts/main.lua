@@ -10,7 +10,7 @@
 -- Only property reads are used (7.0 removed the damage multiplier: the hunt server rewrites a behemoth's health from
 -- its ability system on every hit, so a written health never stuck). Logged as [DFTrainer] in UE4SS.log.
 
-local MOD_VERSION  = "7.8"   -- 7.5's tracking (7.6's search-free test removed in 7.7); 7.8 loads the owner's native tracker
+local MOD_VERSION  = "8.0"   -- 8.0: the native tracker feeds Lantern's card; this mod's own tracking is its fallback
 local TICK_MS      = 150    -- how often the mod's loop runs
 local RESCAN_EVERY = 2.0    -- seconds between searches for players (instant refresh)
 local READ_EVERY   = 0.5    -- seconds between reads of the toggles file
@@ -165,21 +165,43 @@ local function parseToggles(s)
     T.refreshFn = s:match('"refreshFn"%s*:%s*"([%w_]*)"') or ""
     T.locked = flag("locked")   -- not the owner's panel: no refresh
     if T.locked then T.refresh = false end
-    T.track = flag("track")     -- the behemoth overlay is on (anyone's panel)
-    T.native = flag("native") and not T.locked   -- 7.8: the owner's native tracker (native\lantern_native.dll)
+    T.want = flag("track")      -- Lantern's card is on (anyone's panel); T.track is what this mod does (see nativeCheck)
+    T.native = flag("native")   -- 8.0: the card is fed by the native tracker (native\lantern_native.dll)
 end
 
--- 7.8: the native tracker is a DLL next to this script's folder. Loaded once, the first time it is asked for; it reads
--- the toggles itself, walks the game's actor lists from the engine's own tick (no searches) and writes
--- track\native-<process>.json. Loading it again does nothing (Windows keeps one copy).
-local NativeLoaded = false
-local function loadNative()
-    if NativeLoaded or not Base then return end
-    NativeLoaded = true
+-- 8.0: the native tracker is a DLL in this mod's native\ folder. Loaded once; it reads the toggles itself, walks the
+-- game's actor lists from the engine's own tick (no object searches, so no stutter in co-op) and writes
+-- track\native.json from your own game, every second at least. While that file is fresh this mod tracks nothing, in
+-- your game and in the hunt servers; if the tracker cannot run (it could not load, or this is not the 1.14.7 game
+-- it knows), the file stays old and this mod tracks as before, after 20 s.
+local Native = { loaded = false, at = nil, fresh = false, readAt = -100, said = nil }
+local NativeFile = Base and (Base .. "/track/native.json")
+local function loadNative(now)
+    if Native.loaded or not Base then return end
+    Native.loaded, Native.at = true, now
     local path = (Base .. "/native/lantern_native.dll"):gsub("/", "\\")
     if not fileExists(path) then log("native tracker: " .. path .. " not found") return end
     local ok, r, err = pcall(package.loadlib, path, "*")
     log("native tracker: " .. ((ok and r) and "loaded" or ("could not load (" .. tostring(ok and err or r) .. ")")))
+end
+local function nativeCheck(now)
+    if T.native and T.want then loadNative(now) end
+    if now - Native.readAt >= 1 then
+        Native.readAt = now
+        local f = NativeFile and io.open(NativeFile, "r")
+        local s = f and f:read("*a") or ""
+        if f then f:close() end
+        local t = tonumber(s:match('"time"%s*:%s*(%d+)'))
+        Native.fresh = t ~= nil and math.abs(os.time() - t) <= 5
+    end
+    local up = T.native and Native.loaded and (Native.fresh or now - (Native.at or now) < 20)
+    T.track = T.want and not up
+    local say = T.want and (up and "native" or "lua") or nil
+    if say ~= Native.said then
+        Native.said = say
+        if say == "native" then log("overlay: the native tracker feeds the card (this mod tracks nothing)")
+        elseif say == "lua" and T.native then log("overlay: the native tracker is not running: this mod tracks") end
+    end
 end
 
 local function readToggles()
@@ -191,8 +213,7 @@ local function readToggles()
     if s ~= togglesText and s:find("}", 1, true) then
         togglesText = s
         parseToggles(s)
-        log(string.format("toggles: refresh=%s track=%s native=%s", tostring(T.refresh), tostring(T.track), tostring(T.native)))
-        if T.native then loadNative() end
+        log(string.format("toggles: refresh=%s card=%s native=%s", tostring(T.refresh), tostring(T.want), tostring(T.native)))
     end
 end
 
@@ -1179,6 +1200,7 @@ local function step()
         readToggles()
         pcall(checkRefresh)
     end
+    pcall(nativeCheck, now)   -- files only: which of the two trackers feeds the card
     local okT, errT = pcall(trackBeat, now)
     if not okT then logOnce("track:" .. tostring(errT), "overlay error: " .. tostring(errT)) end
     if now - lastStatus >= STATUS_EVERY then pcall(writeStatus, now) end

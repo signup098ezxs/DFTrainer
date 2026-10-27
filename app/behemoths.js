@@ -73,6 +73,29 @@ function namesFromItems(items) {
   return new Map([...best].map(([code, v]) => [code, v.w]));
 }
 
+// codename -> name, from the game's own armour descriptions: "Head protection forged from Sahvyt trophies." on
+// AR_MANTIS_HELM (2+ pieces must agree). The game's own statement of whose trophies the gear is made of, so it is
+// trusted over the item-name count above. Armour codenames that differ from the behemoth's parts are mapped
+// (AR_FROSTWOLF_* "Frostwülf trophies", parts BREAK_WOLF_*, row wolf_normal).
+const ARMOUR_CODE = { FROSTWOLF: 'WOLF' };
+function namesFromTrophies(items, describe) {
+  const counts = new Map();
+  for (const it of items) {
+    const m = /^AR_([A-Z0-9]+)_(?:HELM|CHEST|ARMS|LEGS)$/.exec(String(it.id || ''));
+    const d = m && describe(it);
+    const t = d && /forged from (\S+(?: \S+)?) trophies/.exec(d);
+    if (!t) continue;
+    const k = (ARMOUR_CODE[m[1]] || m[1]) + '|' + t[1];
+    counts.set(k, (counts.get(k) || 0) + 1);
+  }
+  const best = new Map();
+  for (const [k, c] of counts) {
+    const [code, w] = k.split('|');
+    if (c >= 2 && (!best.has(code) || c > best.get(code).c)) best.set(code, { w, c });
+  }
+  return new Map([...best].map(([code, v]) => [code, v.w]));
+}
+
 // "sq_ice_rock_bp_C" -> { code: 'ROCK', variant: 'NORMAL', extras: ['ice'], element: 'Frost', key: 'ice_rock' }
 function parseClass(cls, known) {
   const words = String(cls || '').toLowerCase().replace(/_c$/, '').replace(/_bp$/, '').split('_').filter(Boolean);
@@ -148,4 +171,4 @@ function resolveBehemoth(cls, ctx = {}) {
   return out('Unidentified behemoth', 'unknown', elementOf(pc));
 }
 
-module.exports = { resolveBehemoth, parseClass, namesFromItems, VERIFIED, SPECIES_ELEMENT, WEAK_TO };
+module.exports = { resolveBehemoth, parseClass, namesFromItems, namesFromTrophies, VERIFIED, SPECIES_ELEMENT, WEAK_TO };
