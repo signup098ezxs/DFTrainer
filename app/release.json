@@ -1,5 +1,5 @@
 {
-  "version": "3.9.21",
+  "version": "3.9.22",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Overlay: now uses Dauntless Forever's own Boss Health Bar by default (Settings > Behemoth overlay > Style). It is built into DF's loader and reads the game directly, so there is no lag in co-op; the game mod does no searches at all then. Lantern's own card (element, stagger, BROKEN parts) is still there as a choice, but can make the game stutter in co-op. If you had the overlay on, DF's bar is switched back on for you. Start the game again for the change to apply."
+  "notes": "Owner's test: Settings > Behemoth overlay > Lantern card > Search-free tracking (game mod 7.6). The game mod learns about behemoths, their health and their parts as the game creates them, instead of searching every game object (each search paused the game 20-165 ms, which made co-op stutter). Turn it on, then start the game; the mod log says 'search-free tracking on'. Nothing changes for anyone else. Close the game fully so the new mod loads."
 }

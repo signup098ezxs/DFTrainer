@@ -10,7 +10,7 @@
 -- Only property reads are used (7.0 removed the damage multiplier: the hunt server rewrites a behemoth's health from
 -- its ability system on every hit, so a written health never stuck). Logged as [DFTrainer] in UE4SS.log.
 
-local MOD_VERSION  = "7.5"
+local MOD_VERSION  = "7.6"
 local TICK_MS      = 150    -- how often the mod's loop runs
 local RESCAN_EVERY = 2.0    -- seconds between searches for players (instant refresh)
 local READ_EVERY   = 0.5    -- seconds between reads of the toggles file
@@ -83,7 +83,31 @@ local searchLogs = 0   -- the first searches are timed in the log (os.clock is w
 -- 7.5: each search costs the game a pause (logged 26 Oct: 32-37 ms in your game, 16-22 ms on a hunt server, with the
 -- object cache off), so they are counted, and once a minute the log says what the overlay cost the game's thread
 local Cost = { n = 0, ms = 0, worst = 0, at = nil }
+local T = { refresh = false, refreshFn = "", locked = false, track = false, nosearch = false }   -- the panel's toggles (below)
+-- 7.6 (owner's test, "nosearch"): no searches at all. The game tells the mod about each object of these classes as it
+-- creates it (UE4SS NotifyOnNewObject, set up at load); only its path is kept, and a search becomes looking those
+-- paths up in the game's object table (StaticFindObject, a hash lookup). The callback can run on a loading thread, so
+-- it only appends to a list that the game thread reads on. Objects created before the mod loaded are not known.
+local REG_CLASSES = { PlayerController = "/Script/Engine.PlayerController", LocalPlayer = "/Script/Engine.LocalPlayer",
+    ArchonBehemoth = "/Script/Archon.ArchonBehemoth", ArchonHealthAttributeSet = "/Script/Archon.ArchonHealthAttributeSet",
+    MonsterPartComponent = "/Script/Archon.MonsterPartComponent", ArchonPlayerState = "/Script/Archon.ArchonPlayerState" }
+local REG_ALIAS = { player_controller_bp_C = "PlayerController", ArchonPlayerController = "PlayerController", ArchonLocalPlayer = "LocalPlayer" }
+local Reg = { on = {}, queue = {}, done = {}, known = {} }   -- per class: registered, new paths, how many taken, paths kept
+local function regKnown(k)
+    local q, kn = Reg.queue[k], Reg.known[k]
+    -- shortcut: the queue is never shrunk (another thread appends to it); a path is ~100 bytes, fine for one session
+    for i = Reg.done[k] + 1, #q do kn[q[i]] = true end
+    Reg.done[k] = #q
+    local out = {}
+    for path in pairs(kn) do
+        local o = fresh(path)
+        if o then out[#out + 1] = o else kn[path] = nil end   -- freed by the game: forgotten
+    end
+    return out
+end
 local function search(cls)
+    local k = REG_ALIAS[cls] or cls
+    if T.nosearch and Reg.on[k] then return regKnown(k) end
     local t0 = os.clock()
     local ok, list = pcall(FindAllOf, cls)
     Cost.n, Cost.ms = Cost.n + 1, Cost.ms + (os.clock() - t0) * 1000
@@ -156,7 +180,6 @@ if Base then LogFile = Base .. "/logs/" .. os.date("%Y%m%d-%H%M%S") .. "-" .. Pr
 if Base then log("mod folder: " .. Base .. " (process " .. ProcId .. ")") else log("could not find the mod folder; the panel cannot reach this process") end
 
 ---------------------------------------------------------------- toggles (flat JSON written by the panel)
-local T = { refresh = false, refreshFn = "", locked = false, track = false }
 local togglesText = ""
 
 local function parseToggles(s)
@@ -164,8 +187,9 @@ local function parseToggles(s)
     T.refresh = flag("refresh")
     T.refreshFn = s:match('"refreshFn"%s*:%s*"([%w_]*)"') or ""
     T.locked = flag("locked")   -- not the owner's panel: no refresh
-    if T.locked then T.refresh = false end
     T.track = flag("track")     -- the behemoth overlay is on (anyone's panel)
+    T.nosearch = flag("nosearch")   -- 7.6: the owner's search-free test (see Reg)
+    if T.locked then T.refresh, T.nosearch = false, false end
 end
 
 local function readToggles()
@@ -177,8 +201,25 @@ local function readToggles()
     if s ~= togglesText and s:find("}", 1, true) then
         togglesText = s
         parseToggles(s)
-        log(string.format("toggles: refresh=%s track=%s", tostring(T.refresh), tostring(T.track)))
+        log(string.format("toggles: refresh=%s track=%s nosearch=%s", tostring(T.refresh), tostring(T.track), tostring(T.nosearch)))
+        if T.nosearch and not next(Reg.on) then logOnce("nosearch:late", "search-free tracking: turned on after this copy of the game started; it searches as before until the game is restarted") end
     end
+end
+-- 7.6: the owner's search-free test is set up only if it is on when this copy of the game starts
+readToggles()
+if T.nosearch then
+    local ok = {}
+    for k, path in pairs(REG_CLASSES) do
+        Reg.queue[k], Reg.done[k], Reg.known[k] = {}, 0, {}
+        local q = Reg.queue[k]
+        local good = pcall(NotifyOnNewObject, path, function(o)
+            local n = nameOf(o)
+            if n and not n:find("Default__", 1, true) then q[#q + 1] = n:match("^%S+%s+(.+)$") end
+        end)
+        if good then Reg.on[k] = true ok[#ok + 1] = k else log("search-free tracking: cannot watch " .. path .. " (searched for as before)") end
+    end
+    table.sort(ok)
+    log("search-free tracking on (owner's test): watching " .. table.concat(ok, ", "))
 end
 
 ---------------------------------------------------------------- what is in this process
@@ -1170,7 +1211,7 @@ local function step()
     -- 7.5: once a minute, what the overlay cost the game's thread (only when it searched)
     Cost.at = Cost.at or now
     if now - Cost.at >= 60 then
-        if Cost.n > 0 then log(string.format("cost last minute: %d search(es), %.0f ms searching, longest game-thread pass %.0f ms", Cost.n, Cost.ms, Cost.worst)) end
+        if Cost.n > 0 or (T.nosearch and Cost.worst > 0) then log(string.format("cost last minute: %d search(es), %.0f ms searching, longest game-thread pass %.0f ms%s", Cost.n, Cost.ms, Cost.worst, (T.nosearch and next(Reg.on)) and " (search-free)" or "")) end
         Cost.n, Cost.ms, Cost.worst, Cost.at = 0, 0, 0, now
     end
 end
