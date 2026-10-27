@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Lantern Client native tracker for Dauntless 1.14.7 (3.9.25 owner's test; 3.9.26 feeds Lantern's card for everyone).
+// Lantern Client native tracker for Dauntless 1.14.7 (3.9.25 owner's test; 3.9.26 feeds Lantern's card for everyone; 3.9.28 sticky target, breaks per behemoth).
 //
 // Does what Dauntless Forever's Boss Health Bar does (its loader bin\dxgi.dll, source d1147.cpp in the package's
 // source\Loader1147-*-source.zip, AGPL-3.0-only; the 1.14.7 addresses, the actor walk, the part links and the fenced
@@ -164,13 +164,19 @@ struct Pass { void* world; bool show, game; void* best; wchar_t cls[96]; float c
 // names cost an engine string each, so they are kept: the behemoth's row name and its parts' names, per behemoth
 static void* g_namesFor = 0; static wchar_t g_row[64] = L""; static void* g_compOf[MAXP]; static wchar_t g_compName[MAXP][48];
 static void* g_partCompClass = 0;
+// 3.9.28: each behemoth's health at the last pass and when it last lost some. The card stays on the behemoth being
+// hit: two hurt behemoths side by side made it jump between them every few seconds (27 Oct, Drask + Shrowd)
+struct Seen { void* beh; float cur; ULONGLONG dropAt; };
+static Seen g_seen[16]; static int g_nseen = 0;
+static void* g_target = 0;   // the behemoth on the card (the game's thread only)
+const ULONGLONG RECENT_MS = 6000;
 static void collect(void* arg) {
     Pass& s = *(Pass*)arg;
     void* world = s.world;
     // a new world (another island, town): every kept class and function pointer is dropped (a blueprint class of the
     // last island can be freed with it)
     if (world != g_clsWorld) {
-        memset(g_cls, 0, sizeof(g_cls)); g_clsWorld = world; g_namesFor = 0; g_partCompClass = 0;
+        memset(g_cls, 0, sizeof(g_cls)); g_clsWorld = world; g_namesFor = 0; g_partCompClass = 0; g_nseen = 0; g_target = 0;
         g_fBehCur = g_fBehMax = g_fBehName = g_fPartCur = g_fPartMax = g_fLoc = 0;
     }
     void* gi = at<void*>((uintptr_t)world + A::World_GameInstance);
@@ -192,20 +198,30 @@ static void collect(void* arg) {
             if (ci->kind == 1 && nb < 16) beh[nb++] = a; else if (ci->kind == 2 && np < 96) parts[np++] = a;
         }
     }
-    // the nearest behemoth that is hurt, else the nearest untouched one within 90 m (as the Boss Health Bar picks)
-    float bestScore = 1e30f;
+    // a behemoth losing health (last 6 s) first, then a hurt one, then an untouched one within 90 m (the Boss Health
+    // Bar's rule); within each, the nearest. The card's own behemoth counts as 3x nearer, so it does not flicker.
+    // (Before, a float score 1e20 - 1e12 lost the "hurt" bonus when your position could not be read.)
+    ULONGLONG now = GetTickCount64();
+    Seen seen[16]; int ns = 0;
+    int bestTier = -1; double bestD2 = 0;
     for (int i = 0; i < nb; i++) {
         float cur = 0, mx = 0;
         if (!call_float(beh[i], fn_cached(beh[i], L"GetMaxHealth", &g_fBehMax), &mx) || mx <= 0) continue;
         call_float(beh[i], fn_cached(beh[i], L"GetCurrentHealth", &g_fBehCur), &cur);
         if (cur <= 0) continue;
-        float d2 = 1e20f, p[3] = { 0, 0, 0 };
-        if (haveMe && actor_loc(beh[i], p)) d2 = (p[0]-me[0])*(p[0]-me[0]) + (p[1]-me[1])*(p[1]-me[1]) + (p[2]-me[2])*(p[2]-me[2]);
-        bool hurt = cur < mx;
-        if (!hurt && d2 > 9000.0f * 9000.0f) continue;
-        float score = d2 - (hurt ? 1e12f : 0);
-        if (score < bestScore) { bestScore = score; s.best = beh[i]; s.cur = cur; s.max = mx; memcpy(s.loc, p, 12); }
+        ULONGLONG dropAt = 0;
+        for (int k = 0; k < g_nseen; k++) if (g_seen[k].beh == beh[i]) { dropAt = cur < g_seen[k].cur ? now : g_seen[k].dropAt; break; }
+        if (ns < 16) seen[ns++] = { beh[i], cur, dropAt };
+        double d2 = 1e20, p3[3] = { 0, 0, 0 }; float p[3] = { 0, 0, 0 };
+        if (haveMe && actor_loc(beh[i], p)) { for (int k = 0; k < 3; k++) p3[k] = (double)p[k] - me[k]; d2 = p3[0]*p3[0] + p3[1]*p3[1] + p3[2]*p3[2]; }
+        bool hurt = cur < mx, recent = dropAt && now - dropAt < RECENT_MS, mine = beh[i] == g_target;
+        if (!hurt && d2 > 9000.0 * 9000.0) continue;
+        int tier = recent ? 2 : hurt ? 1 : 0;
+        if (mine) d2 /= 9;
+        if (tier > bestTier || (tier == bestTier && d2 < bestD2)) { bestTier = tier; bestD2 = d2; s.best = beh[i]; s.cur = cur; s.max = mx; memcpy(s.loc, p, 12); }
     }
+    memcpy(g_seen, seen, sizeof(Seen) * ns); g_nseen = ns;
+    g_target = s.best;
     if (!s.best) return;
     void* best = s.best;
     s.show = true;
@@ -257,11 +273,14 @@ static void collect(void* arg) {
 }
 
 // ---------------------------------------------------------------------------- what this fight looks like over time
-// Broken parts: a part that reaches 0, or that the game refills (it refills a broken part at once: a rise from under
-// 15% to 90%+ between two readings), stays BROKEN until a new behemoth. Breaks are counted.
-struct PartState { wchar_t name[48]; float last; int breaks; bool broken; };
-static void* g_fightOf = 0; static PartState g_ps[MAXP]; static int g_nps = 0;
-static long long g_at = 0; static int g_hits = 0; static float g_lastCur = -1;
+// Broken parts: a part that reaches 0, or that the game refills (it refills a broken part at once, to 100% or 87-93%:
+// a rise of half its health or more, ending at 70%+, with its max unchanged), stays BROKEN until the behemoth is gone.
+// Breaks are counted. A refill from a 0 reading is not a second break (the 0 was counted; bullseye quills that read 0
+// at the start and grew back at once were two false breaks). A changed max is the game rescaling, not a refill.
+// 3.9.28: kept per behemoth (the last 4), so switching the card to another behemoth and back keeps its BROKEN marks.
+struct PartState { wchar_t name[48]; float last, max; int breaks; bool broken; };
+struct Fight { void* beh; PartState ps[MAXP]; int nps; long long at; int hits; float lastCur; ULONGLONG used; };
+static Fight g_fights[4]; static Fight* g_fight = 0; static void* g_fightWorld = 0;
 static CRITICAL_SECTION g_jsonLock; static char g_json[8192] = "null"; static volatile LONG g_jsonSeq = 0;
 static volatile LONG g_on = 0;
 static int g_noteGame = 0;
@@ -274,24 +293,37 @@ static void publish(Pass& s) {
     char buf[8192]; char* o = buf; char* end = buf + sizeof(buf) - 64;
     if (!s.show) { strcpy(buf, "null"); }
     else {
-        if (s.best != g_fightOf) {
-            g_fightOf = s.best; g_nps = 0; g_hits = 0; g_lastCur = -1; g_at = 0;
-            logf_("tracking %ls ('%ls') %.0f/%.0f with %d part(s)", s.cls, g_row, s.cur, s.max, s.np);
+        if (s.world != g_fightWorld) { memset(g_fights, 0, sizeof(g_fights)); g_fightWorld = s.world; }
+        // a behemoth that is dead or gone is forgotten (a new one can get its address)
+        for (auto& k : g_fights) {
+            bool alive = false; for (int j = 0; j < g_nseen && !alive; j++) alive = g_seen[j].beh == k.beh;
+            if (k.beh && !alive) memset(&k, 0, sizeof(k));
         }
-        if (g_lastCur >= 0 && s.cur < g_lastCur - 0.01f) { g_at = (long long)time(0); g_hits++; }
-        g_lastCur = s.cur;
+        g_fight = 0;
+        for (auto& k : g_fights) if (k.beh == s.best) { g_fight = &k; break; }
+        if (!g_fight) {
+            Fight* f = &g_fights[0];
+            for (auto& k : g_fights) if (k.used < f->used) f = &k;
+            memset(f, 0, sizeof(*f)); f->beh = s.best; f->lastCur = -1;
+            logf_("tracking %ls ('%ls') %.0f/%.0f with %d part(s)", s.cls, g_row, s.cur, s.max, s.np);
+            g_fight = f;
+        }
+        Fight& F = *g_fight;
+        F.used = GetTickCount64();
+        if (F.lastCur >= 0 && s.cur < F.lastCur - 0.01f) { F.at = (long long)time(0); F.hits++; }
+        F.lastCur = s.cur;
         o += snprintf(o, end - o, "{\"key\":\"%p\",\"cls\":", s.best); jstr(o, end, s.cls);
-        o += snprintf(o, end - o, ",\"cur\":%.0f,\"max\":%.0f,\"at\":%lld,\"n\":%d,\"dead\":false,\"parts\":[", s.cur, s.max, g_at, g_hits);
+        o += snprintf(o, end - o, ",\"cur\":%.0f,\"max\":%.0f,\"at\":%lld,\"n\":%d,\"dead\":false,\"parts\":[", s.cur, s.max, F.at, F.hits);
         for (int i = 0; i < s.np; i++) {
             Part& p = s.parts[i];
             PartState* st = 0;
-            for (int k = 0; k < g_nps; k++) if (wcscmp(g_ps[k].name, p.name) == 0) { st = &g_ps[k]; break; }
-            if (!st && g_nps < MAXP) { st = &g_ps[g_nps++]; wcscpy(st->name, p.name); st->last = p.cur; st->breaks = 0; st->broken = false; }
+            for (int k = 0; k < F.nps; k++) if (wcscmp(F.ps[k].name, p.name) == 0) { st = &F.ps[k]; break; }
+            if (!st && F.nps < MAXP) { st = &F.ps[F.nps++]; wcscpy(st->name, p.name); st->last = p.cur; st->max = p.max; st->breaks = 0; st->broken = false; }
             if (st) {
                 bool zero = st->last > 0 && p.cur <= 0;
-                bool refill = st->last < p.max * 0.15f && p.cur >= p.max * 0.9f && st->last != p.cur;
+                bool refill = st->last > 0 && p.max == st->max && p.cur - st->last >= p.max * 0.5f && p.cur >= p.max * 0.7f;
                 if (zero || refill) { st->breaks++; if (!st->broken) logf_("   %ls broke (%.0f -> %.0f of %.0f)", p.name, st->last, p.cur, p.max); st->broken = true; }
-                st->last = p.cur;
+                st->last = p.cur; st->max = p.max;
             }
             bool broken = st && st->broken;
             if (i) *o++ = ',';
@@ -353,7 +385,8 @@ static DWORD WINAPI files_thread(void*) {
         if (!f) continue;
         fprintf(f, "{\"role\":\"game\",\"src\":\"native\",\"time\":%lld,\"b\":%s}", (long long)time(0), body);
         fclose(f);
-        MoveFileExW(tmp, track, MOVEFILE_REPLACE_EXISTING);
+        // fails while a reader holds the file open (the Lua mod's io.open shares no delete): try again in 50 ms
+        if (!MoveFileExW(tmp, track, MOVEFILE_REPLACE_EXISTING)) continue;
         lastSeq = seq; lastWrite = now; wrote = true;
     }
 }
@@ -369,7 +402,7 @@ static DWORD WINAPI init_thread(void*) {
     swprintf(lp, MAX_PATH + 64, L"%ls\\logs\\native-%04d%02d%02d-%02d%02d%02d-%lu.log", g_dir, t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute, t.wSecond, GetCurrentProcessId());
     g_log = _wfopen(lp, L"w");
     g_base = (uintptr_t)GetModuleHandleA(0);
-    logf_("Lantern native tracker (3.9.26) loaded, exe base %p", (void*)g_base);
+    logf_("Lantern native tracker (3.9.28) loaded, exe base %p", (void*)g_base);
     static const uint8_t listenCall[5] = { 0xE8, 0x0B, 0x79, 0x77, 0xFC };
     if (!readable(g_base + A::LoadMapListenCall, 5) || !readable(g_base + A::GameEngineTick, 4) || !readable(g_base + A::GWorld, 8) ||
         memcmp((void*)(g_base + A::LoadMapListenCall), listenCall, 5) != 0) { logf_("not the player's 1.14.7 game (a hunt server copy, which DF patches there, or another build): off"); return 0; }

@@ -160,11 +160,13 @@ function resolveBehemoth(cls, ctx = {}) {
     return out(codeNames.get(code), 'items', elementOf(pc));
   }
   if (pc.dummy || (row && row.dummy)) { once('training dummy: no name from the game'); return out('Training dummy', 'dummy', ''); }
-  // 5. the species' name for a variant that is not verified
-  const base = code && ((tokens && tokens.get(code + '_NORMAL')) || (!tokenCodes.has(code) && codeNames && codeNames.get(code)));
+  // 5. the species' name for a variant that is not verified (3.9.28: also a verified species' alpha/beta,
+  // terramane_alpha -> Sporestruck Embermane; it was "Unidentified behemoth")
+  const vNormal = VERIFIED[pc.key.replace(/(^|_)(alpha|beta|heroic)(?=_|$)/, '$1normal')];
+  const base = (code && ((tokens && tokens.get(code + '_NORMAL')) || (!tokenCodes.has(code) && codeNames && codeNames.get(code)))) || (vNormal && vNormal.name);
   if (base) {
     once(`no verified name for this variant (${pc.extras.join(', ') || pc.variant.toLowerCase()}): its species' name is shown`);
-    return out(fix(code, base), 'species', elementOf(pc));
+    return out(fix(code, base), 'species', vNormal && !code ? vNormal.element : elementOf(pc));
   }
   // 6. not known
   once('unknown behemoth: no name from the game, its kill tokens, its items or a verified source');

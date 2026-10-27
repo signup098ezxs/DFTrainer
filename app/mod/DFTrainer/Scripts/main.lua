@@ -10,7 +10,7 @@
 -- Only property reads are used (7.0 removed the damage multiplier: the hunt server rewrites a behemoth's health from
 -- its ability system on every hit, so a written health never stuck). Logged as [DFTrainer] in UE4SS.log.
 
-local MOD_VERSION  = "8.0"   -- 8.0: the native tracker feeds Lantern's card; this mod's own tracking is its fallback
+local MOD_VERSION  = "8.1"   -- 8.1: no role searches while the native tracker feeds the card; a failed read of its file is not "stopped"
 local TICK_MS      = 150    -- how often the mod's loop runs
 local RESCAN_EVERY = 2.0    -- seconds between searches for players (instant refresh)
 local READ_EVERY   = 0.5    -- seconds between reads of the toggles file
@@ -191,8 +191,10 @@ local function nativeCheck(now)
         local f = NativeFile and io.open(NativeFile, "r")
         local s = f and f:read("*a") or ""
         if f then f:close() end
-        local t = tonumber(s:match('"time"%s*:%s*(%d+)'))
-        Native.fresh = t ~= nil and math.abs(os.time() - t) <= 5
+        -- 8.1: a read that finds the file gone, locked or half written (the tracker replaces it every second) keeps the
+        -- last time read; it made a hunt server start searching for a second (27 Oct, 03:06:09 and 03:17:12)
+        Native.t = tonumber(s:match('"time"%s*:%s*(%d+)')) or Native.t
+        Native.fresh = Native.t ~= nil and math.abs(os.time() - Native.t) <= 5
     end
     local up = T.native and Native.loaded and (Native.fresh or now - (Native.at or now) < 20)
     T.track = T.want and not up
@@ -278,8 +280,11 @@ local function rescan(now)
     if S.role ~= S.lastSummary then S.lastSummary = S.role log("role: " .. S.role) end
 end
 -- at the start of each game-thread event: which copy of the game this is, until known to be your game (a game never
--- becomes a server; a server copy looks again every 10 s)
+-- becomes a server; a server copy looks again every 10 s). Only this mod's own tracking needs it (instant refresh
+-- looks for itself): 8.1 skips it while the native tracker feeds the card, where hunt servers still ran 5-10 searches
+-- per fight, 65-100 ms game-thread passes on the server each time (27 Oct logs).
 function onGameThreadRole(now)
+    if not T.track then return end
     if not S.roleKnown or (S.role ~= "game" and not S.serverSure and now - lastRescan >= 10) then rescan(now) end
 end
 

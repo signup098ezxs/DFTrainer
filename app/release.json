@@ -1,5 +1,5 @@
 {
-  "version": "3.9.27",
+  "version": "3.9.28",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Overlay delay: the in-game card asks for new numbers 30 times a second (was 10), the panel keeps each answer 25 ms (was 80), and the card window picks a change up within 20 ms. A hit shows on the card up to about 0.2 s sooner. Drawing, animations and every feature are unchanged; the extra work is about 1% of one CPU core. (Launcher 1.6.14: Lantern Client updates itself.)"
+  "notes": "Hunt fixes from real hunts: the card no longer jumps between two behemoths fighting side by side (it follows the one losing health, and stays on its current one unless another is much nearer); a behemoth's BROKEN parts are kept when the card switches away and back; no more false breaks from parts that start at 0 and grow back, and refills to 87-89% now count as breaks. Hunt servers no longer pause for object searches while the native tracker feeds the card (5-10 searches per fight, up to 100 ms each). Terramane alphas are named (Sporestruck Embermane) instead of \"Unidentified behemoth\". Close the game fully and restart after updating."
 }
