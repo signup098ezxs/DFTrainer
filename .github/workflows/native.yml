@@ -1,0 +1,24 @@
+# Test build of the native tracker DLL on any branch but main (main builds it inside the release workflow).
+# The DLL is kept as a workflow artifact; nothing is released.
+name: Native tracker
+
+on:
+  push:
+    branches-ignore: [main]
+    paths: ["native/**", "tools/build-native.sh", ".github/workflows/native.yml"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: |
+          sudo apt-get install -y -qq g++-mingw-w64-x86-64 >/dev/null
+          bash tools/build-native.sh
+          x86_64-w64-mingw32-objdump -p app/mod/DFTrainer/native/lantern_native.dll | grep -E "DLL Name|^\s+[0-9a-f]+\s+[0-9]+\s+\w" | head -80
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lantern_native
+          path: app/mod/DFTrainer/native/lantern_native.dll

@@ -8,7 +8,7 @@ name: Release
 on:
   push:
     branches: [main]
-    paths: ["app/**", "launcher/**", "tools/**"]
+    paths: ["app/**", "launcher/**", "tools/**", "native/**"]
   workflow_dispatch:
 
 permissions:
@@ -58,6 +58,13 @@ jobs:
           fi
         env:
           SIGN_PFX_BASE64: ${{ secrets.SIGN_PFX_BASE64 }}
+
+      # the owner's native tracker DLL goes into the game mod's folder before the app zip is made
+      - name: Native tracker
+        if: steps.v.outputs.skip != 'true'
+        run: |
+          sudo apt-get install -y -qq g++-mingw-w64-x86-64 >/dev/null
+          bash tools/build-native.sh
 
       - name: Build and sign
         if: steps.v.outputs.skip != 'true'

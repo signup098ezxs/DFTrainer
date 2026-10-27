@@ -10,7 +10,7 @@
 -- Only property reads are used (7.0 removed the damage multiplier: the hunt server rewrites a behemoth's health from
 -- its ability system on every hit, so a written health never stuck). Logged as [DFTrainer] in UE4SS.log.
 
-local MOD_VERSION  = "7.7"   -- 7.5's tracking; 7.6's search-free test (owner only) removed
+local MOD_VERSION  = "7.8"   -- 7.5's tracking (7.6's search-free test removed in 7.7); 7.8 loads the owner's native tracker
 local TICK_MS      = 150    -- how often the mod's loop runs
 local RESCAN_EVERY = 2.0    -- seconds between searches for players (instant refresh)
 local READ_EVERY   = 0.5    -- seconds between reads of the toggles file
@@ -166,6 +166,20 @@ local function parseToggles(s)
     T.locked = flag("locked")   -- not the owner's panel: no refresh
     if T.locked then T.refresh = false end
     T.track = flag("track")     -- the behemoth overlay is on (anyone's panel)
+    T.native = flag("native") and not T.locked   -- 7.8: the owner's native tracker (native\lantern_native.dll)
+end
+
+-- 7.8: the native tracker is a DLL next to this script's folder. Loaded once, the first time it is asked for; it reads
+-- the toggles itself, walks the game's actor lists from the engine's own tick (no searches) and writes
+-- track\native-<process>.json. Loading it again does nothing (Windows keeps one copy).
+local NativeLoaded = false
+local function loadNative()
+    if NativeLoaded or not Base then return end
+    NativeLoaded = true
+    local path = (Base .. "/native/lantern_native.dll"):gsub("/", "\\")
+    if not fileExists(path) then log("native tracker: " .. path .. " not found") return end
+    local ok, r, err = pcall(package.loadlib, path, "*")
+    log("native tracker: " .. ((ok and r) and "loaded" or ("could not load (" .. tostring(ok and err or r) .. ")")))
 end
 
 local function readToggles()
@@ -177,7 +191,8 @@ local function readToggles()
     if s ~= togglesText and s:find("}", 1, true) then
         togglesText = s
         parseToggles(s)
-        log(string.format("toggles: refresh=%s track=%s", tostring(T.refresh), tostring(T.track)))
+        log(string.format("toggles: refresh=%s track=%s native=%s", tostring(T.refresh), tostring(T.track), tostring(T.native)))
+        if T.native then loadNative() end
     end
 end
 

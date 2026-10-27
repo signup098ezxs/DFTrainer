@@ -316,7 +316,8 @@ setInterval(() => {
 }, 1000);
 
 // ---------------------------------------------------------------- in-game switches
-const TOGGLE_DEFAULTS = { refresh: false, refreshFn: '' };
+// native (3.9.25, owner's test): Lantern's card fed by the native tracker DLL (mod folder native\) instead of the Lua mod
+const TOGGLE_DEFAULTS = { refresh: false, refreshFn: '', native: false };
 // the behemoth overlay (anyone's panel, not just the owner's): the mod tracks behemoths only while Lantern's own card
 // is the one showing (with Dauntless Forever's Boss Health Bar, the default since 3.9.21, the mod does no searches)
 const overlayOn = () => !!(settings.overlay && settings.overlay.on);
@@ -328,19 +329,23 @@ function readToggles(p) {
   if (!isOwner()) return { ...TOGGLE_DEFAULTS };
   // a file written while no owner key was present says "locked": it is not the owner's setting, so it is ignored
   const all = { ...TOGGLE_DEFAULTS, ...(settings.toggles || {}), ...(t && !t.locked ? t : {}) };
-  return { refresh: all.refresh, refreshFn: all.refreshFn };
+  return { refresh: all.refresh, refreshFn: all.refreshFn, native: !!all.native };
 }
 let lockLogsGone = false;
 function writeToggles(p, t) {
   const clean = {
     refresh: !!t.refresh, refreshFn: /^[A-Za-z_]\w{0,80}$/.test(String(t.refreshFn || '')) ? String(t.refreshFn) : '',
+    native: !!t.native,
   };
   // the owner's settings are kept only from the owner's panel (without the key, defaults must not overwrite them)
   if (isOwner()) { settings.toggles = clean; saveSettings(); }
   if (p.modDir && fs.existsSync(p.modDir)) {
     const f = path.join(p.modDir, 'trainer-toggles.json');
     // not the owner: the mod gets the defaults and "locked"
-    const out = { ...(isOwner() ? { ...clean, locked: false } : { ...TOGGLE_DEFAULTS, locked: true }), track: lanternOverlay() };
+    const out = { ...(isOwner() ? { ...clean, locked: false } : { ...TOGGLE_DEFAULTS, locked: true }) };
+    // the native tracker runs only while Lantern's card is showing; then the Lua mod tracks nothing
+    out.native = isOwner() && clean.native && lanternOverlay();
+    out.track = lanternOverlay() && !out.native;
     fs.mkdirSync(path.join(p.modDir, 'track'), { recursive: true });
     // each copy of the game that ever ran left a track file: those over an hour old are done with
     try { const td = path.join(p.modDir, 'track'); for (const f of fs.readdirSync(td)) { const full = path.join(td, f); if (Date.now() - fs.statSync(full).mtimeMs > 3600000) fs.unlinkSync(full); } } catch {}
@@ -690,7 +695,11 @@ function syncMod(gameRunning) {
       try { return !fs.readFileSync(a).equals(fs.readFileSync(b)); } catch { return true; }
     });
     if (!stale.length) return false;
-    for (const rel of stale) { fs.mkdirSync(path.dirname(path.join(p.modDir, rel)), { recursive: true }); fs.copyFileSync(path.join(MOD_SRC, rel), path.join(p.modDir, rel)); }
+    for (const rel of stale) {
+      fs.mkdirSync(path.dirname(path.join(p.modDir, rel)), { recursive: true });
+      // the native tracker DLL is locked while a copy of the game has it loaded: it is copied once the game is closed
+      try { fs.copyFileSync(path.join(MOD_SRC, rel), path.join(p.modDir, rel)); } catch (e) { if (!rel.endsWith('.dll')) throw e; }
+    }
     fs.mkdirSync(path.join(p.modDir, 'status'), { recursive: true });
     // heartbeats and switches from an older mod version: rewritten in the current form
     if (!gameRunning) for (const f of fs.readdirSync(path.join(p.modDir, 'status'))) { try { fs.unlinkSync(path.join(p.modDir, 'status', f)); } catch {} }

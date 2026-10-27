@@ -11,3 +11,7 @@ owner-key.pem
 license.json
 issued-keys.json
 launcher/launcher
+
+# built by tools/build-native.sh (CI)
+app/mod/DFTrainer/native/
+build-native/
