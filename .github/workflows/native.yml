@@ -35,4 +35,9 @@ jobs:
         env:
           GOOS: windows
           GOARCH: amd64
-        run: go vet ./... && go build -o /dev/null .
+        # placeholders for what tools/build.mjs puts in embedded/ before a real build
+        run: |
+          mkdir -p embedded
+          [ -f embedded/app.zip ] || : > embedded/app.zip
+          [ -f embedded/app-version.txt ] || echo 0.0.0 > embedded/app-version.txt
+          go vet ./... && go build -o /dev/null .
