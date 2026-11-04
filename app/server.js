@@ -730,6 +730,12 @@ function overlaySettings() { return { ...OVERLAY_DEFAULTS, ...(settings.overlay 
 // Which behemoth (name, element): behemoths.js, in one place. The game's own name (from the mod) first.
 const BEHEMOTHS = require('./behemoths.js');
 const PARTS = require('./parts.js');
+const BOUNTIES = require('./bounties.js');
+let bountyList = { pkg: '', list: [] };
+function bountyCatalog(p) {
+  if (bountyList.pkg !== p.pkg) bountyList = { pkg: p.pkg, list: BOUNTIES.catalog(GAMETEXT.englishText(p.pkg)) };
+  return bountyList.list;
+}
 function panelLog(m) { try { console.log(m); } catch {} }
 let ovCache = null, ovCacheAt = 0;
 const later = (a, b) => { for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] > b[i]; return false; };
@@ -993,7 +999,9 @@ const routes = {
         c.inUse = pl ? [...protectedIds(pl, c.id)].filter((id) => catalog(p).storage.has(id)) : [];
         c.starter = (c.gear || []).map((g) => g.id).filter(isStarter);
         c.equippedParts = pl ? equippedPartsOf(p, pl, c.id) : null;   // the Parts page: behemoth parts for equipped gear
+        c.bounties = BOUNTIES.slotsOf(pl);   // the Parts page: what the bounty picker would replace
       }
+      r.bountyList = bountyCatalog(p);
     }
     return r;
   },
@@ -1054,6 +1062,33 @@ const routes = {
     if (!PARTS.AETHERDUST_STEPS.includes(amount)) return { ok: false, error: 'Pick 1,000, 2,000, 3,000, 4,000 or 5,000.' };
     const r = await routes['POST /api/items']({ action: 'add', character: b.character, counts: { [PARTS.AETHERDUST]: amount }, label: `Aetherdust +${amount.toLocaleString('en-US')}` });
     return r.ok ? { ...r, amount } : r;
+  },
+  // Bounty picker: the bounty you chose goes in the slot you chose, no draft and no token. Bounties belong to the account,
+  // so "all my characters" means the first one's account.
+  'POST /api/bounty': async (b) => {
+    const p = places(); if (!p.pkg) return { ok: false, error: 'Package not found.' };
+    const l = await listChars(p);
+    if (!l || !l.ok) return l || { ok: false, error: 'Could not read your characters.' };
+    const c = (l.characters || []).find((x) => b.character === '*' || x.id === b.character);
+    if (!c) return { ok: false, error: 'Character not found.' };
+    const st = readJson(path.join(p.dataDir, 'state.json'), null);
+    const pl = Object.values((st && st.players) || {}).find((x) => (x.characters || []).some((y) => y && y.id === c.id));
+    if (!pl || !pl.accountId) return { ok: false, error: 'Your account was not found in the save.' };
+    const id = String(b.id || ''), slot = b.slot;
+    const bad = BOUNTIES.invalid(pl, id, slot); if (bad) return { ok: false, error: bad };
+    const record = BOUNTIES.record(id, slot), name = (bountyCatalog(p).find((x) => x.id === id) || {}).name || id;
+    let live = false;
+    if (await backendUp(0)) {
+      try { await LIVE.setBounty(p.pkg, pl.accountId, record); live = true; } catch (e) { return { ok: false, error: e.message }; }
+      announce(`[Lantern] Bounty added: ${name}. It shows up after your next loading screen.`);
+    } else {
+      const run = saveChain.then(() => runOwn(p, 'offline.js', [p.pkg, JSON.stringify({ action: 'bounty', character: c.id, record }), JSON.stringify([c.id])]));
+      saveChain = run.catch(() => {});
+      const r = await run;
+      if (!r || !r.ok) return r || { ok: false, error: 'Could not change the save.' };
+    }
+    note('applied', 'Bounty added', `${name}, slot ${slot + 1}`);
+    return { ok: true, live, name, slot };
   },
   'GET /api/overlay/state': async () => {
     const p = places(), o = overlaySettings();

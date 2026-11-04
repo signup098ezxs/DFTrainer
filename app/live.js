@@ -15,10 +15,10 @@ const HOST = '127.0.0.1', PORT = 63005;
 const ADD_CAP = 99999999;   // the most validJob lets any count be set to
 const GEAR_KINDS = new Set(['Weapons', 'Armour', 'Lanterns', 'Weapon parts', 'Omnicells']);
 
-function call(method, urlPath, body) {
+function call(method, urlPath, body, port = PORT) {
   return new Promise((resolve) => {
     const data = body ? Buffer.from(JSON.stringify(body)) : null;
-    const req = http.request({ host: HOST, port: PORT, method, path: urlPath, timeout: 15000,
+    const req = http.request({ host: HOST, port, method, path: urlPath, timeout: 15000,
       headers: data ? { 'Content-Type': 'application/json', 'Content-Length': data.length } : {} }, (res) => {
       let s = ''; res.setEncoding('utf8');
       res.on('data', (c) => { s += c; });
@@ -140,4 +140,15 @@ async function give(pkg, job, characters, cat = catalogs(pkg)) {
   return result;
 }
 
-module.exports = { give, plan, catalogs };
+// A bounty the player picked: the same POST the game makes after a draft, on the backend's "progression" port. The
+// backend (bounties1147.js) merges it; a bounty already in that slot is closed there, as when the game replaces one.
+async function setBounty(pkg, accountId, record) {
+  const port = (readJson(path.join(pkg, 'services_1147.json'), []).find((s) => s.service === 'progression') || {}).port;
+  if (!port) throw new Error('Could not find the game\'s bounty service (services_1147.json).');
+  const r = await call('POST', `/bounty/${encodeURIComponent(accountId)}`, { bounties: [record] }, port);
+  const list = r.json && r.json.payload && r.json.payload.bounties;
+  if (r.status !== 200 || !Array.isArray(list)) throw new Error(`The game's backend said no (${r.status || r.error}${r.json && r.json.message ? ': ' + r.json.message : ''}).`);
+  if (!list.some((b) => b.bounty_id === record.bounty_id && b.slot_index === record.slot_index)) throw new Error('The game\'s backend did not keep the bounty.');
+}
+
+module.exports = { give, plan, catalogs, setBounty };

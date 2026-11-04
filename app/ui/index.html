@@ -928,7 +928,7 @@ div.lrow { cursor: default; }
 
     <!-- PARTS: behemoth parts for the gear equipped now -->
     <section id="tab-parts">
-      <div class="head"><div><h2>Parts</h2><p class="lede">Behemoth parts for the weapon and armour you have equipped, and Aetherdust. No ores or other materials.</p></div></div>
+      <div class="head"><div><h2>Parts</h2><p class="lede">Behemoth parts for the weapon and armour you have equipped, Aetherdust, and a bounty of your choice. No ores or other materials.</p></div></div>
       <div class="wrap">
         <div class="setcard cellcard">
           <div class="cellhead"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20c2-6 6-10 16-16-3 9-7 13-13 15"/><path d="M8 16l-3-3M12 13l-2-2"/></svg><div><h3>Give all parts</h3><p class="lede" id="partsInfo"></p></div></div>
@@ -948,6 +948,17 @@ div.lrow { cursor: default; }
             <button class="btn primary" id="giveDust"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg><span>Add 1,000</span></button>
           </div>
           <p class="cellnote">Adds exactly that much to the character picked at the top. Timeweave armour takes 250 a piece to craft and 500 to upgrade. Works while you play.</p>
+        </div>
+        <div class="setcard cellcard" id="bountyCard">
+          <div class="cellhead"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg><div><h3>Pick a bounty</h3><p class="lede" id="bountyInfo"></p></div></div>
+          <div class="cellopts">
+            <label class="field">Tier <select id="bountyTier"><option>Bronze</option><option>Silver</option><option>Gold</option></select></label>
+            <label class="field">Bounty <select id="bountySel"></select></label>
+            <label class="field">Slot <select id="bountySlot"></select></label>
+            <span class="grow"></span>
+            <button class="btn primary" id="giveBounty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg><span>Add bounty</span></button>
+          </div>
+          <p class="cellnote">Skips the random draft and spends no token. A full slot is replaced and that bounty's progress is lost. Works while you play.</p>
         </div>
         <div id="partsList"></div>
       </div>
@@ -2486,7 +2497,35 @@ $('#giveDust').onclick = async (e) => {
   else toast('Aetherdust added', `+${fmt(r.amount)}.${r.live ? ' It shows up after your next loading screen.' : ''}`, 'applied', 5000);
   setTimeout(loadSave, 600);
 };
-$('nav > button[data-tab="parts"]').addEventListener('click', () => { renderParts(); renderDust(); requestAnimationFrame(() => { placeInd($('#partsQty')); placeInd($('#dustQty')); }); });
+// Bounty picker: the panel checks the pick against the save again and sends it the way the game sends a drafted bounty
+const bountyChar = () => partsChars()[0];
+function renderBounties() {
+  const list = (SAVE && SAVE.bountyList) || [], c = bountyChar(), held = (c && c.bounties) || [], nameOf = (id) => (list.find((b) => b.id === id) || {}).name || id;
+  const keep = $('#bountySel').value, tier = $('#bountyTier').value;
+  $('#bountySel').innerHTML = list.filter((b) => b.tier === tier).sort((x, y) => x.name.localeCompare(y.name)).map((b) => `<option value="${esc(b.id)}">${esc(b.name)} (${esc(b.what)})</option>`).join('');
+  if ([...$('#bountySel').options].some((o) => o.value === keep)) $('#bountySel').value = keep;
+  const slot = Number($('#bountySlot').value), first = [0, 1, 2, 3].find((i) => !held.some((b) => b.slot === i));
+  $('#bountySlot').innerHTML = [0, 1, 2, 3].map((i) => { const h = held.find((b) => b.slot === i); return `<option value="${i}">${i + 1}: ${h ? esc(nameOf(h.id)) + ' (replaces it)' : 'empty'}</option>`; }).join('');
+  $('#bountySlot').value = $('#bountyCard').dataset.picked ? slot : first ?? 0;
+  const taken = held.some((b) => b.slot === Number($('#bountySlot').value));
+  $('#bountyInfo').textContent = !c ? 'No characters yet.' : `${held.length} of 4 slots in use${charId() === '*' ? ` on ${c.name || c.id}'s account` : ''}.`;
+  $('#giveBounty').disabled = !c || !list.length;
+  $('#giveBounty').lastChild.textContent = taken ? 'Replace bounty' : 'Add bounty';
+}
+$('#bountyTier').addEventListener('change', renderBounties);
+$('#bountySlot').addEventListener('change', () => { $('#bountyCard').dataset.picked = '1'; renderBounties(); });
+$('#giveBounty').onclick = async (e) => {
+  const btn = e.currentTarget; if (btn.classList.contains('busy')) return;
+  btn.classList.add('busy');
+  const r = await api('/api/bounty', { character: charId(), id: $('#bountySel').value, slot: Number($('#bountySlot').value) });
+  btn.classList.remove('busy');
+  if (!r.ok) { SFX.error(); toast('Bounty not added', r.error || 'That did not work.', 'error', 7000); return; }
+  SFX.give();
+  delete $('#bountyCard').dataset.picked;
+  toast('Bounty added', `${r.name}, slot ${r.slot + 1}.${r.live ? ' It shows up after your next loading screen.' : ''}`, 'applied', 5000);
+  setTimeout(loadSave, 600);
+};
+$('nav > button[data-tab="parts"]').addEventListener('click', () => { renderParts(); renderDust(); renderBounties(); requestAnimationFrame(() => { placeInd($('#partsQty')); placeInd($('#dustQty')); }); });
 
 /* ================================================= rules */
 function renderRules() {
@@ -2519,9 +2558,9 @@ async function loadSaveNow() {
   s.innerHTML = r.characters.map((c) => `<option value="${esc(c.id)}">${esc(c.name || c.id)}</option>`).join('') + '<option value="*">All my characters</option>';
   const want = charPicked ? keep : (S && S.playingAs) || keep;
   s.value = [...s.options].some((o) => o.value === want) && want !== '*' ? want : charPicked && keep === '*' ? '*' : (r.characters[0] ? r.characters[0].id : '*');
-  renderList(); renderCur(); renderCells(); renderRemove(); renderParts(); renderDust(); updateDock();
+  renderList(); renderCur(); renderCells(); renderRemove(); renderParts(); renderDust(); renderBounties(); updateDock();
 }
-function onChar() { rmSel.clear(); renderList(); renderCur(); renderCells(); renderRemove(); renderParts(); renderDust(); updateDock(); }
+function onChar() { rmSel.clear(); renderList(); renderCur(); renderCells(); renderRemove(); renderParts(); renderDust(); renderBounties(); updateDock(); }
 $('#charSel').addEventListener('change', () => { ownedCache = null; charPicked = true; SFX.tick(); onChar(); });
 
 function prepCatalog(c) {

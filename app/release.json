@@ -1,5 +1,5 @@
 {
-  "version": "3.9.28",
+  "version": "3.9.29",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Hunt fixes from real hunts: the card no longer jumps between two behemoths fighting side by side (it follows the one losing health, and stays on its current one unless another is much nearer); a behemoth's BROKEN parts are kept when the card switches away and back; no more false breaks from parts that start at 0 and grow back, and refills to 87-89% now count as breaks. Hunt servers no longer pause for object searches while the native tracker feeds the card (5-10 searches per fight, up to 100 ms each). Terramane alphas are named (Sporestruck Embermane) instead of \"Unidentified behemoth\". Close the game fully and restart after updating."
+  "notes": "Bounty picker: a new \"Pick a bounty\" card on the Parts tab puts the bounty you choose (tier, bounty, slot) in a slot, with no draft and no token. A full slot is replaced and that bounty's progress is lost. Works with the game open or closed. New and not yet tried in a real game: try it on a spare slot first."
 }

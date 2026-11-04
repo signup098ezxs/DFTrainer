@@ -6,6 +6,7 @@
 //   atleast     top counted items (cells, materials) up to a number, never lowering one
 //   add         add exactly a number to a counted item (Aetherdust), the way live.js plans it
 //   maxweapons  every weapon type to level 20 (players.<you>.progress.tracks.ExperienceTrack_Weapon_<type>)
+//   bounty      put a picked bounty in a slot, through the package's own merge (backend\bounties1147.js)
 //   remove      take gear and cosmetic unlocks away (a big inventory makes the game stutter), never anything in use
 //               (protect.js)
 // Only your own characters (the ids come from items.js list), only while the local backend is not running (it keeps
@@ -73,7 +74,13 @@ function writeState(file, state) {
   const result = { ok: true, added: [], already: [], raised: [], unknown: [], removed: [], kept: [], starter: [] };
   const push = (k, id) => { if (!result[k].includes(id)) result[k].push(id); };
   let changed = false;
-  if (job.action === 'maxweapons') {
+  if (job.action === 'bounty') {
+    const owner = players.find((p) => (p.characters || []).some((c) => c && c.id === job.character));
+    if (!owner) fail('Character not found.');
+    require(path.join(pkg, 'backend', 'bounties1147.js')).create({}).apply(owner, { bounties: [job.record] });
+    changed = true;
+    push('added', job.record.bounty_id);
+  } else if (job.action === 'maxweapons') {
     me.progress = me.progress || { tracks: {}, objectives: {} };
     me.progress.tracks = me.progress.tracks || {};
     for (const w of WEAPON_TYPES) {
