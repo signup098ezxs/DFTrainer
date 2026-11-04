@@ -1,5 +1,5 @@
 {
-  "version": "3.9.29",
+  "version": "3.9.30",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Bounty picker: a new \"Pick a bounty\" card on the Parts tab puts the bounty you choose (tier, bounty, slot) in a slot, with no draft and no token. A full slot is replaced and that bounty's progress is lost. Works with the game open or closed. New and not yet tried in a real game: try it on a spare slot first."
+  "notes": "New Bounties tab: your four slots with each bounty's name, what to do, progress and rewards (Hunt Pass XP, Weapon XP, Weapon Merits, with your game rules). The picker moved here from Parts: pick a slot, pick any bounty, no draft and no token. Rewards are still claimed in game. Goals marked ~ are estimates, and some bounties have no known goal yet. Fixes 3.9.29: a wrong entry removed from the list, and the right objectives for Slay. Reload. Repeat. and What We Do to the Shadows. Not yet tried in a real game: try it on a spare slot first."
 }

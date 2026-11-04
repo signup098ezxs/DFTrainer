@@ -731,10 +731,24 @@ function overlaySettings() { return { ...OVERLAY_DEFAULTS, ...(settings.overlay 
 const BEHEMOTHS = require('./behemoths.js');
 const PARTS = require('./parts.js');
 const BOUNTIES = require('./bounties.js');
-let bountyList = { pkg: '', list: [] };
-function bountyCatalog(p) {
-  if (bountyList.pkg !== p.pkg) bountyList = { pkg: p.pkg, list: BOUNTIES.catalog(GAMETEXT.englishText(p.pkg)) };
-  return bountyList.list;
+let bountyList = { pkg: '', text: null, list: [] };
+function bountyText(p) {
+  if (bountyList.pkg !== p.pkg) { const text = GAMETEXT.englishText(p.pkg); bountyList = { pkg: p.pkg, text, list: BOUNTIES.catalog(text) }; }
+  return bountyList;
+}
+function bountyRules(p) {
+  try { return require(path.join(p.pkg, 'backend', 'game-rules1147.js')).readSettings(p.pkg, false); } catch { return null; }   // no rule file: the standard amounts
+}
+// the player a character belongs to, from the save (bounties belong to the account: "all my characters" means the first's)
+async function bountyOwner(p, who) {
+  const l = await listChars(p);
+  if (!l || !l.ok) return { error: (l && l.error) || 'Could not read your characters.' };
+  const c = (l.characters || []).find((x) => who === '*' || x.id === who);
+  if (!c) return { error: 'Character not found.' };
+  const st = readJson(path.join(p.dataDir, 'state.json'), null);
+  const pl = Object.values((st && st.players) || {}).find((x) => (x.characters || []).some((y) => y && y.id === c.id));
+  if (!pl || !pl.accountId) return { error: 'Your account was not found in the save.' };
+  return { c, pl };
 }
 function panelLog(m) { try { console.log(m); } catch {} }
 let ovCache = null, ovCacheAt = 0;
@@ -999,9 +1013,7 @@ const routes = {
         c.inUse = pl ? [...protectedIds(pl, c.id)].filter((id) => catalog(p).storage.has(id)) : [];
         c.starter = (c.gear || []).map((g) => g.id).filter(isStarter);
         c.equippedParts = pl ? equippedPartsOf(p, pl, c.id) : null;   // the Parts page: behemoth parts for equipped gear
-        c.bounties = BOUNTIES.slotsOf(pl);   // the Parts page: what the bounty picker would replace
       }
-      r.bountyList = bountyCatalog(p);
     }
     return r;
   },
@@ -1063,20 +1075,24 @@ const routes = {
     const r = await routes['POST /api/items']({ action: 'add', character: b.character, counts: { [PARTS.AETHERDUST]: amount }, label: `Aetherdust +${amount.toLocaleString('en-US')}` });
     return r.ok ? { ...r, amount } : r;
   },
-  // Bounty picker: the bounty you chose goes in the slot you chose, no draft and no token. Bounties belong to the account,
-  // so "all my characters" means the first one's account.
+  // Bounties tab: your slots, what can go in them and what each tier pays. Read often while the tab is open.
+  'POST /api/bounties': async (b) => {
+    const p = places(); if (!p.pkg) return { ok: false, error: 'Package not found.' };
+    const o = await bountyOwner(p, String(b.character || '*'));
+    if (o.error) return { ok: false, error: o.error };
+    const { text, list } = bountyText(p);
+    const slots = BOUNTIES.slotsOf(o.pl).map((x) => ({ ...BOUNTIES.describe(x.id, text), slot: x.slot, progress: x.progress }));
+    return { ok: true, list: b.list ? list : undefined, rewards: BOUNTIES.rewards(bountyRules(p)), slots, owner: o.c.name || o.c.id };
+  },
+  // Bounty picker: the bounty you chose goes in the slot you chose, no draft and no token
   'POST /api/bounty': async (b) => {
     const p = places(); if (!p.pkg) return { ok: false, error: 'Package not found.' };
-    const l = await listChars(p);
-    if (!l || !l.ok) return l || { ok: false, error: 'Could not read your characters.' };
-    const c = (l.characters || []).find((x) => b.character === '*' || x.id === b.character);
-    if (!c) return { ok: false, error: 'Character not found.' };
-    const st = readJson(path.join(p.dataDir, 'state.json'), null);
-    const pl = Object.values((st && st.players) || {}).find((x) => (x.characters || []).some((y) => y && y.id === c.id));
-    if (!pl || !pl.accountId) return { ok: false, error: 'Your account was not found in the save.' };
+    const o = await bountyOwner(p, String(b.character || '*'));
+    if (o.error) return { ok: false, error: o.error };
+    const { c, pl } = o;
     const id = String(b.id || ''), slot = b.slot;
     const bad = BOUNTIES.invalid(pl, id, slot); if (bad) return { ok: false, error: bad };
-    const record = BOUNTIES.record(id, slot), name = (bountyCatalog(p).find((x) => x.id === id) || {}).name || id;
+    const record = BOUNTIES.record(id, slot), name = BOUNTIES.describe(id, bountyText(p).text).name;
     let live = false;
     if (await backendUp(0)) {
       try { await LIVE.setBounty(p.pkg, pl.accountId, record); live = true; } catch (e) { return { ok: false, error: e.message }; }

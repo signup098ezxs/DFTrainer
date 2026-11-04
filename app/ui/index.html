@@ -372,6 +372,46 @@ nav > button.settab.on svg { transform: rotate(60deg); }
 .ovcard.nonums .ovnums, .ovcard.noparts .ovparts { display: none; }
 @media (max-width: 860px) { .ovgrid { grid-template-columns: 1fr; } }
 .setgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
+.bgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 12px; margin-bottom: 14px; }
+.bcard { --t: var(--aether); --t-rgb: var(--a-rgb); position: relative; display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 12px 14px; text-align: left; font: inherit; color: inherit; cursor: pointer; border-radius: 14px; border: 1px solid var(--seam); background: linear-gradient(180deg, var(--hull2), var(--hull)); overflow: hidden; transition: border-color .2s, box-shadow .25s, transform .2s var(--ease); }
+.bcard::before { content: ''; position: absolute; inset: 0 0 auto; height: 2px; background: var(--t); opacity: .85; }
+.bcard.t-Bronze { --t: #d39a6a; --t-rgb: 211, 154, 106; } .bcard.t-Silver { --t: #c3d2de; --t-rgb: 195, 210, 222; } .bcard.t-Gold { --t: #f0c75e; --t-rgb: 240, 199, 94; }
+.bcard:hover { transform: translateY(-2px); border-color: rgba(var(--t-rgb), .4); }
+.bcard.sel { border-color: rgba(var(--t-rgb), .75); box-shadow: 0 0 0 1px rgba(var(--t-rgb), .4), 0 8px 26px -14px rgba(var(--t-rgb), .8); }
+.bcard:focus-visible { outline: 2px solid var(--aether); outline-offset: 2px; }
+section.on .bcard { animation: settle .4s var(--ease) both; }
+section.on .bcard:nth-child(2) { animation-delay: .05s; } section.on .bcard:nth-child(3) { animation-delay: .1s; } section.on .bcard:nth-child(4) { animation-delay: .15s; }
+.bhead { display: flex; justify-content: space-between; font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--ash); }
+.bhead b { color: var(--t); font-weight: 600; }
+.bcard h3 { margin: 0; font: 600 15px/1.25 var(--display); color: var(--frost); overflow-wrap: anywhere; }
+.bdesc { margin: 0; min-height: 2.7em; font-size: 12.5px; line-height: 1.35; color: var(--ash); }
+.bbar { height: 6px; border-radius: 6px; background: rgba(255, 255, 255, .07); overflow: hidden; }
+.bbar i { display: block; height: 100%; width: 0; border-radius: inherit; background: var(--t); transition: width .6s var(--ease); }
+.bnums { display: flex; justify-content: space-between; gap: 8px; margin-top: 4px; font-size: 12px; color: var(--ash); font-variant-numeric: tabular-nums; }
+.bnums b { color: var(--frost); font-weight: 600; }
+.bcard.ready .bnums .st { color: var(--t); font-weight: 600; }
+.bcard.ready .bbar i { box-shadow: 0 0 10px rgba(var(--t-rgb), .9); }
+.brew { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 0; padding: 8px 0 0; list-style: none; border-top: 1px solid var(--seam); }
+.brew li { min-width: 0; font-size: 10.5px; line-height: 1.25; color: var(--ash); }
+.brew b { display: block; font-size: 13.5px; color: var(--frost); font-variant-numeric: tabular-nums; }
+.bcard.empty-slot { justify-content: center; align-items: center; min-height: 170px; text-align: center; border-style: dashed; background: none; color: var(--ash); }
+.bcard.empty-slot::before { display: none; }
+.bcard.claimed::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(circle at 50% 50%, rgba(var(--t-rgb), .55), transparent 70%); animation: bclaim .9s var(--ease) both; }
+@keyframes bclaim { from { opacity: 0; transform: scale(.6); } 35% { opacity: 1; } to { opacity: 0; transform: scale(1.5); } }
+.bpick { padding: 12px 14px; }
+.bpickhead { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.bpickhead .seg { margin-top: 0; }
+.blist { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); gap: 4px; max-height: 300px; margin-top: 10px; overflow: auto; }
+.brow { display: block; min-width: 0; padding: 7px 10px; text-align: left; font: inherit; color: inherit; cursor: pointer; border: 1px solid transparent; border-radius: 10px; background: none; transition: background .15s, border-color .15s; }
+.brow:hover { background: rgba(255, 255, 255, .04); }
+.brow.on { border-color: rgba(var(--a-rgb), .55); background: rgba(var(--a-rgb), .08); }
+.brow:disabled { opacity: .4; cursor: default; }
+.brow b { display: flex; justify-content: space-between; gap: 8px; font-size: 13.5px; font-weight: 600; color: var(--frost); }
+.brow b small { flex: none; font-weight: 500; font-size: 12px; color: var(--ash); font-variant-numeric: tabular-nums; }
+.brow span { display: block; font-size: 12px; color: var(--ash); }
+.bpickfoot { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 10px; font-size: 13px; color: var(--ash); }
+.bpickfoot .btn.armed { filter: hue-rotate(150deg) saturate(1.3); }
+@media (prefers-reduced-motion: reduce) { section.on .bcard, .bcard.claimed::after { animation: none; } .bcard, .bbar i { transition: none; } }
 .setcard { padding: 14px 16px 6px; border-radius: 14px; border: 1px solid var(--seam); background: linear-gradient(180deg, var(--hull2), var(--hull)); }
 .setcard.wide { grid-column: 1 / -1; }
 .setcard h3 { margin: 0 0 4px; font: 600 15px/1.3 var(--display); color: var(--frost); }
@@ -849,6 +889,7 @@ div.lrow { cursor: default; }
     <button data-tab="items" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 17.5 3 6V3h3l11.5 11.5M13 19l6-6M16 16l4 4M19 21l2-2"/></svg>Give items</button>
     <button data-tab="currency"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="m12 8 4 4-4 4-4-4z"/></svg>Currencies</button>
     <button data-tab="parts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20c2-6 6-10 16-16-3 9-7 13-13 15"/><path d="M8 16l-3-3M12 13l-2-2"/></svg>Parts</button>
+    <button data-tab="bounties"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg>Bounties</button>
     <button data-tab="rules"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>Game rules</button>
     <button data-tab="builds"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="M12 22V12M3 7l9 5 9-5"/></svg>Build Creator</button>
     <button data-tab="feed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Live feed <span class="count" id="feedCount"></span></button>
@@ -928,7 +969,7 @@ div.lrow { cursor: default; }
 
     <!-- PARTS: behemoth parts for the gear equipped now -->
     <section id="tab-parts">
-      <div class="head"><div><h2>Parts</h2><p class="lede">Behemoth parts for the weapon and armour you have equipped, Aetherdust, and a bounty of your choice. No ores or other materials.</p></div></div>
+      <div class="head"><div><h2>Parts</h2><p class="lede">Behemoth parts for the weapon and armour you have equipped, and Aetherdust. No ores or other materials.</p></div></div>
       <div class="wrap">
         <div class="setcard cellcard">
           <div class="cellhead"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20c2-6 6-10 16-16-3 9-7 13-13 15"/><path d="M8 16l-3-3M12 13l-2-2"/></svg><div><h3>Give all parts</h3><p class="lede" id="partsInfo"></p></div></div>
@@ -949,18 +990,23 @@ div.lrow { cursor: default; }
           </div>
           <p class="cellnote">Adds exactly that much to the character picked at the top. Timeweave armour takes 250 a piece to craft and 500 to upgrade. Works while you play.</p>
         </div>
-        <div class="setcard cellcard" id="bountyCard">
-          <div class="cellhead"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg><div><h3>Pick a bounty</h3><p class="lede" id="bountyInfo"></p></div></div>
-          <div class="cellopts">
-            <label class="field">Tier <select id="bountyTier"><option>Bronze</option><option>Silver</option><option>Gold</option></select></label>
-            <label class="field">Bounty <select id="bountySel"></select></label>
-            <label class="field">Slot <select id="bountySlot"></select></label>
-            <span class="grow"></span>
-            <button class="btn primary" id="giveBounty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg><span>Add bounty</span></button>
-          </div>
-          <p class="cellnote">Skips the random draft and spends no token. A full slot is replaced and that bounty's progress is lost. Works while you play.</p>
-        </div>
         <div id="partsList"></div>
+      </div>
+    </section>
+
+    <!-- BOUNTIES: your slots and what goes in them -->
+    <section id="tab-bounties">
+      <div class="head"><div><h2>Bounties</h2><p class="lede" id="bInfo">Your four slots, and any bounty you want in them. Rewards are claimed in game.</p></div></div>
+      <div class="wrap">
+        <div class="bgrid" id="bSlots"></div>
+        <div class="setcard bpick">
+          <div class="bpickhead">
+            <div class="seg" id="bTier" aria-label="Tier"><span class="ind"></span><button data-v="Bronze" class="on">Bronze</button><button data-v="Silver">Silver</button><button data-v="Gold">Gold</button></div>
+            <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="bSearch" placeholder="Search bounties" aria-label="Search bounties"></div>
+          </div>
+          <div class="blist" id="bList" role="listbox" aria-label="Bounties"></div>
+          <div class="bpickfoot"><span id="bPickInfo"></span><span class="grow"></span><button class="btn primary" id="bGive" disabled><span>Add bounty</span></button></div>
+        </div>
       </div>
     </section>
 
@@ -1619,6 +1665,7 @@ function tourSteps() {
     { tab: 'items', target: '#tab-items .search', title: 'Give items', body: '<p>Search the whole 1.14.7 catalog (weapons, armour, lanterns, parts, omnicells, gliders, pets, skins and every cosmetic), tick what you want and press <b>Give</b>.</p><ul><li><b>Max weapon levels</b> takes every weapon type to level 20.</li><li><b>Unlock all cosmetics</b> unlocks every cosmetic in one click.</li><li><b>Cells</b> (switch at the top) gives every cell at once, at +3 or every level.</li><li><b>Remove items</b> takes unused gear and cosmetics away in bulk: a smaller inventory means less stutter in game.</li></ul><p>With the game closed, gifts go into your save. While you play, they arrive live and are announced in game chat.</p>' },
     { target: '#charSel', title: 'Who gets it', body: '<p>Pick which character receives gifts, or all of them. While you play, it follows the character you are on.</p>' },
     { tab: 'parts', target: 'nav > button[data-tab="parts"]', title: 'Parts', body: '<p>Every behemoth part for the weapon and armour you have equipped, up to <b>90 of each</b>, in one press. Parts only: no other materials. Works while you play.</p>' },
+    { tab: 'bounties', target: 'nav > button[data-tab="bounties"]', title: 'Bounties', body: '<p>Your four slots: what each bounty asks, its rewards and its progress. Pick a slot, pick any bounty, and it goes in with no draft and no token. Rewards are still claimed in game.</p>' },
     { tab: 'currency', target: '#tab-currency .head', title: 'Currencies and materials', body: '<p>Type any amount of Rams, Merits, tokens, materials and cell cores, then press <b>Apply changes</b>. <b>Max everything</b> fills them all. Works while you play.</p>' },
     { tab: 'rules', target: '#rules > :first-child', title: 'Game rules', body: '<p>XP speeds (weapons, Hunt Pass, mastery), reward amounts (materials, Rams, Merits, Rare Cores), free crafting, free platinum and extra loadout slots. Pick a setting and it is saved; it applies the next time you press <b>Play</b>.</p>' },
     { tab: 'builds', target: 'nav > button[data-tab="builds"]', title: 'Build Creator', body: '<p>Answer a few questions (goals, weapon, target, play style) and get a full 1.14.7 build: weapon, armour, cells, lantern and Omnicell, checked against the game\'s rules, with why each piece is there and where the data comes from.</p>' },
@@ -2497,35 +2544,105 @@ $('#giveDust').onclick = async (e) => {
   else toast('Aetherdust added', `+${fmt(r.amount)}.${r.live ? ' It shows up after your next loading screen.' : ''}`, 'applied', 5000);
   setTimeout(loadSave, 600);
 };
-// Bounty picker: the panel checks the pick against the save again and sends it the way the game sends a drafted bounty
-const bountyChar = () => partsChars()[0];
-function renderBounties() {
-  const list = (SAVE && SAVE.bountyList) || [], c = bountyChar(), held = (c && c.bounties) || [], nameOf = (id) => (list.find((b) => b.id === id) || {}).name || id;
-  const keep = $('#bountySel').value, tier = $('#bountyTier').value;
-  $('#bountySel').innerHTML = list.filter((b) => b.tier === tier).sort((x, y) => x.name.localeCompare(y.name)).map((b) => `<option value="${esc(b.id)}">${esc(b.name)} (${esc(b.what)})</option>`).join('');
-  if ([...$('#bountySel').options].some((o) => o.value === keep)) $('#bountySel').value = keep;
-  const slot = Number($('#bountySlot').value), first = [0, 1, 2, 3].find((i) => !held.some((b) => b.slot === i));
-  $('#bountySlot').innerHTML = [0, 1, 2, 3].map((i) => { const h = held.find((b) => b.slot === i); return `<option value="${i}">${i + 1}: ${h ? esc(nameOf(h.id)) + ' (replaces it)' : 'empty'}</option>`; }).join('');
-  $('#bountySlot').value = $('#bountyCard').dataset.picked ? slot : first ?? 0;
-  const taken = held.some((b) => b.slot === Number($('#bountySlot').value));
-  $('#bountyInfo').textContent = !c ? 'No characters yet.' : `${held.length} of 4 slots in use${charId() === '*' ? ` on ${c.name || c.id}'s account` : ''}.`;
-  $('#giveBounty').disabled = !c || !list.length;
-  $('#giveBounty').lastChild.textContent = taken ? 'Replace bounty' : 'Add bounty';
+/* ================================================= bounties */
+// Reads the slots from the panel while the tab is open. Claiming stays in the game: it grants the rewards itself and
+// refuses on Escalations and Trials, so a bounty that leaves its slot finished is shown here as claimed.
+const BT = { list: null, rewards: {}, slots: [], slot: null, pick: null, tier: 'Bronze', sig: '', armed: 0 };
+const bNum = (n) => Number(n).toLocaleString('en-US');
+const bReady = (s) => s.goal != null && s.progress >= s.goal;
+const bPct = (s) => (s.goal ? Math.min(100, s.progress / s.goal * 100) : 0);
+const bHeld = (i) => BT.slots.find((s) => s.slot === i);
+function bCard(i) {
+  const s = bHeld(i), sel = BT.slot === i ? ' sel' : '';
+  if (!s) return `<button class="bcard empty-slot${sel}" data-slot="${i}" aria-pressed="${BT.slot === i}"><span>Slot ${i + 1}<br>Empty</span></button>`;
+  const r = BT.rewards[s.tier] || {};
+  return `<button class="bcard t-${esc(s.tier)}${sel}" data-slot="${i}" aria-pressed="${BT.slot === i}">
+    <div class="bhead"><b>${esc(s.tier)}</b><span>Slot ${i + 1}</span></div>
+    <h3>${esc(s.name)}</h3><p class="bdesc">${esc(s.desc)}</p>
+    <div><div class="bbar"><i></i></div><div class="bnums"><span class="nums"></span><span class="st"></span></div></div>
+    <ul class="brew" title="With your game rules. Weapon XP goes to the weapon equipped when you claim."><li><b>+${bNum(r.pass)}</b>Hunt Pass XP</li><li><b>+${bNum(r.weapon)}</b>Weapon XP</li><li><b>+${bNum(r.merits)}</b>Weapon Merits</li></ul>
+  </button>`;
 }
-$('#bountyTier').addEventListener('change', renderBounties);
-$('#bountySlot').addEventListener('change', () => { $('#bountyCard').dataset.picked = '1'; renderBounties(); });
-$('#giveBounty').onclick = async (e) => {
-  const btn = e.currentTarget; if (btn.classList.contains('busy')) return;
+function bProgress() {
+  for (const s of BT.slots) {
+    const c = $(`#bSlots [data-slot="${s.slot}"]`); if (!c) continue;
+    c.querySelector('.bbar i').style.width = bPct(s) + '%';
+    c.querySelector('.nums').innerHTML = s.goal != null ? `<b>${bNum(s.progress)}</b> / ${s.approx ? '~' : ''}${bNum(s.goal)}` : `<b>${bNum(s.progress)}</b> so far`;
+    c.querySelector('.nums').title = s.goal == null ? 'The goal of this bounty is not known yet.' : s.approx ? 'Goal worked out from its other tiers.' : '';
+    c.querySelector('.st').textContent = bReady(s) ? 'Claim in game' : s.goal != null ? `${Math.floor(bPct(s))}%` : '';
+    c.classList.toggle('ready', bReady(s));
+  }
+}
+function bRenderSlots() {
+  const sig = JSON.stringify([BT.slots.map((s) => [s.slot, s.id]), BT.slot, BT.rewards]);
+  if (sig !== BT.sig) { BT.sig = sig; $('#bSlots').innerHTML = [0, 1, 2, 3].map(bCard).join(''); }
+  requestAnimationFrame(bProgress);
+}
+function bRenderList() {
+  const q = $('#bSearch').value.trim().toLowerCase(), held = new Set(BT.slots.map((s) => s.id));
+  const rows = (BT.list || []).filter((b) => b.tier === BT.tier && (!q || (b.name + ' ' + b.desc).toLowerCase().includes(q))).sort((a, b) => a.name.localeCompare(b.name));
+  if (BT.pick && !rows.some((b) => b.id === BT.pick)) BT.pick = null;
+  $('#bList').innerHTML = rows.map((b) => `<button class="brow${BT.pick === b.id ? ' on' : ''}" role="option" aria-selected="${BT.pick === b.id}" data-id="${esc(b.id)}"${held.has(b.id) ? ' disabled title="Already in a slot"' : ''}><b>${esc(b.name)}<small>${b.goal != null ? (b.approx ? '~' : '') + bNum(b.goal) : ''}</small></b><span>${esc(b.desc)}</span></button>`).join('') || '<div class="empty">No bounties match.</div>';
+  bRenderFoot();
+}
+function bDisarm() { clearTimeout(BT.armed); BT.armed = 0; $('#bGive').classList.remove('armed'); }
+function bRenderFoot() {
+  const s = bHeld(BT.slot), pick = (BT.list || []).find((b) => b.id === BT.pick);
+  bDisarm();
+  $('#bPickInfo').textContent = pick ? `${pick.name} goes in slot ${BT.slot + 1}.` : `Pick a bounty for slot ${(BT.slot ?? 0) + 1}.`;
+  $('#bGive').disabled = !pick;
+  $('#bGive').lastChild.textContent = s ? `Replace ${s.name}` : 'Add bounty';
+}
+function bSetSlots(slots) {
+  // finished and now gone: the game paid it out
+  for (const old of BT.slots) if (bReady(old) && !slots.some((s) => s.id === old.id)) {
+    const c = $(`#bSlots [data-slot="${old.slot}"]`), r = BT.rewards[old.tier] || {};
+    if (c) { c.classList.add('claimed'); setTimeout(() => bRenderSlots(), 900); }
+    SFX.give();
+    toast('Bounty claimed', `${old.name}: +${bNum(r.pass)} Hunt Pass XP, +${bNum(r.weapon)} Weapon XP, +${bNum(r.merits)} Weapon Merits.`, 'applied', 6000);
+  }
+  BT.slots = slots;
+  if (BT.slot == null || !Number.isInteger(BT.slot)) { const free = [0, 1, 2, 3].find((i) => !bHeld(i)); BT.slot = free ?? 0; }
+}
+let bBusy = false;
+async function bountiesLoad(fresh) {
+  if (bBusy && !fresh) return; bBusy = true;
+  if (fresh) BT.slot = null;
+  const r = await api('/api/bounties', { character: charId(), list: !BT.list });
+  bBusy = false;
+  if (!r.ok) { $('#bInfo').textContent = r.error || 'Could not read your bounties.'; return; }
+  const firstList = !BT.list; if (r.list) BT.list = r.list;
+  BT.rewards = r.rewards;
+  const before = BT.slots.map((s) => s.id).join();
+  bSetSlots(r.slots);
+  const claiming = $('#bSlots .claimed');
+  if (!claiming) bRenderSlots();
+  if (firstList || fresh || before !== BT.slots.map((s) => s.id).join()) bRenderList();
+}
+$('#bSlots').addEventListener('click', (e) => { const c = e.target.closest('[data-slot]'); if (!c) return; SFX.select(true); BT.slot = Number(c.dataset.slot); bRenderSlots(); bRenderFoot(); });
+$('#bList').addEventListener('click', (e) => { const b = e.target.closest('.brow'); if (!b || b.disabled) return; SFX.select(true); BT.pick = b.dataset.id; $$('#bList .brow').forEach((x) => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', x === b); }); bRenderFoot(); });
+$('#bSearch').addEventListener('input', bRenderList);
+$('#bTier').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b || b.classList.contains('on')) return; SFX.select(true); $$('#bTier button').forEach((x) => x.classList.toggle('on', x === b)); placeInd($('#bTier')); BT.tier = b.dataset.v; bRenderList(); });
+$('#bGive').onclick = async (e) => {
+  const btn = e.currentTarget; if (btn.classList.contains('busy') || !BT.pick) return;
+  const old = bHeld(BT.slot);
+  // replacing throws its progress away: a second press says yes
+  if (old && old.progress > 0 && !BT.armed) { btn.classList.add('armed'); btn.lastChild.textContent = `Press again: lose ${bNum(old.progress)} progress`; BT.armed = setTimeout(bRenderFoot, 3500); return; }
+  bDisarm();
   btn.classList.add('busy');
-  const r = await api('/api/bounty', { character: charId(), id: $('#bountySel').value, slot: Number($('#bountySlot').value) });
+  const r = await api('/api/bounty', { character: charId(), id: BT.pick, slot: BT.slot });
   btn.classList.remove('busy');
   if (!r.ok) { SFX.error(); toast('Bounty not added', r.error || 'That did not work.', 'error', 7000); return; }
   SFX.give();
-  delete $('#bountyCard').dataset.picked;
   toast('Bounty added', `${r.name}, slot ${r.slot + 1}.${r.live ? ' It shows up after your next loading screen.' : ''}`, 'applied', 5000);
-  setTimeout(loadSave, 600);
+  BT.pick = null;
+  // what it replaced was not claimed, whatever its progress
+  BT.slots = BT.slots.filter((s) => s.slot !== r.slot);
+  bountiesLoad(false);
 };
-$('nav > button[data-tab="parts"]').addEventListener('click', () => { renderParts(); renderDust(); renderBounties(); requestAnimationFrame(() => { placeInd($('#partsQty')); placeInd($('#dustQty')); }); });
+$('nav > button[data-tab="bounties"]').addEventListener('click', () => { bountiesLoad(true); requestAnimationFrame(() => placeInd($('#bTier'))); });
+setInterval(() => { if (activeTab() === 'bounties' && !document.hidden) bountiesLoad(false); }, 4000);
+$('nav > button[data-tab="parts"]').addEventListener('click', () => { renderParts(); renderDust(); requestAnimationFrame(() => { placeInd($('#partsQty')); placeInd($('#dustQty')); }); });
 
 /* ================================================= rules */
 function renderRules() {
@@ -2558,9 +2675,9 @@ async function loadSaveNow() {
   s.innerHTML = r.characters.map((c) => `<option value="${esc(c.id)}">${esc(c.name || c.id)}</option>`).join('') + '<option value="*">All my characters</option>';
   const want = charPicked ? keep : (S && S.playingAs) || keep;
   s.value = [...s.options].some((o) => o.value === want) && want !== '*' ? want : charPicked && keep === '*' ? '*' : (r.characters[0] ? r.characters[0].id : '*');
-  renderList(); renderCur(); renderCells(); renderRemove(); renderParts(); renderDust(); renderBounties(); updateDock();
+  renderList(); renderCur(); renderCells(); renderRemove(); renderParts(); renderDust(); updateDock();
 }
-function onChar() { rmSel.clear(); renderList(); renderCur(); renderCells(); renderRemove(); renderParts(); renderDust(); renderBounties(); updateDock(); }
+function onChar() { rmSel.clear(); renderList(); renderCur(); renderCells(); renderRemove(); renderParts(); renderDust(); updateDock(); if (activeTab() === 'bounties') bountiesLoad(true); }
 $('#charSel').addEventListener('change', () => { ownedCache = null; charPicked = true; SFX.tick(); onChar(); });
 
 function prepCatalog(c) {
