@@ -66,6 +66,13 @@ HOW THE GAME MOD WORKS (and why it needs server mods)
   trainer-toggles.json in the mod's folder and every copy reads it twice a second. With the overlay and Instant refresh
   off, the mod does nothing else, so it costs nothing in game.
 
+SLAYERS CLUB
+  The Slayers Club (the game's own club: buff, +weapon XP and other perks) is a mod of its own, SlayersClub, on
+  Dauntless Forever's Mods page next to Lantern Client's (DFTrainer). Switch it on and Lantern Client puts the club in
+  your save; switch it off and it is taken out once the game is closed. It shows after your next login. It needs
+  Lantern Client running and the DFTrainer mod on: without them nothing changes, and the panel says why. Only the
+  club's two entitlements (ent_boost_vip, escalation_xp_boost_entitlement) are touched; the save is backed up first.
+
 GOOD TO KNOW
   - The in-game parts could not be tested in the real game when they were written (no Windows or game there). The
     panel, the item giving and the live delivery were tested against a copy of the 1.14.7 package and its real backend with a test

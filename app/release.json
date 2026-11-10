@@ -1,5 +1,5 @@
 {
-  "version": "3.9.30",
+  "version": "3.9.31",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "New Bounties tab: your four slots with each bounty's name, what to do, progress and rewards (Hunt Pass XP, Weapon XP, Weapon Merits, with your game rules). The picker moved here from Parts: pick a slot, pick any bounty, no draft and no token. Rewards are still claimed in game. Goals marked ~ are estimates, and some bounties have no known goal yet. Fixes 3.9.29: a wrong entry removed from the list, and the right objectives for Slay. Reload. Repeat. and What We Do to the Shadows. Not yet tried in a real game: try it on a spare slot first."
+  "notes": "New mod: Slayers Club. It shows on Dauntless Forever's Mods page next to Lantern Client. Switch it on and Lantern Client puts the Slayers Club in your save (shows after your next login); switch it off and it is taken out when the game is closed. Needs Lantern Client running and its own mod (DFTrainer) on. Only the club is changed; your save is backed up first."
 }

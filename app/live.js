@@ -151,4 +151,15 @@ async function setBounty(pkg, accountId, record) {
   if (!list.some((b) => b.bounty_id === record.bounty_id && b.slot_index === record.slot_index)) throw new Error('The game\'s backend did not keep the bounty.');
 }
 
-module.exports = { give, plan, catalogs, setBounty };
+// An entitlement for the host's own player (the Slayers Club): the backend's own grant, on its "auth" port. It sets
+// activatedDate itself and saves at once; the game reads entitlements at login.
+async function grantEntitlement(pkg, name, duration) {
+  const port = (readJson(path.join(pkg, 'services_1147.json'), []).find((s) => s.service === 'auth') || {}).port;
+  if (!port) throw new Error('Could not find the game\'s auth service (services_1147.json).');
+  const r = await call('POST', `/entitlementv2/${encodeURIComponent(name)}`, { entitlement: name, duration }, port);
+  const body = r.json && (r.json.payload || r.json);
+  if (r.status !== 200 || !body || !Array.isArray(body.entitlements)) throw new Error(`The game's backend said no (${r.status || r.error}).`);
+  if (!body.entitlements.some((e) => e && e.name === name && Number(e.duration) === duration)) throw new Error(`The game's backend did not keep ${name}.`);
+}
+
+module.exports = { give, plan, catalogs, setBounty, grantEntitlement };

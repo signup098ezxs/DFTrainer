@@ -7,6 +7,7 @@
 //   add         add exactly a number to a counted item (Aetherdust), the way live.js plans it
 //   maxweapons  every weapon type to level 20 (players.<you>.progress.tracks.ExperienceTrack_Weapon_<type>)
 //   bounty      put a picked bounty in a slot, through the package's own merge (backend\bounties1147.js)
+//   slayersclub put the Slayers Club in (job.on) or take it out: two entitlements on your player (slayers.js)
 //   remove      take gear and cosmetic unlocks away (a big inventory makes the game stutter), never anything in use
 //               (protect.js)
 // Only your own characters (the ids come from items.js list), only while the local backend is not running (it keeps
@@ -80,6 +81,10 @@ function writeState(file, state) {
     require(path.join(pkg, 'backend', 'bounties1147.js')).create({}).apply(owner, { bounties: [job.record] });
     changed = true;
     push('added', job.record.bounty_id);
+  } else if (job.action === 'slayersclub') {
+    // the Slayers Club on or off (slayers.js): only its two entitlements on your player, nothing else
+    changed = require('./slayers.js').apply(me, !!job.on);
+    push(changed ? 'raised' : 'already', 'slayersclub');
   } else if (job.action === 'maxweapons') {
     me.progress = me.progress || { tracks: {}, objectives: {} };
     me.progress.tracks = me.progress.tracks || {};

@@ -34,6 +34,9 @@ if (ROOT && !fs.existsSync(SETTINGS) && fs.existsSync(path.join(HERE, 'trainer-s
   try { fs.copyFileSync(path.join(HERE, 'trainer-settings.json'), SETTINGS); } catch {}
 }
 const MOD_NAME = 'DFTrainer';
+const SLAYERS_MOD = 'SlayersClub';   // the Slayers Club switch on Dauntless Forever's Mods page (see "Slayers Club" below)
+const SLAYERS_SRC = path.join(HERE, 'mod', SLAYERS_MOD);
+const SLAYERS = require('./slayers.js');
 // the game mod this panel ships (its main.lua says "local MOD_VERSION"): copies of the game started before an update
 // keep running the old one (hunt servers stay up between hunts), so the panel says when that is the case
 const MOD_VERSION = (() => { try { return (/local MOD_VERSION\s*=\s*"([^"]+)"/.exec(fs.readFileSync(path.join(__dirname, 'mod', 'DFTrainer', 'Scripts', 'main.lua'), 'utf8')) || [])[1] || ''; } catch { return ''; } })();
@@ -99,6 +102,7 @@ function placesUncached() {
   return {
     pkg, gameDir, node: (cfg.Node && fs.existsSync(cfg.Node)) ? cfg.Node : process.execPath,
     ue4ssDll: ue && path.join(ue, 'UE4SS.dll'), modsDir: ue && path.join(ue, 'Mods'), modDir: ue && path.join(ue, 'Mods', MOD_NAME),
+    slayersDir: ue && path.join(ue, 'Mods', SLAYERS_MOD),
     dataDir: path.join(pkg, 'data'), requestLog: path.join(pkg, 'logs', 'requests.jsonl'),
   };
 }
@@ -288,8 +292,8 @@ function modsMode(p) {
   if (!m.on) m.servers = false;
   return m;
 }
-function modListed(p) {
-  try { return new RegExp(`^\\s*${MOD_NAME}\\s*:\\s*1\\s*$`, 'm').test(fs.readFileSync(path.join(p.modsDir, 'mods.txt'), 'utf8')); } catch { return false; }
+function modListed(p, name = MOD_NAME) {
+  try { return new RegExp(`^\\s*${name}\\s*:\\s*1\\s*$`, 'm').test(fs.readFileSync(path.join(p.modsDir, 'mods.txt'), 'utf8')); } catch { return false; }
 }
 
 // ---------------------------------------------------------------- live feed (pushed to the panel)
@@ -399,6 +403,7 @@ async function setup() {
   fs.mkdirSync(path.join(p.modDir, 'status'), { recursive: true });
   writeToggles(p, readToggles(p));
   steps.push('Copied the Lantern Client mod.');
+  if (await slayersInstall(p)) steps.push('Added the Slayers Club mod (switch it on in the launcher\'s Mods page).');
   if (ue4ssSafeSettings(p)) steps.push('Turned off the UE4SS object cache (it crashed the game while loading).');
   for (const a of [['set', 'on'], ['set', 'servers-on'], ['mod', MOD_NAME, 'on']]) {
     const r = await runTool(p, 'ue4ss.cjs', a);
@@ -473,7 +478,7 @@ async function applyJobNow(p, job, live) {
       const res = await LIVE.give(p.pkg, job, ((mine && mine.characters) || []).map((c) => c.id), catalog(p).live);
       r = { ok: true, ...res };
     } catch (e) { r = { ok: false, error: e.message }; }
-  } else if (job.action === 'maxweapons' || job.action === 'atleast' || job.action === 'add' || job.action === 'remove') {
+  } else if (job.action === 'maxweapons' || job.action === 'atleast' || job.action === 'add' || job.action === 'remove' || job.action === 'slayersclub') {
     // the package's items.js only sets counts and adds items: offline.js tops counts up, adds to them and raises weapon levels
     const mine = await listChars(p);
     r = mine && mine.ok ? await runOwn(p, 'offline.js', [p.pkg, JSON.stringify(job), JSON.stringify((mine.characters || []).map((c) => c.id))])
@@ -710,6 +715,80 @@ function syncMod(gameRunning) {
   } catch (e) { return false; }
 }
 
+// ---------------------------------------------------------------- Slayers Club
+// The club (the game's internal "VIP") is two entitlements on your player in the save (slayers.js). Its switch is the
+// SlayersClub mod on Dauntless Forever's Mods page, next to Lantern's own (DFTrainer): UE4SS's ue4ss\Mods\mods.txt.
+// The mod itself does nothing in the game; this panel keeps the save in step with its switch:
+//   on   game closed: offline.js puts the club in (backed up first). Game running: the backend's own grant
+//        (live.js grantEntitlement). Either way it shows after your next login.
+//   off  taken out once the game is closed (there is no live "take away"); only those two entitlements.
+// Lantern is required: with DFTrainer not set up or switched off, nothing is changed either way, and the panel (and
+// the game chat, while it runs) says why. Applying twice changes nothing.
+// The first time the mod folder is added its switch starts the way the save already is, so a club put in by hand
+// (6 Nov 2026) stays on. Returns true when the folder was new.
+async function slayersInstall(p) {
+  if (!p.slayersDir || !p.modDir || !fs.existsSync(path.join(p.modDir, 'Scripts', 'main.lua'))) return false;   // Lantern's mod is not set up
+  const fresh = !fs.existsSync(p.slayersDir);
+  for (const rel of modFiles(SLAYERS_SRC)) {
+    const a = path.join(SLAYERS_SRC, rel), b = path.join(p.slayersDir, rel);
+    let same = false; try { same = fs.readFileSync(a).equals(fs.readFileSync(b)); } catch {}
+    if (!same) { fs.mkdirSync(path.dirname(b), { recursive: true }); fs.copyFileSync(a, b); }
+  }
+  if (fresh) {
+    const who = await bountyOwner(p, '*');
+    const r = await runTool(p, 'ue4ss.cjs', ['mod', SLAYERS_MOD, who.pl && SLAYERS.any(who.pl) ? 'on' : 'off']);
+    if (!r.ok) panelLog(`Slayers Club: could not set its switch: ${r.error || 'ue4ss.cjs failed'}`);
+  }
+  return fresh;
+}
+let slayersKey = '', slayersRetry = 0, slayersBusy = false, slayersSaid = '';
+function slayersSay(key, kind, title, text, inGame = false) {
+  if (slayersSaid === key) return;   // once, not on every look
+  slayersSaid = key;
+  note(kind, title, text);
+  if (inGame) announce(`[Lantern] ${title}: ${text}`);
+}
+async function slayersSync(running) {
+  if (slayersBusy || !LIC.ok()) return;   // like every other change to the save: only with a valid key
+  const p = places();
+  if (!p.pkg || !p.slayersDir || !p.modDir) return;
+  // looked at again only when a switch, the game or (game closed) the save changed, or 30 s after a failure. While the
+  // game runs the backend saves often: the save is not part of the key then
+  const key = [statKey(path.join(p.modsDir, 'mods.txt')), statKey(path.join(p.modDir, 'Scripts', 'main.lua')), fs.existsSync(p.slayersDir),
+    running ? 'running' : statKey(path.join(p.dataDir, 'state.json'))].join('|');
+  if (key === slayersKey && !(slayersRetry && Date.now() >= slayersRetry)) return;
+  slayersBusy = true; slayersKey = key; slayersRetry = 0;
+  const failed = (k, title, text) => { slayersSay('error:' + k, 'error', title, text); slayersRetry = Date.now() + 30000; };
+  try {
+    await slayersInstall(p);   // adds the folder for an existing Lantern install, and brings an older copy up to date
+    if (!fs.existsSync(path.join(p.slayersDir, 'Scripts', 'main.lua'))) return;
+    const want = modListed(p, SLAYERS_MOD) || fs.existsSync(path.join(p.slayersDir, 'enabled.txt'));   // as ue4ss.cjs reads it
+    const lantern = fs.existsSync(path.join(p.modDir, 'Scripts', 'main.lua')) && modListed(p);
+    if (!lantern) {
+      if (want) slayersSay('blocked', 'mod', 'Slayers Club needs Lantern', 'Switch on the DFTrainer mod (Lantern Client) on Dauntless Forever\'s Mods page, or press Set up here. Until then your save is not changed.', running);
+      return;
+    }
+    const who = await bountyOwner(p, '*');
+    if (who.error) return failed(who.error, 'Slayers Club: your save could not be read', who.error);
+    const trial = { entitlements: [...((who.pl && who.pl.entitlements) || [])] };
+    if (!SLAYERS.apply(trial, want)) { slayersSaid = ''; return; }   // already in step
+    if (running) {
+      if (!want) return slayersSay('pending-off', 'queued', 'Slayers Club turns off when you close the game', 'The game keeps it while it runs.');
+      try { for (const w of SLAYERS.missing(who.pl)) await LIVE.grantEntitlement(p.pkg, w.name, w.duration); }
+      catch (e) { return failed(e.message, 'Slayers Club could not be switched on', e.message); }
+      slayersSaid = '';
+      note('applied', 'Slayers Club on', 'Added to your save. It shows after your next login.');
+      announce('[Lantern] Slayers Club is on. It shows after your next login.');
+      return;
+    }
+    const r = await applyJob(p, { action: 'slayersclub', on: want, character: '*', label: `Slayers Club ${want ? 'on' : 'off'}` });
+    if (!r.ok) return failed(r.error, 'Slayers Club could not be changed', r.error || 'offline.js failed');
+    slayersSaid = '';
+    if (r.raised && r.raised.length) note('applied', want ? 'Slayers Club on' : 'Slayers Club off', want ? 'Added to your save. It shows after your next login.' : 'Taken out of your save.');
+  } catch (e) { failed(e.message, 'Slayers Club could not be changed', e.message); }
+  finally { slayersBusy = false; }
+}
+
 // ---------------------------------------------------------------- behemoth overlay
 // The game mod (in your game and in each hunt server) writes the behemoth you are fighting to track\<process>.json in
 // its folder while the overlay is on. The overlay itself is "Lantern Client.exe --overlay": a small click-through
@@ -892,6 +971,7 @@ async function tickState() {
     if (s.running !== lastRunning) { const p = places(); rulesAtStart = s.running && p.pkg ? rulesKey(p) : null; }
     lastRunning = s.running;
     ensureOverlay(s.running);
+    slayersSync(s.running).catch(() => {});
   }
   const text = JSON.stringify(s);
   if (text !== lastStateText) { lastStateText = text; push('state', s); }
