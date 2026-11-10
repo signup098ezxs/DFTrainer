@@ -1,5 +1,5 @@
 {
-  "version": "3.9.37",
+  "version": "3.9.38",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Host Mode lag fix retired: Dauntless Forever is fixing it in its own patch. The Hotfix tab is gone, and Lantern puts Dauntless Forever's original backend file back on PCs it had patched."
+  "notes": "Host Mode lag fix and the Hotfix tab are back: Dauntless Forever has not fixed the host's relay delay yet (issue #12 is still open, and the host still sees ~110-200 ms). Lantern patches DF's backend again on PCs that host, keeps DF's original next to it, and checks your game's delay readings to confirm it works."
 }
