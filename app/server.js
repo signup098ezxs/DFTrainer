@@ -742,12 +742,21 @@ async function slayersInstall(p) {
   return fresh;
 }
 let slayersKey = '', slayersRetry = 0, slayersBusy = false, slayersSaid = '';
+let slayersStatus = { state: 'unknown' };   // for GET /api/state and panel.log: what really happened, not the switch
+const slayersSet = (state, detail = '') => { if (slayersStatus.state !== state || slayersStatus.detail !== detail) panelLog(`Slayers Club: ${state}${detail ? ' - ' + detail : ''}`); slayersStatus = { state, detail, at: Date.now() }; };
 function slayersSay(key, kind, title, text, inGame = false) {
   if (slayersSaid === key) return;   // once, not on every look
   slayersSaid = key;
   note(kind, title, text);
+  panelLog(`Slayers Club: ${title}: ${text}`);
   if (inGame) announce(`[Lantern] ${title}: ${text}`);
 }
+// Playing in a friend's game (Dauntless Forever's join): this PC's own backend is not running, the game's ports lead to
+// the host (tools\join-proxy-1147.js, data\join-proxy.json), and the host's save holds your character until it comes
+// home (data\travel_pending.json; DF copies the host's record home every 3 minutes). Your save here must not be changed
+// then: DF would see it "changed since that game", keep it and stop bringing your progress home. The club is put in
+// once your character is home, and travels with it to the host the next time you join.
+const joinedElsewhere = (p) => ['join-proxy.json', 'travel_pending.json'].filter((f) => fs.existsSync(path.join(p.dataDir, f)));
 async function slayersSync(running) {
   if (slayersBusy || !LIC.ok()) return;   // like every other change to the save: only with a valid key
   const p = places();
@@ -755,7 +764,7 @@ async function slayersSync(running) {
   // looked at again only when a switch, the game or (game closed) the save changed, or 30 s after a failure. While the
   // game runs the backend saves often: the save is not part of the key then
   const key = [statKey(path.join(p.modsDir, 'mods.txt')), statKey(path.join(p.modDir, 'Scripts', 'main.lua')), fs.existsSync(p.slayersDir),
-    running ? 'running' : statKey(path.join(p.dataDir, 'state.json'))].join('|');
+    running ? 'running' : statKey(path.join(p.dataDir, 'state.json')), joinedElsewhere(p).join()].join('|');
   if (key === slayersKey && !(slayersRetry && Date.now() >= slayersRetry)) return;
   slayersBusy = true; slayersKey = key; slayersRetry = 0;
   const failed = (k, title, text) => { slayersSay('error:' + k, 'error', title, text); slayersRetry = Date.now() + 30000; };
@@ -765,28 +774,115 @@ async function slayersSync(running) {
     const want = modListed(p, SLAYERS_MOD) || fs.existsSync(path.join(p.slayersDir, 'enabled.txt'));   // as ue4ss.cjs reads it
     const lantern = fs.existsSync(path.join(p.modDir, 'Scripts', 'main.lua')) && modListed(p);
     if (!lantern) {
+      slayersSet(want ? 'blocked' : 'off', want ? 'DFTrainer mod not set up or switched off' : '');
       if (want) slayersSay('blocked', 'mod', 'Slayers Club needs Lantern', 'Switch on the DFTrainer mod (Lantern Client) on Dauntless Forever\'s Mods page, or press Set up here. Until then your save is not changed.', running);
       return;
     }
     const who = await bountyOwner(p, '*');
-    if (who.error) return failed(who.error, 'Slayers Club: your save could not be read', who.error);
+    if (who.error) { slayersSet('error', who.error); return failed(who.error, 'Slayers Club: your save could not be read', who.error); }
     const trial = { entitlements: [...((who.pl && who.pl.entitlements) || [])] };
-    if (!SLAYERS.apply(trial, want)) { slayersSaid = ''; return; }   // already in step
+    if (!SLAYERS.apply(trial, want)) { slayersSaid = ''; slayersSet(want ? 'on' : 'off', 'in your save'); return; }   // already in step
+    const away = joinedElsewhere(p);
+    if (away.length) {
+      slayersSet('waiting', `in a friend's game (${away.join(', ')})`);
+      return slayersSay('away', 'queued', `Slayers Club turns ${want ? 'on' : 'off'} when your character is home`,
+        'You are playing in a friend\'s game: their save holds your character until you leave. Lantern changes your save after that, and the change travels with you the next time you join them.');
+    }
     if (running) {
-      if (!want) return slayersSay('pending-off', 'queued', 'Slayers Club turns off when you close the game', 'The game keeps it while it runs.');
+      if (!want) { slayersSet('waiting', 'off when the game closes'); return slayersSay('pending-off', 'queued', 'Slayers Club turns off when you close the game', 'The game keeps it while it runs.'); }
       try { for (const w of SLAYERS.missing(who.pl)) await LIVE.grantEntitlement(p.pkg, w.name, w.duration); }
-      catch (e) { return failed(e.message, 'Slayers Club could not be switched on', e.message); }
-      slayersSaid = '';
+      catch (e) { slayersSet('error', e.message); return failed(e.message, 'Slayers Club could not be switched on', e.message); }
+      slayersSaid = ''; slayersSet('on', 'granted by the game\'s backend');
       note('applied', 'Slayers Club on', 'Added to your save. It shows after your next login.');
       announce('[Lantern] Slayers Club is on. It shows after your next login.');
       return;
     }
     const r = await applyJob(p, { action: 'slayersclub', on: want, character: '*', label: `Slayers Club ${want ? 'on' : 'off'}` });
-    if (!r.ok) return failed(r.error, 'Slayers Club could not be changed', r.error || 'offline.js failed');
-    slayersSaid = '';
+    if (!r.ok) { slayersSet('error', r.error || 'offline.js failed'); return failed(r.error, 'Slayers Club could not be changed', r.error || 'offline.js failed'); }
+    slayersSaid = ''; slayersSet(want ? 'on' : 'off', 'written to your save');
     if (r.raised && r.raised.length) note('applied', want ? 'Slayers Club on' : 'Slayers Club off', want ? 'Added to your save. It shows after your next login.' : 'Taken out of your save.');
-  } catch (e) { failed(e.message, 'Slayers Club could not be changed', e.message); }
+  } catch (e) { slayersSet('error', e.message); failed(e.message, 'Slayers Club could not be changed', e.message); }
   finally { slayersBusy = false; }
+}
+
+// ---------------------------------------------------------------- Host Mode relay fix (hostfix.js; temporary)
+// Kept in step on start and whenever DF's backend file changes: the fix is put back after DF's launcher restores its
+// file, never on a file Lantern does not recognise, at most 6 times an hour, with DF's original kept next to it
+// (recorder-1147.js.lantern-original). Applies the next time the backend starts. While Host Mode runs, the game's own
+// delay readings (player_fps in logs\requests.jsonl) show whether it works. Off: "hostFix": false in trainer-settings.json.
+const HOSTFIX = require('./hostfix.js');
+let hostFixState = { state: 'unknown' }, hostFixKey = '', hostFixBusy = false, hostFixTimes = [], hostFixSaid = '', hostFixLiveAt = 0;
+const hostFixSet = (state, detail = '') => { if (hostFixState.state !== state || hostFixState.detail !== detail) panelLog(`Host Mode fix: ${state}${detail ? ' - ' + detail : ''}`); hostFixState = { state, detail, at: Date.now() }; };
+function hostFixSay(key, kind, title, text) { if (hostFixSaid === key) return; hostFixSaid = key; note(kind, title, text); panelLog(`Host Mode fix: ${title}: ${text}`); }
+const nodeCheck = (p, file) => new Promise((resolve) => execFile(p.node, ['--check', file], { windowsHide: true, timeout: 30000 }, (e, out, err) => resolve(e ? String(err || e.message).split('\n').filter(Boolean).slice(0, 3).join(' ') : '')));
+async function hostFixSync(running) {
+  if (hostFixBusy) return;
+  const p = places();
+  if (!p.pkg) return;
+  if (settings.hostFix === false) { hostFixSet('off', 'turned off in trainer-settings.json'); return; }
+  const f = path.join(p.pkg, 'backend', 'recorder-1147.js');
+  const key = statKey(f);
+  if (key !== hostFixKey) {
+    hostFixBusy = true;
+    try { hostFixKey = key; await hostFixApply(p, f, running); }
+    catch (e) { hostFixSet('failed', e.message); hostFixSay('error:' + e.message, 'error', 'Host Mode lag fix could not be applied', e.message); }
+    finally { hostFixBusy = false; hostFixKey = statKey(f); }
+  }
+  if (running && ['patched', 'working', 'not working'].includes(hostFixState.state) && Date.now() - hostFixLiveAt > 60000) { hostFixLiveAt = Date.now(); hostFixLive(p, f); }
+}
+async function hostFixApply(p, f, running) {
+  let text;
+  try { text = fs.readFileSync(f, 'utf8'); } catch (e) { return hostFixSet('missing', `no ${f}`); }
+  const st = HOSTFIX.status(text);
+  if (st === 'patched') return hostFixSet('patched', 'in place');
+  if (st === 'changed') {
+    hostFixSet('changed', 'DF changed this code: left alone');
+    return hostFixSay('changed', 'mod', 'Host Mode lag fix not applied', 'Dauntless Forever changed its backend file, so Lantern leaves it alone. If DF has fixed the lag (addison2k/DauntlessForever#12), nothing more is needed.');
+  }
+  // DF's original: put the fix back
+  const now = Date.now();
+  hostFixTimes = hostFixTimes.filter((t) => now - t < 3600000);
+  if (hostFixTimes.length >= 6) {
+    hostFixSet('paused', 'restored 6 times within an hour');
+    return hostFixSay('loop', 'error', 'Host Mode lag fix paused', 'Dauntless Forever restored its file 6 times within an hour, so Lantern stopped putting the fix back. It tries again after Lantern restarts.');
+  }
+  hostFixTimes.push(now);
+  const bak = f + '.lantern-original';
+  if (readText(bak) !== text) fs.writeFileSync(bak, text);   // DF's own file, as it was before the fix
+  const out = HOSTFIX.patch(text), tmp = path.join(path.dirname(f), 'recorder-1147.lantern-tmp.js');
+  fs.writeFileSync(tmp, out);
+  const bad = await nodeCheck(p, tmp);
+  if (bad) { try { fs.unlinkSync(tmp); } catch {} throw new Error(`the fixed file did not pass a syntax check (${bad}); DF's file was left as it is`); }
+  if (fs.readFileSync(f, 'utf8') !== text) { try { fs.unlinkSync(tmp); } catch {} return hostFixSet('original', 'DF was writing the file; trying again'); }
+  fs.renameSync(tmp, f);
+  if (HOSTFIX.status(fs.readFileSync(f, 'utf8')) !== 'patched') { fs.writeFileSync(f, text); throw new Error('the file did not read back as fixed; DF\'s original was put back'); }
+  hostFixSet('patched', 'put back after DF restored its file');
+  if (running) hostFixSay('restart:' + now, 'mod', 'Host Mode lag fix put back', 'Dauntless Forever had restored its file while the game ran. Close the game and Host Mode, then start them again for the fix to work.');
+}
+const readText = (f) => { try { return fs.readFileSync(f, 'utf8'); } catch { return null; } };
+// The fix only counts once the game says so: your game's own delay readings since the backend started with the fixed file
+function hostFixLive(p, f) {
+  try {
+    if (!fs.existsSync(path.join(p.dataDir, 'relay-1147.json'))) return;   // not Host Mode: nothing to measure
+    const started = fs.statSync(path.join(p.dataDir, 'recorder.pid')).mtimeMs;
+    if (started < fs.statSync(f).mtimeMs) return hostFixSet('patched', 'the running backend started before the fix: restart Host Mode');
+    const st = readJson(path.join(p.dataDir, 'state.json'), null);
+    const me = st && st.players && st.players[st.lastPlayer];
+    if (!me || !me.accountId) return;
+    const log = path.join(p.pkg, 'logs', 'requests.jsonl'), size = fs.statSync(log).size, n = Math.min(size, 512 * 1024);
+    const fd = fs.openSync(log, 'r'), buf = Buffer.alloc(n);
+    try { fs.readSync(fd, buf, 0, n, size - n); } finally { fs.closeSync(fd); }
+    const lags = [];
+    for (const l of buf.toString('utf8').split('\n')) {
+      if (!l.includes('player_fps') || !l.includes(me.accountId)) continue;
+      let r, evs; try { r = JSON.parse(l); evs = [].concat(JSON.parse(r.body)); } catch { continue; }
+      for (const e of evs) if (e.EventName === 'player_fps' && e.player_id === me.accountId && e.total_gputime > 0 && Date.parse(e.Timestamp) > started) lags.push(Number(e.avg_lag));
+    }
+    if (lags.length < 3) return;
+    const med = lags.sort((a, b) => a - b)[lags.length >> 1], ms = Math.round(med * 1000);
+    if (med <= 0.05) { hostFixSet('working', `your game's delay in Host Mode: ${ms} ms`); hostFixSaid = hostFixSaid.startsWith('slow') ? '' : hostFixSaid; }
+    else { hostFixSet('not working', `your game still reports ${ms} ms in Host Mode`); hostFixSay('slow', 'error', 'Host Mode lag fix is in, but not working', `Your game still reports about ${ms} ms of delay in Host Mode (about 10 ms is expected). Dauntless Forever may route the host differently now; check addison2k/DauntlessForever#12.`); }
+  } catch {}
 }
 
 // ---------------------------------------------------------------- behemoth overlay
@@ -951,6 +1047,7 @@ async function buildState() {
     escalation: running && inEscalation,
     rulesPending: rulesPending(p),
     overlay: { ...overlaySettings(), restoreBossbar: undefined, bossbarBefore: undefined, running: overlayAlive() },
+    slayers: slayersStatus, hostFix: hostFixState,
     queue: queue.map((j) => ({ what: describe(j) })), history,
     deliveries: deliveries.filter((d) => d.status === 'saved').map((d) => ({ what: d.what, at: d.at })),
   };
@@ -972,6 +1069,7 @@ async function tickState() {
     lastRunning = s.running;
     ensureOverlay(s.running);
     slayersSync(s.running).catch(() => {});
+    hostFixSync(s.running).catch(() => {});
   }
   const text = JSON.stringify(s);
   if (text !== lastStateText) { lastStateText = text; push('state', s); }

@@ -72,6 +72,15 @@ SLAYERS CLUB
   your save; switch it off and it is taken out once the game is closed. It shows after your next login. It needs
   Lantern Client running and the DFTrainer mod on: without them nothing changes, and the panel says why. Only the
   club's two entitlements (ent_boost_vip, escalation_xp_boost_entitlement) are touched; the save is backed up first.
+  Playing in a friend's game: their save holds your character until it comes home, so Lantern changes your save
+  after you leave, and the club travels with you the next time you join. In their game you have it from then on.
+
+HOST MODE LAG FIX (temporary, until Dauntless Forever fixes it: github.com/addison2k/DauntlessForever/issues/12)
+  In Host Mode Dauntless Forever sends the host's own game out to the online relay and back (~110 ms instead of
+  ~10). Lantern Client fixes that one line in DF's backend\recorder-1147.js, and puts the fix back whenever DF's
+  launcher restores its file (keeping DF's original as recorder-1147.js.lantern-original). It never touches a file it
+  does not recognise, and while Host Mode runs it checks your game's own delay readings to see that the fix works.
+  To turn it off: "hostFix": false in trainer-settings.json.
 
 GOOD TO KNOW
   - The in-game parts could not be tested in the real game when they were written (no Windows or game there). The

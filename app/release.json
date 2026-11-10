@@ -1,5 +1,5 @@
 {
-  "version": "3.9.31",
+  "version": "3.9.32",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "New mod: Slayers Club. It shows on Dauntless Forever's Mods page next to Lantern Client. Switch it on and Lantern Client puts the Slayers Club in your save (shows after your next login); switch it off and it is taken out when the game is closed. Needs Lantern Client running and its own mod (DFTrainer) on. Only the club is changed; your save is backed up first."
+  "notes": "Host Mode lag fix: when you host, your own game no longer goes out to the online relay and back (about 10 ms instead of about 110). Lantern puts the fix back by itself whenever Dauntless Forever's launcher restores its file, and checks that it works. Restart Host Mode once after updating. Slayers Club when you play in a friend's game: Lantern now waits until your character is home, then adds the club; it travels with you the next time you join them. panel.log now records what Slayers Club and the lag fix really did."
 }
