@@ -1,5 +1,5 @@
 {
-  "version": "3.9.33",
+  "version": "3.9.34",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Host Mode lag fix: now only on PCs that host. On a PC that only joins friends it did nothing, and Dauntless Forever's launcher could then report its server files as blocked by an antivirus: Lantern now puts DF's original file back there, and the warning clears at the launcher's next start. On a host, Lantern now waits until DF has finished checking its files before putting the fix back."
+  "notes": "New Hotfix tab: shows whether the Host Mode lag fix is in (\"Patched: good to go\") and has a Patch button. Use it on the PC that hosts; Lantern still puts the fix back by itself after Dauntless Forever's launcher restores its files."
 }

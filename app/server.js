@@ -827,6 +827,7 @@ function hostsHere(p) {
   return /hostmode Host Mode is up/.test(readText(log) || '') ? rememberHost() : false;
 }
 function rememberHost() { settings.hostedHere = true; saveSettings(); return true; }
+const hostFixPublic = () => ({ state: hostFixState.state, detail: hostFixState.detail || '', host: !!settings.hostedHere, off: settings.hostFix === false });
 const hostFixSet = (state, detail = '') => { if (hostFixState.state !== state || hostFixState.detail !== detail) panelLog(`Host Mode fix: ${state}${detail ? ' - ' + detail : ''}`); hostFixState = { state, detail, at: Date.now() }; };
 function hostFixSay(key, kind, title, text) { if (hostFixSaid === key) return; hostFixSaid = key; note(kind, title, text); panelLog(`Host Mode fix: ${title}: ${text}`); }
 const nodeCheck = (p, file) => new Promise((resolve) => execFile(p.node, ['--check', file], { windowsHide: true, timeout: 30000 }, (e, out, err) => resolve(e ? String(err || e.message).split('\n').filter(Boolean).slice(0, 3).join(' ') : '')));
@@ -1079,7 +1080,7 @@ async function buildState() {
     escalation: running && inEscalation,
     rulesPending: rulesPending(p),
     overlay: { ...overlaySettings(), restoreBossbar: undefined, bossbarBefore: undefined, running: overlayAlive() },
-    slayers: slayersStatus, hostFix: hostFixState,
+    slayers: slayersStatus, hostFix: hostFixPublic(),
     queue: queue.map((j) => ({ what: describe(j) })), history,
     deliveries: deliveries.filter((d) => d.status === 'saved').map((d) => ({ what: d.what, at: d.at })),
   };
@@ -1284,6 +1285,28 @@ const routes = {
     if (!PARTS.AETHERDUST_STEPS.includes(amount)) return { ok: false, error: 'Pick 1,000, 2,000, 3,000, 4,000 or 5,000.' };
     const r = await routes['POST /api/items']({ action: 'add', character: b.character, counts: { [PARTS.AETHERDUST]: amount }, label: `Aetherdust +${amount.toLocaleString('en-US')}` });
     return r.ok ? { ...r, amount } : r;
+  },
+  // Hotfix tab: the Host Mode lag fix on demand. Patching by hand counts as "this PC hosts" and turns the fix on again
+  // if it was switched off; the same checks as the automatic fix apply (DF's exact line only, syntax check, read-back).
+  'POST /api/hostfix': async (b) => {
+    const p = places(); if (!p.pkg) return { ok: false, error: 'Dauntless Forever 1.14.7 was not found.' };
+    const f = path.join(p.pkg, 'backend', 'recorder-1147.js');
+    if (b.action === 'check') { hostFixKey = ''; await hostFixSync(lastRunning); return { ok: true, fix: hostFixPublic() }; }
+    if (b.action !== 'patch') return { ok: false, error: 'Unknown action.' };
+    if (hostFixBusy) return { ok: false, error: 'Lantern is already working on it. Try again in a moment.' };
+    if (settings.hostFix === false) delete settings.hostFix;
+    if (!settings.hostedHere) rememberHost();
+    const before = HOSTFIX.status(readText(f) || '');
+    if (before === 'patched') { hostFixSet(hostFixState.state === 'working' ? 'working' : 'patched', hostFixState.state === 'working' ? hostFixState.detail : 'in place'); return { ok: true, already: true, fix: hostFixPublic() }; }
+    if (before === 'changed') { hostFixKey = ''; await hostFixSync(lastRunning); return { ok: false, error: 'Dauntless Forever changed this part of its backend, so Lantern will not patch it. If DF fixed the lag (issue #12), nothing more is needed.', fix: hostFixPublic() }; }
+    hostFixTimes = [];   // asked for by hand: the hourly limit starts over
+    hostFixBusy = true;
+    let r;
+    try { r = await hostFixApply(p, f, lastRunning); }
+    catch (e) { hostFixSet('failed', e.message); return { ok: false, error: e.message, fix: hostFixPublic() }; }
+    finally { hostFixBusy = false; hostFixKey = r === 'later' ? '' : statKey(f) + '|' + hostsHere(p); }
+    if (r === 'later') return { ok: false, wait: true, error: 'Dauntless Forever just restored its files and is still checking them. Lantern patches in a few seconds by itself.', fix: hostFixPublic() };
+    return { ok: HOSTFIX.status(readText(f) || '') === 'patched', fix: hostFixPublic(), restart: !!lastRunning };
   },
   // Bounties tab: your slots, what can go in them and what each tier pays. Read often while the tab is open.
   'POST /api/bounties': async (b) => {

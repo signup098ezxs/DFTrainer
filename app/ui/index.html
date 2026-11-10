@@ -412,6 +412,22 @@ section.on .bcard:nth-child(2) { animation-delay: .05s; } section.on .bcard:nth-
 .bpickfoot { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 10px; font-size: 13px; color: var(--ash); }
 .bpickfoot .btn.armed { filter: hue-rotate(150deg) saturate(1.3); }
 @media (prefers-reduced-motion: reduce) { section.on .bcard, .bcard.claimed::after { animation: none; } .bcard, .bbar i { transition: none; } }
+/* Hotfix tab: one card per fix, a status line that says plainly whether you are good to go */
+.hfwrap { display: grid; gap: 14px; max-width: 760px; }
+.hfstat { display: flex; align-items: center; gap: 12px; margin: 10px 0 4px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--seam); background: rgba(var(--a-rgb), .04); transition: border-color .3s, background .3s; }
+.hfstat i { flex: none; width: 12px; height: 12px; border-radius: 50%; background: var(--ash2); box-shadow: 0 0 0 4px rgba(110, 134, 146, .15); }
+.hfstat b { display: block; font: 600 15px/1.3 var(--display); color: var(--frost); }
+.hfstat small { display: block; margin-top: 2px; color: var(--ash); font-size: 12.5px; }
+.hfstat.good { border-color: rgba(79, 240, 180, .35); background: rgba(79, 240, 180, .06); }
+.hfstat.good i { background: var(--ok); box-shadow: 0 0 0 4px rgba(79, 240, 180, .18), 0 0 12px rgba(79, 240, 180, .5); }
+.hfstat.warn { border-color: rgba(255, 181, 71, .35); background: rgba(255, 181, 71, .06); }
+.hfstat.warn i { background: var(--ember); box-shadow: 0 0 0 4px rgba(255, 181, 71, .18); }
+.hfstat.bad { border-color: rgba(255, 90, 116, .4); background: rgba(255, 90, 116, .06); }
+.hfstat.bad i { background: var(--fault); box-shadow: 0 0 0 4px rgba(255, 90, 116, .18); }
+section.on .hfstat.good i { animation: hfpulse 2.4s var(--ease) infinite; }
+@keyframes hfpulse { 50% { box-shadow: 0 0 0 7px rgba(79, 240, 180, .05), 0 0 16px rgba(79, 240, 180, .6); } }
+@media (prefers-reduced-motion: reduce) { section.on .hfstat.good i { animation: none; } .hfstat { transition: none; } }
+@media (max-width: 560px) { #tab-hotfix .setrow { flex-wrap: wrap; } #tab-hotfix .setrow .ctl { width: 100%; } #tab-hotfix .setrow .ctl .btn { width: 100%; justify-content: center; } }
 .setcard { padding: 14px 16px 6px; border-radius: 14px; border: 1px solid var(--seam); background: linear-gradient(180deg, var(--hull2), var(--hull)); }
 .setcard.wide { grid-column: 1 / -1; }
 .setcard h3 { margin: 0 0 4px; font: 600 15px/1.3 var(--display); color: var(--frost); }
@@ -890,6 +906,7 @@ div.lrow { cursor: default; }
     <button data-tab="currency"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="m12 8 4 4-4 4-4-4z"/></svg>Currencies</button>
     <button data-tab="parts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20c2-6 6-10 16-16-3 9-7 13-13 15"/><path d="M8 16l-3-3M12 13l-2-2"/></svg>Parts</button>
     <button data-tab="bounties"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg>Bounties</button>
+    <button data-tab="hotfix"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L3 17.8V21h3.2l6.3-6.3a4 4 0 0 0 5.2-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/></svg>Hotfix</button>
     <button data-tab="rules"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>Game rules</button>
     <button data-tab="builds"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="M12 22V12M3 7l9 5 9-5"/></svg>Build Creator</button>
     <button data-tab="feed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Live feed <span class="count" id="feedCount"></span></button>
@@ -1006,6 +1023,18 @@ div.lrow { cursor: default; }
           </div>
           <div class="blist" id="bList" role="listbox" aria-label="Bounties"></div>
           <div class="bpickfoot"><span id="bPickInfo"></span><span class="grow"></span><button class="btn primary" id="bGive" disabled><span>Add bounty</span></button></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- HOTFIX: fixes for Dauntless Forever problems, until DF fixes them itself -->
+    <section id="tab-hotfix">
+      <div class="head"><div><h2>Hotfix</h2><p class="lede">Fixes for Dauntless Forever problems, until DF fixes them itself.</p></div></div>
+      <div class="wrap hfwrap">
+        <div class="setcard" id="hfCard"><h3>Host Mode lag</h3>
+          <div class="hfstat" id="hfStat" role="status" aria-live="polite"><i></i><div><b id="hfTitle">Checking...</b><small id="hfDetail"></small></div></div>
+          <div class="setrow"><div class="lbl"><b>Patch</b><small>When you host friends, your own game stops going out to the online relay and back: about 10 ms of delay instead of about 110. Your friends' delay does not change.</small></div><div class="ctl"><button class="btn primary" id="hfPatch"><span>Patch</span></button></div></div>
+          <p class="cellnote">Only needed on the PC that hosts. Lantern changes one line in Dauntless Forever's backend\recorder-1147.js and keeps DF's original next to it (recorder-1147.js.lantern-original). DF's launcher puts its own file back when it starts; Lantern then patches again by itself. Reported to DF as issue #12.</p>
         </div>
       </div>
     </section>
@@ -1391,6 +1420,7 @@ $('#checkUpd').addEventListener('click', () => { SFX.tick(); $('#checkUpd').text
 function onState(s) {
   S = s;
   showRulesPending();
+  renderHotfix(s.hostFix);
   renderApp(s.app);
   renderLicense(s.license);
   if (s.license && !s.license.ok) return;
@@ -1666,6 +1696,7 @@ function tourSteps() {
     { target: '#charSel', title: 'Who gets it', body: '<p>Pick which character receives gifts, or all of them. While you play, it follows the character you are on.</p>' },
     { tab: 'parts', target: 'nav > button[data-tab="parts"]', title: 'Parts', body: '<p>Every behemoth part for the weapon and armour you have equipped, up to <b>90 of each</b>, in one press. Parts only: no other materials. Works while you play.</p>' },
     { tab: 'bounties', target: 'nav > button[data-tab="bounties"]', title: 'Bounties', body: '<p>Your four slots: what each bounty asks, its rewards and its progress. Pick a slot, pick any bounty, and it goes in with no draft and no token. Rewards are still claimed in game.</p>' },
+    { tab: 'hotfix', target: 'nav > button[data-tab="hotfix"]', title: 'Hotfix', body: '<p>Fixes for Dauntless Forever problems until DF fixes them itself. <b>Host Mode lag</b>: when you host friends, your own game plays without the relay round trip. It says when you are good to go.</p>' },
     { tab: 'currency', target: '#tab-currency .head', title: 'Currencies and materials', body: '<p>Type any amount of Rams, Merits, tokens, materials and cell cores, then press <b>Apply changes</b>. <b>Max everything</b> fills them all. Works while you play.</p>' },
     { tab: 'rules', target: '#rules > :first-child', title: 'Game rules', body: '<p>XP speeds (weapons, Hunt Pass, mastery), reward amounts (materials, Rams, Merits, Rare Cores), free crafting, free platinum and extra loadout slots. Pick a setting and it is saved; it applies the next time you press <b>Play</b>.</p>' },
     { tab: 'builds', target: 'nav > button[data-tab="builds"]', title: 'Build Creator', body: '<p>Answer a few questions (goals, weapon, target, play style) and get a full 1.14.7 build: weapon, armour, cells, lantern and Omnicell, checked against the game\'s rules, with why each piece is there and where the data comes from.</p>' },
@@ -2642,6 +2673,45 @@ $('#bGive').onclick = async (e) => {
 };
 $('nav > button[data-tab="bounties"]').addEventListener('click', () => { bountiesLoad(true); requestAnimationFrame(() => placeInd($('#bTier'))); });
 setInterval(() => { if (activeTab() === 'bounties' && !document.hidden) bountiesLoad(false); }, 4000);
+
+/* ================================================= Hotfix tab */
+const HF_TEXT = {
+  patched: ['good', 'Patched: good to go', 'When you host, your own game plays on this PC.'],
+  working: ['good', 'Patched and working: good to go', ''],
+  original: ['warn', 'Not patched', 'Press Patch. Your next Host Mode starts with it.'],
+  'not needed': ['', 'Not needed on this PC', 'This PC has not hosted, so nothing is patched. Press Patch if you will host.'],
+  changed: ['', 'Dauntless Forever changed this code', 'Lantern leaves it alone. If DF fixed the lag (issue #12), nothing more is needed.'],
+  off: ['warn', 'Turned off', 'Press Patch to turn it on again.'],
+  paused: ['bad', 'Paused', 'DF restored its file many times in a row. Press Patch to try again.'],
+  failed: ['bad', 'Could not patch', ''],
+  'not working': ['bad', 'Patched, but not working', ''],
+  missing: ['bad', 'Dauntless Forever\'s backend file was not found', ''],
+};
+let hfBusy = false;
+function renderHotfix(fix) {
+  if (!fix || !$('#hfStat')) return;
+  const waiting = fix.state === 'original' && /waiting/i.test(fix.detail || '');
+  const [cls, title, text] = waiting ? ['warn', 'Patching in a moment', 'Dauntless Forever just restored its files and is still checking them. Lantern patches by itself in a few seconds.'] : (HF_TEXT[fix.state] || ['', 'Checking...', '']);
+  const restart = /restart/i.test(fix.detail || '');
+  $('#hfStat').className = 'hfstat ' + (restart ? 'warn' : cls);
+  $('#hfTitle').textContent = restart ? 'Patched: restart Host Mode' : title;
+  $('#hfDetail').textContent = restart ? 'The running game started before the patch. Close the game and Host Mode, then start them again.' : (fix.state === 'working' ? fix.detail.replace(/^your game's delay in Host Mode: /, 'Your delay in Host Mode: ') + '.' : (text || fix.detail || ''));
+  const good = cls === 'good' && !restart, b = $('#hfPatch');
+  b.disabled = hfBusy || good || fix.state === 'changed';
+  b.querySelector('span').textContent = hfBusy ? 'Patching...' : good ? 'Patched' : fix.state === 'off' ? 'Turn on and patch' : 'Patch';
+}
+$('#hfPatch').addEventListener('click', async () => {
+  if (hfBusy) return;
+  hfBusy = true; SFX.tick(); renderHotfix(S && S.hostFix);
+  const r = await api('/api/hostfix', { action: 'patch' });
+  hfBusy = false;
+  if (r.fix && S) S.hostFix = r.fix;
+  renderHotfix(r.fix || (S && S.hostFix));
+  if (r.already) toast('Already patched', 'You are good to go.', 'delivered');
+  else if (r.ok) toast('Patched', r.restart ? 'Close the game and Host Mode, then start them again.' : 'Your next Host Mode starts with it. You are good to go.', 'delivered');
+  else toast(r.wait ? 'Almost' : 'Not patched', r.error || 'Something went wrong.', r.wait ? 'queued' : 'error', 5200);
+});
+$('nav > button[data-tab="hotfix"]').addEventListener('click', async () => { const r = await api('/api/hostfix', { action: 'check' }); if (r.fix && S) { S.hostFix = r.fix; renderHotfix(r.fix); } });
 $('nav > button[data-tab="parts"]').addEventListener('click', () => { renderParts(); renderDust(); requestAnimationFrame(() => { placeInd($('#partsQty')); placeInd($('#dustQty')); }); });
 
 /* ================================================= rules */
