@@ -1,5 +1,5 @@
 {
-  "version": "3.9.34",
+  "version": "3.9.35",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "New Hotfix tab: shows whether the Host Mode lag fix is in (\"Patched: good to go\") and has a Patch button. Use it on the PC that hosts; Lantern still puts the fix back by itself after Dauntless Forever's launcher restores its files."
+  "notes": "New Friend tab: direct co-op over Tailscale, with no relay delay. Pick hosting or joining and follow the green dots: it installs Tailscale, signs you in, checks the connection and starts Dauntless Forever's LAN host or join for you."
 }

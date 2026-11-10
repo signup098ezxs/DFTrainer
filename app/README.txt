@@ -83,6 +83,17 @@ HOST MODE LAG FIX (temporary, until Dauntless Forever fixes it: github.com/addis
   To turn it off: "hostFix": false in trainer-settings.json. Only on a PC that hosts (Host Mode used once); elsewhere
   DF's original stays. Lantern waits 20 s after DF writes the file, so DF's own check right after it passes.
 
+PLAY WITH A FRIEND (Friend tab: direct co-op over Tailscale)
+  Instead of Dauntless Forever's internet relay (Host Mode, ~100+ ms for the friend), both PCs join one private
+  Tailscale network and the friend's game talks straight to the host's PC. The tab is a checklist that ticks itself
+  off: Dauntless Forever 1.14.7 and its LAN scripts, Tailscale (installed with winget on request), sign-in (opens
+  Tailscale's own page), the other PC (picked by itself when there is only one), a connection check (direct or
+  through Tailscale's relay, in ms; for the friend also whether the host's game is up), then one button.
+  Host: writes the host's Tailscale address into DF's data\lan_ip.txt and runs DF's LAN - HOST (asks Windows for
+  administrator rights; opens the game ports only to the home network and 100.64.0.0/10, and closes them when the
+  game closes). Friend: runs DF's LAN - JOIN with the host's address. The host shares their PC with the friend once
+  from the Tailscale admin page (Share this PC).
+
 GOOD TO KNOW
   - The in-game parts could not be tested in the real game when they were written (no Windows or game there). The
     panel, the item giving and the live delivery were tested against a copy of the 1.14.7 package and its real backend with a test

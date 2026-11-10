@@ -918,6 +918,124 @@ function hostFixLive(p, f) {
   } catch {}
 }
 
+// ---------------------------------------------------------------- Friend tab: direct co-op over Tailscale
+// Host: Tailscale's address goes into DF's data\lan_ip.txt, then DF's "LAN - HOST" runs (it asks for administrator
+// rights to open the game ports to the home network and Tailscale's range, 100.64.0.0/10). Friend: DF's "LAN - JOIN"
+// runs with the host's Tailscale address. No relay in between. Tailscale itself: installed with winget, signed in on
+// Tailscale's own page (the tab opens it); both are the user's own clicks.
+const FRIEND = require('./friend.js');
+let friendJob = null;   // { kind: 'install'|'login', at, error, authUrl, done }
+const tsRun = (exe, args, timeout = 8000) => new Promise((resolve) => execFile(exe, args, { windowsHide: true, timeout, maxBuffer: 4 * 1024 * 1024 }, (e, out, err) => resolve({ code: e ? (e.code ?? 1) : 0, out: String(out || ''), err: String(err || '') })));
+function friendScripts(p) {
+  const host = p.pkg && path.join(p.pkg, 'tools', 'lan-host-1147.ps1'), join = p.pkg && path.join(p.pkg, 'tools', 'lan-join-1147.ps1');
+  return { host: host && fs.existsSync(host) ? host : null, join: join && fs.existsSync(join) ? join : null };
+}
+// a DF script in its own console window, like double-clicking its .bat (it says what it does and waits there).
+// Node's detached spawn gives no console on Windows, so "start" opens one. args are checked (100.x addresses only).
+// keepOpen: the window stays after the script ends, so an error can be read (LAN - JOIN has no pause of its own here).
+function friendStart(p, script, args, keepOpen) {
+  const line = `/d /c start "Dauntless - play with a friend" powershell.exe -NoProfile${keepOpen ? ' -NoExit' : ''} -ExecutionPolicy Bypass -File "${script}" ${args.join(' ')}`;
+  const c = spawn('cmd.exe', [line], { cwd: p.pkg, detached: true, stdio: 'ignore', windowsHide: true, windowsVerbatimArguments: true });
+  c.on('error', (e) => panelLog(`Friend: could not start ${path.basename(script)}: ${e.message}`));
+  c.unref();
+}
+// is the host's game backend up? (DF's own check, the one LAN - JOIN does first)
+const friendProbe = (ip) => new Promise((resolve) => {
+  const r = http.get({ host: ip, port: 63000, path: '/_recorder/ping', timeout: 3000 }, (res) => { res.resume(); resolve(res.statusCode === 200); });
+  r.on('timeout', () => { r.destroy(); resolve(false); });
+  r.on('error', () => resolve(false));
+});
+async function friendStatus() {
+  const p = places(), sc = friendScripts(p), exe = FRIEND.findExe();
+  const out = { ok: true, pkg: !!p.pkg, scripts: !!(sc.host && sc.join), running: !!lastRunning, installed: !!exe, role: settings.friendRole || '', saved: settings.friendHost || '',
+    lanIp: (p.pkg && (readText(path.join(p.dataDir, 'lan_ip.txt')) || '').trim()) || '', job: friendJob && !friendJob.done ? { kind: friendJob.kind, authUrl: friendJob.authUrl || '' } : null,
+    jobError: friendJob && friendJob.done && friendJob.error ? friendJob.error : '' };
+  if (!exe) return out;
+  const r = await tsRun(exe, ['status', '--json']);
+  const st = FRIEND.parseStatus(r.out);
+  if (!st) return { ...out, ts: { state: 'NoState', peers: [] }, tsError: (r.err || r.out).trim().split('\n')[0] || 'Tailscale did not answer.' };
+  if (friendJob && friendJob.kind === 'login' && st.state === 'Running') friendJob.done = true;
+  return { ...out, ts: st };
+}
+async function friendAction(b) {
+  const p = places(), a = String(b.action || 'status');
+  if (a === 'status') return friendStatus();
+  if (a === 'role') { settings.friendRole = b.role === 'host' ? 'host' : 'join'; saveSettings(); return friendStatus(); }
+  if (a === 'install') {
+    if (FRIEND.findExe()) return { ok: true, already: true };
+    if (friendJob && !friendJob.done) return { ok: false, error: 'Already working on it.' };
+    const job = friendJob = { kind: 'install', at: Date.now() };
+    panelLog('Friend: installing Tailscale with winget');
+    // winget is an app alias: run through cmd. Tailscale's installer asks Windows for administrator rights itself.
+    execFile('cmd.exe', ['/d', '/c', 'winget', 'install', '--id', 'Tailscale.Tailscale', '-e', '--silent', '--accept-package-agreements', '--accept-source-agreements'],
+      { windowsHide: true, timeout: 10 * 60 * 1000, maxBuffer: 8 * 1024 * 1024 }, (e, out) => {
+        const ok = !!FRIEND.findExe();
+        job.done = true;
+        job.error = ok ? '' : /not recognized|is not recognised/i.test(String(out) + (e && e.message)) ? 'winget is not on this PC.' : `The installer did not finish${e && e.code ? ` (code ${e.code})` : ''}.`;
+        panelLog(`Friend: Tailscale install ${ok ? 'done' : 'failed: ' + job.error}`);
+      });
+    return { ok: true, started: true };
+  }
+  const exe = FRIEND.findExe();
+  if (!exe) return { ok: false, error: 'Install Tailscale first.' };
+  if (a === 'login') {
+    // "tailscale up" connects with the PC's saved settings and, if needed, prints the sign-in address. It waits there until
+    // the sign-in is done, so it runs on in the background; the tab opens the address in the browser.
+    if (friendJob && friendJob.kind === 'login' && !friendJob.done && friendJob.authUrl) return { ok: true, authUrl: friendJob.authUrl };
+    const job = friendJob = { kind: 'login', at: Date.now(), authUrl: '' };
+    const c = spawn(exe, ['up'], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    let text = '';
+    const url = await new Promise((resolve) => {
+      const t = setTimeout(() => resolve(''), 15000);
+      const on = (d) => { text += d; const u = FRIEND.findAuthUrl(text); if (u) { clearTimeout(t); resolve(u); } };
+      c.stdout.on('data', on); c.stderr.on('data', on);
+      c.on('exit', () => { clearTimeout(t); resolve(FRIEND.findAuthUrl(text)); });
+      c.on('error', (e) => { text += e.message; clearTimeout(t); resolve(''); });
+    });
+    c.on('exit', () => { job.done = true; });
+    setTimeout(() => { try { c.kill(); } catch {} }, 10 * 60 * 1000);   // nobody signed in within 10 minutes
+    job.authUrl = url;
+    if (url) return { ok: true, authUrl: url };
+    const st = FRIEND.parseStatus((await tsRun(exe, ['status', '--json'])).out);
+    if (st && st.state === 'Running') { job.done = true; return { ok: true, connected: true }; }
+    if (st && st.authUrl) { job.authUrl = st.authUrl; return { ok: true, authUrl: st.authUrl }; }
+    job.done = true;
+    const why = text.trim().split('\n').filter(Boolean).pop() || '';
+    panelLog(`Friend: tailscale up gave no sign-in address: ${why}`);
+    return { ok: false, error: /non-default flags/i.test(why) ? 'This PC has its own Tailscale settings. Click the Tailscale icon by the clock and choose Connect.' : (why || 'Tailscale did not answer. Open Tailscale from the Start menu and sign in there.') };
+  }
+  if (a === 'ping') {
+    const ip = String(b.ip || '');
+    if (!FRIEND.isTailnetIp(ip)) return { ok: false, error: 'That is not a Tailscale address (100.x.x.x).' };
+    const r = await tsRun(exe, ['ping', '--c', '8', '--timeout', '3s', ip], 30000);
+    const pg = FRIEND.parsePing(r.out + '\n' + r.err);
+    return { ...pg, ip, hostUp: await friendProbe(ip) };
+  }
+  if (a === 'host' || a === 'join') {
+    if (!p.pkg) return { ok: false, error: 'Dauntless Forever 1.14.7 was not found.' };
+    const sc = friendScripts(p);
+    if (!sc.host || !sc.join) return { ok: false, error: 'Dauntless Forever\'s LAN scripts are missing. Use More > Repair in the Dauntless Forever launcher.' };
+    if (lastRunning || await backendUp(0)) return { ok: false, error: 'Dauntless is already running on this PC. Close the game (and Host Mode) first.' };
+    const st = FRIEND.parseStatus((await tsRun(exe, ['status', '--json'])).out);
+    if (!st || st.state !== 'Running' || !st.ip) return { ok: false, error: 'Tailscale is not connected. Sign in first.' };
+    if (a === 'host') {
+      fs.writeFileSync(path.join(p.dataDir, 'lan_ip.txt'), st.ip);   // DF's LAN - HOST uses this address for every game
+      settings.friendRole = 'host'; saveSettings();
+      panelLog(`Friend: hosting over Tailscale at ${st.ip}`);
+      friendStart(p, sc.host, []);
+      return { ok: true, ip: st.ip };
+    }
+    const ip = String(b.ip || '');
+    if (!FRIEND.isTailnetIp(ip)) return { ok: false, error: 'Pick the host first.' };
+    if (ip === st.ip) return { ok: false, error: 'That is this PC. Pick your friend\'s PC.' };
+    settings.friendRole = 'join'; settings.friendHost = ip; saveSettings();
+    panelLog(`Friend: joining ${ip} over Tailscale`);
+    friendStart(p, sc.join, ['-Address', ip], true);
+    return { ok: true, ip };
+  }
+  return { ok: false, error: 'Unknown action.' };
+}
+
 // ---------------------------------------------------------------- behemoth overlay
 // The game mod (in your game and in each hunt server) writes the behemoth you are fighting to track\<process>.json in
 // its folder while the overlay is on. The overlay itself is "Lantern Client.exe --overlay": a small click-through
@@ -1308,6 +1426,8 @@ const routes = {
     if (r === 'later') return { ok: false, wait: true, error: 'Dauntless Forever just restored its files and is still checking them. Lantern patches in a few seconds by itself.', fix: hostFixPublic() };
     return { ok: HOSTFIX.status(readText(f) || '') === 'patched', fix: hostFixPublic(), restart: !!lastRunning };
   },
+  // Friend tab: direct co-op over Tailscale (see friend.js). One route, several steps; the tab asks 'status' every few s.
+  'POST /api/friend': async (b) => friendAction(b || {}),
   // Bounties tab: your slots, what can go in them and what each tier pays. Read often while the tab is open.
   'POST /api/bounties': async (b) => {
     const p = places(); if (!p.pkg) return { ok: false, error: 'Package not found.' };
