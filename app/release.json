@@ -1,5 +1,5 @@
 {
-  "version": "3.9.35",
+  "version": "3.9.36",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "New Friend tab: direct co-op over Tailscale, with no relay delay. Pick hosting or joining and follow the green dots: it installs Tailscale, signs you in, checks the connection and starts Dauntless Forever's LAN host or join for you."
+  "notes": "Friend tab: Sign in no longer fails with \"Tailscale did not answer\" when Tailscale is stuck starting. Lantern now starts Tailscale's app by itself and waits for it, then opens the sign-in page."
 }

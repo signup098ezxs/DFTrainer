@@ -945,6 +945,21 @@ const friendProbe = (ip) => new Promise((resolve) => {
   r.on('timeout', () => { r.destroy(); resolve(false); });
   r.on('error', () => resolve(false));
 });
+// On Windows tailscaled stays in "NoState" (Tailscale is starting) until Tailscale's own app (tailscale-ipn.exe, the icon
+// by the clock) runs: it starts the backend for the signed-in Windows user. Seen 10 Nov: app not running after a restart,
+// "tailscale up" then waited forever with no sign-in address. So the tab starts the app when it is not running.
+let tsWokeAt = 0, friendUp = null;
+function tsWake(exe) {
+  if (Date.now() - tsWokeAt < 30000) return Promise.resolve(false);
+  tsWokeAt = Date.now();
+  return new Promise((resolve) => execFile('tasklist.exe', ['/FI', 'IMAGENAME eq tailscale-ipn.exe', '/NH'], { windowsHide: true, timeout: 8000 }, (e, out) => {
+    const gui = path.join(path.dirname(exe), 'tailscale-ipn.exe');
+    if (/tailscale-ipn\.exe/i.test(String(out || '')) || !fs.existsSync(gui)) return resolve(false);
+    panelLog('Friend: Tailscale was stuck starting; started its app (tailscale-ipn.exe)');
+    try { spawn(gui, [], { detached: true, stdio: 'ignore' }).unref(); } catch {}
+    resolve(true);
+  }));
+}
 async function friendStatus() {
   const p = places(), sc = friendScripts(p), exe = FRIEND.findExe();
   const out = { ok: true, pkg: !!p.pkg, scripts: !!(sc.host && sc.join), running: !!lastRunning, installed: !!exe, role: settings.friendRole || '', saved: settings.friendHost || '',
@@ -955,6 +970,7 @@ async function friendStatus() {
   const st = FRIEND.parseStatus(r.out);
   if (!st) return { ...out, ts: { state: 'NoState', peers: [] }, tsError: (r.err || r.out).trim().split('\n')[0] || 'Tailscale did not answer.' };
   if (friendJob && friendJob.kind === 'login' && st.state === 'Running') friendJob.done = true;
+  if (st.state === 'NoState') await tsWake(exe);
   return { ...out, ts: st };
 }
 async function friendAction(b) {
@@ -982,8 +998,17 @@ async function friendAction(b) {
     // "tailscale up" connects with the PC's saved settings and, if needed, prints the sign-in address. It waits there until
     // the sign-in is done, so it runs on in the background; the tab opens the address in the browser.
     if (friendJob && friendJob.kind === 'login' && !friendJob.done && friendJob.authUrl) return { ok: true, authUrl: friendJob.authUrl };
+    // Tailscale's app not running yet: start it and give the backend up to 30 s (it took ~12 s here)
+    let st0 = FRIEND.parseStatus((await tsRun(exe, ['status', '--json'])).out);
+    if (!st0 || st0.state === 'NoState') {
+      tsWokeAt = 0; await tsWake(exe);
+      for (let i = 0; i < 15 && (!st0 || st0.state === 'NoState'); i++) { await new Promise((r) => setTimeout(r, 2000)); st0 = FRIEND.parseStatus((await tsRun(exe, ['status', '--json'])).out); }
+      if (!st0 || st0.state === 'NoState') return { ok: false, error: 'Tailscale is still starting. Open Tailscale from the Start menu, wait for its icon by the clock, then press Sign in again.' };
+    }
+    if (st0.state === 'Running') return { ok: true, connected: true };
+    if (friendUp) { try { friendUp.kill(); } catch {} }   // an earlier "tailscale up" still waiting
     const job = friendJob = { kind: 'login', at: Date.now(), authUrl: '' };
-    const c = spawn(exe, ['up'], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    const c = friendUp = spawn(exe, ['up'], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
     let text = '';
     const url = await new Promise((resolve) => {
       const t = setTimeout(() => resolve(''), 15000);
