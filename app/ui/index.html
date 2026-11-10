@@ -412,48 +412,6 @@ section.on .bcard:nth-child(2) { animation-delay: .05s; } section.on .bcard:nth-
 .bpickfoot { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 10px; font-size: 13px; color: var(--ash); }
 .bpickfoot .btn.armed { filter: hue-rotate(150deg) saturate(1.3); }
 @media (prefers-reduced-motion: reduce) { section.on .bcard, .bcard.claimed::after { animation: none; } .bcard, .bbar i { transition: none; } }
-/* Hotfix tab: one card per fix, a status line that says plainly whether you are good to go */
-.hfwrap { display: grid; gap: 14px; max-width: 760px; }
-.hfstat { display: flex; align-items: center; gap: 12px; margin: 10px 0 4px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--seam); background: rgba(var(--a-rgb), .04); transition: border-color .3s, background .3s; }
-.hfstat i { flex: none; width: 12px; height: 12px; border-radius: 50%; background: var(--ash2); box-shadow: 0 0 0 4px rgba(110, 134, 146, .15); }
-.hfstat b { display: block; font: 600 15px/1.3 var(--display); color: var(--frost); }
-.hfstat small { display: block; margin-top: 2px; color: var(--ash); font-size: 12.5px; }
-.hfstat.good { border-color: rgba(79, 240, 180, .35); background: rgba(79, 240, 180, .06); }
-.hfstat.good i { background: var(--ok); box-shadow: 0 0 0 4px rgba(79, 240, 180, .18), 0 0 12px rgba(79, 240, 180, .5); }
-.hfstat.warn { border-color: rgba(255, 181, 71, .35); background: rgba(255, 181, 71, .06); }
-.hfstat.warn i { background: var(--ember); box-shadow: 0 0 0 4px rgba(255, 181, 71, .18); }
-.hfstat.bad { border-color: rgba(255, 90, 116, .4); background: rgba(255, 90, 116, .06); }
-.hfstat.bad i { background: var(--fault); box-shadow: 0 0 0 4px rgba(255, 90, 116, .18); }
-section.on .hfstat.good i { animation: hfpulse 2.4s var(--ease) infinite; }
-@keyframes hfpulse { 50% { box-shadow: 0 0 0 7px rgba(79, 240, 180, .05), 0 0 16px rgba(79, 240, 180, .6); } }
-@media (prefers-reduced-motion: reduce) { section.on .hfstat.good i { animation: none; } .hfstat { transition: none; } }
-@media (max-width: 560px) { #tab-hotfix .setrow { flex-wrap: wrap; } #tab-hotfix .setrow .ctl { width: 100%; } #tab-hotfix .setrow .ctl .btn { width: 100%; justify-content: center; } }
-/* Friend tab: a checklist that ticks itself off; only the next step has a button */
-.frwrap { display: grid; gap: 14px; max-width: 760px; }
-.frrole { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding-bottom: 10px; }
-.frrole .seg { margin-top: 0; }
-.frstep { display: flex; align-items: center; gap: 14px; padding: 12px 0; border-top: 1px solid var(--seam); }
-.frstep > i { flex: none; width: 12px; height: 12px; border-radius: 50%; background: var(--ash2); box-shadow: 0 0 0 4px rgba(110, 134, 146, .15); transition: background .3s, box-shadow .3s; }
-.frstep.good > i { background: var(--ok); box-shadow: 0 0 0 4px rgba(79, 240, 180, .18), 0 0 10px rgba(79, 240, 180, .45); }
-.frstep.warn > i { background: var(--ember); box-shadow: 0 0 0 4px rgba(255, 181, 71, .18); }
-.frstep.bad > i { background: var(--fault); box-shadow: 0 0 0 4px rgba(255, 90, 116, .18); }
-.frstep.next > i { background: var(--aether); box-shadow: 0 0 0 4px rgba(var(--a-rgb), .2); }
-section.on .frstep.next > i { animation: frpulse 1.8s var(--ease) infinite; }
-@keyframes frpulse { 50% { box-shadow: 0 0 0 7px rgba(var(--a-rgb), .05), 0 0 14px rgba(var(--a-rgb), .55); } }
-.frstep .lbl { flex: 1; min-width: 0; }
-.frstep .lbl b { display: block; font-weight: 600; font-size: 14.5px; color: var(--frost); }
-.frstep .lbl small { display: block; margin-top: 2px; color: var(--ash); font-size: 12.5px; overflow-wrap: anywhere; }
-.frstep .ctl { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
-.frstep.wait { opacity: .45; }
-.frpeers { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-.frpeers button { height: 30px; padding: 0 11px; border-radius: 99px; border: 1px solid var(--seam2); background: rgba(6, 10, 15, .45); color: var(--ash); font: 600 12.5px/1 var(--display); transition: border-color .2s, color .2s, background .2s; }
-.frpeers button:hover { color: var(--frost); border-color: rgba(var(--a-rgb), .45); }
-.frpeers button.on { color: var(--a-ink); border-color: transparent; background: linear-gradient(180deg, var(--a-light), var(--a-mid)); }
-.frpeers button.off { opacity: .5; }
-.frgo { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 14px 0 10px; border-top: 1px solid var(--seam); }
-.frgo small { flex: 1; min-width: 200px; color: var(--ash); font-size: 12.5px; }
-@media (prefers-reduced-motion: reduce) { section.on .frstep.next > i { animation: none; } .frstep > i { transition: none; } }
-@media (max-width: 560px) { .frstep { flex-wrap: wrap; } .frstep .ctl { width: 100%; justify-content: stretch; } .frstep .ctl .btn, .frgo .btn { flex: 1; justify-content: center; } }
 .setcard { padding: 14px 16px 6px; border-radius: 14px; border: 1px solid var(--seam); background: linear-gradient(180deg, var(--hull2), var(--hull)); }
 .setcard.wide { grid-column: 1 / -1; }
 .setcard h3 { margin: 0 0 4px; font: 600 15px/1.3 var(--display); color: var(--frost); }
@@ -932,8 +890,6 @@ div.lrow { cursor: default; }
     <button data-tab="currency"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="m12 8 4 4-4 4-4-4z"/></svg>Currencies</button>
     <button data-tab="parts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20c2-6 6-10 16-16-3 9-7 13-13 15"/><path d="M8 16l-3-3M12 13l-2-2"/></svg>Parts</button>
     <button data-tab="bounties"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg>Bounties</button>
-    <button data-tab="hotfix"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L3 17.8V21h3.2l6.3-6.3a4 4 0 0 0 5.2-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/></svg>Hotfix</button>
-    <button data-tab="friend"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18.5 14.8c1.7.8 2.7 2.5 3 5.2"/></svg>Friend</button>
     <button data-tab="rules"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>Game rules</button>
     <button data-tab="builds"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="M12 22V12M3 7l9 5 9-5"/></svg>Build Creator</button>
     <button data-tab="feed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Live feed <span class="count" id="feedCount"></span></button>
@@ -1051,36 +1007,6 @@ div.lrow { cursor: default; }
           <div class="blist" id="bList" role="listbox" aria-label="Bounties"></div>
           <div class="bpickfoot"><span id="bPickInfo"></span><span class="grow"></span><button class="btn primary" id="bGive" disabled><span>Add bounty</span></button></div>
         </div>
-      </div>
-    </section>
-
-    <!-- HOTFIX: fixes for Dauntless Forever problems, until DF fixes them itself -->
-    <section id="tab-hotfix">
-      <div class="head"><div><h2>Hotfix</h2><p class="lede">Fixes for Dauntless Forever problems, until DF fixes them itself.</p></div></div>
-      <div class="wrap hfwrap">
-        <div class="setcard" id="hfCard"><h3>Host Mode lag</h3>
-          <div class="hfstat" id="hfStat" role="status" aria-live="polite"><i></i><div><b id="hfTitle">Checking...</b><small id="hfDetail"></small></div></div>
-          <div class="setrow"><div class="lbl"><b>Patch</b><small>When you host friends, your own game stops going out to the online relay and back: about 10 ms of delay instead of about 110. Your friends' delay does not change.</small></div><div class="ctl"><button class="btn primary" id="hfPatch"><span>Patch</span></button></div></div>
-          <p class="cellnote">Only needed on the PC that hosts. Lantern changes one line in Dauntless Forever's backend\recorder-1147.js and keeps DF's original next to it (recorder-1147.js.lantern-original). DF's launcher puts its own file back when it starts; Lantern then patches again by itself. Reported to DF as issue #12.</p>
-        </div>
-      </div>
-    </section>
-
-    <!-- FRIEND: direct co-op over Tailscale with DF's LAN scripts -->
-    <section id="tab-friend">
-      <div class="head"><div><h2>Play with a friend</h2><p class="lede">Direct co-op over Tailscale: your friend's game talks straight to the host's PC, with no relay in between.</p></div></div>
-      <div class="wrap frwrap">
-        <div class="setcard">
-          <div class="frrole"><div class="seg" id="frRole" aria-label="Who hosts"><span class="ind"></span><button data-v="host">I'm hosting</button><button data-v="join">I'm joining</button></div><small class="cellnote" id="frRoleNote" style="margin:0"></small></div>
-          <div class="frstep" id="frPkg"><i></i><div class="lbl"><b>Dauntless Forever 1.14.7</b><small></small></div></div>
-          <div class="frstep" id="frInst"><i></i><div class="lbl"><b>Tailscale</b><small></small></div><div class="ctl"><button class="btn primary" id="frInstall"><span>Install Tailscale</span></button><button class="btn" id="frDl" hidden><span>Download page</span></button></div></div>
-          <div class="frstep" id="frSign"><i></i><div class="lbl"><b>Signed in to Tailscale</b><small></small></div><div class="ctl"><button class="btn primary" id="frLogin"><span>Sign in</span></button></div></div>
-          <div class="frstep" id="frShare"><i></i><div class="lbl"><b>Share this PC with your friend</b><small></small></div><div class="ctl"><button class="btn" id="frCopy"><span>Copy address</span></button><button class="btn" id="frShareBtn"><span>Share this PC</span></button></div></div>
-          <div class="frstep" id="frPeer"><i></i><div class="lbl"><b>Your friend's PC</b><small></small><div class="frpeers" id="frPeers" role="listbox" aria-label="PCs on Tailscale"></div></div></div>
-          <div class="frstep" id="frLink"><i></i><div class="lbl"><b>Connection check</b><small></small></div><div class="ctl"><button class="btn" id="frPing"><span>Check again</span></button></div></div>
-          <div class="frgo"><button class="btn primary big" id="frGo"><span>Start hosting</span></button><small id="frGoNote"></small></div>
-        </div>
-        <p class="cellnote">Uses Dauntless Forever's own LAN - HOST and LAN - JOIN. Hosting asks Windows for administrator rights once per session: it opens the game ports only to your home network and Tailscale's private addresses, and closes them again when your game closes. Keep that window open while you play. Your character travels to the host and comes home when the game closes, as with any LAN game.</p>
       </div>
     </section>
 
@@ -1465,7 +1391,6 @@ $('#checkUpd').addEventListener('click', () => { SFX.tick(); $('#checkUpd').text
 function onState(s) {
   S = s;
   showRulesPending();
-  renderHotfix(s.hostFix);
   renderApp(s.app);
   renderLicense(s.license);
   if (s.license && !s.license.ok) return;
@@ -1741,8 +1666,6 @@ function tourSteps() {
     { target: '#charSel', title: 'Who gets it', body: '<p>Pick which character receives gifts, or all of them. While you play, it follows the character you are on.</p>' },
     { tab: 'parts', target: 'nav > button[data-tab="parts"]', title: 'Parts', body: '<p>Every behemoth part for the weapon and armour you have equipped, up to <b>90 of each</b>, in one press. Parts only: no other materials. Works while you play.</p>' },
     { tab: 'bounties', target: 'nav > button[data-tab="bounties"]', title: 'Bounties', body: '<p>Your four slots: what each bounty asks, its rewards and its progress. Pick a slot, pick any bounty, and it goes in with no draft and no token. Rewards are still claimed in game.</p>' },
-    { tab: 'hotfix', target: 'nav > button[data-tab="hotfix"]', title: 'Hotfix', body: '<p>Fixes for Dauntless Forever problems until DF fixes them itself. <b>Host Mode lag</b>: when you host friends, your own game plays without the relay round trip. It says when you are good to go.</p>' },
-    { tab: 'friend', target: 'nav > button[data-tab="friend"]', title: 'Play with a friend', body: '<p>Direct co-op over Tailscale, without the relay delay. Pick <b>hosting</b> or <b>joining</b> and follow the green dots: it installs Tailscale, signs you in, checks the connection and starts the game for you.</p>' },
     { tab: 'currency', target: '#tab-currency .head', title: 'Currencies and materials', body: '<p>Type any amount of Rams, Merits, tokens, materials and cell cores, then press <b>Apply changes</b>. <b>Max everything</b> fills them all. Works while you play.</p>' },
     { tab: 'rules', target: '#rules > :first-child', title: 'Game rules', body: '<p>XP speeds (weapons, Hunt Pass, mastery), reward amounts (materials, Rams, Merits, Rare Cores), free crafting, free platinum and extra loadout slots. Pick a setting and it is saved; it applies the next time you press <b>Play</b>.</p>' },
     { tab: 'builds', target: 'nav > button[data-tab="builds"]', title: 'Build Creator', body: '<p>Answer a few questions (goals, weapon, target, play style) and get a full 1.14.7 build: weapon, armour, cells, lantern and Omnicell, checked against the game\'s rules, with why each piece is there and where the data comes from.</p>' },
@@ -2719,152 +2642,6 @@ $('#bGive').onclick = async (e) => {
 };
 $('nav > button[data-tab="bounties"]').addEventListener('click', () => { bountiesLoad(true); requestAnimationFrame(() => placeInd($('#bTier'))); });
 setInterval(() => { if (activeTab() === 'bounties' && !document.hidden) bountiesLoad(false); }, 4000);
-
-/* ================================================= Hotfix tab */
-const HF_TEXT = {
-  patched: ['good', 'Patched: good to go', 'When you host, your own game plays on this PC.'],
-  working: ['good', 'Patched and working: good to go', ''],
-  original: ['warn', 'Not patched', 'Press Patch. Your next Host Mode starts with it.'],
-  'not needed': ['', 'Not needed on this PC', 'This PC has not hosted, so nothing is patched. Press Patch if you will host.'],
-  changed: ['', 'Dauntless Forever changed this code', 'Lantern leaves it alone. If DF fixed the lag (issue #12), nothing more is needed.'],
-  off: ['warn', 'Turned off', 'Press Patch to turn it on again.'],
-  paused: ['bad', 'Paused', 'DF restored its file many times in a row. Press Patch to try again.'],
-  failed: ['bad', 'Could not patch', ''],
-  'not working': ['bad', 'Patched, but not working', ''],
-  missing: ['bad', 'Dauntless Forever\'s backend file was not found', ''],
-};
-let hfBusy = false;
-function renderHotfix(fix) {
-  if (!fix || !$('#hfStat')) return;
-  const waiting = fix.state === 'original' && /waiting/i.test(fix.detail || '');
-  const [cls, title, text] = waiting ? ['warn', 'Patching in a moment', 'Dauntless Forever just restored its files and is still checking them. Lantern patches by itself in a few seconds.'] : (HF_TEXT[fix.state] || ['', 'Checking...', '']);
-  const restart = /restart/i.test(fix.detail || '');
-  $('#hfStat').className = 'hfstat ' + (restart ? 'warn' : cls);
-  $('#hfTitle').textContent = restart ? 'Patched: restart Host Mode' : title;
-  $('#hfDetail').textContent = restart ? 'The running game started before the patch. Close the game and Host Mode, then start them again.' : (fix.state === 'working' ? fix.detail.replace(/^your game's delay in Host Mode: /, 'Your delay in Host Mode: ') + '.' : (text || fix.detail || ''));
-  const good = cls === 'good' && !restart, b = $('#hfPatch');
-  b.disabled = hfBusy || good || fix.state === 'changed';
-  b.querySelector('span').textContent = hfBusy ? 'Patching...' : good ? 'Patched' : fix.state === 'off' ? 'Turn on and patch' : 'Patch';
-}
-$('#hfPatch').addEventListener('click', async () => {
-  if (hfBusy) return;
-  hfBusy = true; SFX.tick(); renderHotfix(S && S.hostFix);
-  const r = await api('/api/hostfix', { action: 'patch' });
-  hfBusy = false;
-  if (r.fix && S) S.hostFix = r.fix;
-  renderHotfix(r.fix || (S && S.hostFix));
-  if (r.already) toast('Already patched', 'You are good to go.', 'delivered');
-  else if (r.ok) toast('Patched', r.restart ? 'Close the game and Host Mode, then start them again.' : 'Your next Host Mode starts with it. You are good to go.', 'delivered');
-  else toast(r.wait ? 'Almost' : 'Not patched', r.error || 'Something went wrong.', r.wait ? 'queued' : 'error', 5200);
-});
-$('nav > button[data-tab="hotfix"]').addEventListener('click', async () => { const r = await api('/api/hostfix', { action: 'check' }); if (r.fix && S) { S.hostFix = r.fix; renderHotfix(r.fix); } });
-
-/* ================================================= Friend tab (direct co-op over Tailscale) */
-const FR = { s: null, role: '', pick: '', ping: null, pingIp: '', pinging: false, busy: '' };
-const frOpen = (u) => { if (window.dftOpen) window.dftOpen(u); else window.open(u, '_blank', 'noopener'); };
-function frStep(id, cls, text, show = true) {
-  const el = $('#' + id); el.hidden = !show; if (!show) return;
-  el.className = 'frstep ' + cls; el.querySelector('.lbl small').textContent = text;
-}
-async function frLoad() {
-  const s = await api('/api/friend', { action: 'status' });
-  if (s && s.ok) { FR.s = s; frRender(); }
-}
-function frRender() {
-  const s = FR.s; if (!s || !$('#frRole')) return;
-  const role = FR.role || s.role || 'join', host = role === 'host';
-  $$('#frRole button').forEach((b) => b.classList.toggle('on', b.dataset.v === role)); placeInd($('#frRole'));
-  $('#frRoleNote').textContent = host ? 'Your friend joins your game.' : 'You join your friend\'s game.';
-  const ts = s.ts || { state: 'NoState', peers: [] }, connected = ts.state === 'Running' && !!ts.ip;
-  // 1. Dauntless Forever (compat: the 1.14.7 package and its LAN scripts)
-  const pkgOk = s.pkg && s.scripts;
-  frStep('frPkg', pkgOk ? 'good' : 'bad', !s.pkg ? 'Not found on this PC. Install it with the Dauntless Forever launcher.' : !s.scripts ? 'Its LAN scripts are missing. Use More > Repair in the Dauntless Forever launcher.' : 'Found, with its LAN scripts.');
-  // 2. Tailscale installed
-  const installing = s.job && s.job.kind === 'install';
-  frStep('frInst', s.installed ? 'good' : installing ? 'next' : s.jobError ? 'bad' : 'next',
-    s.installed ? 'Installed.' : installing ? 'Installing... Windows may ask for permission: say Yes.' : s.jobError ? `${s.jobError} Get it from the download page instead, then come back here.` : 'Free. Puts your two PCs on one private network.');
-  $('#frInstall').hidden = s.installed; $('#frInstall').classList.toggle('busy', !!installing); $('#frInstall').querySelector('span').textContent = installing ? 'Installing...' : 'Install Tailscale';
-  $('#frDl').hidden = s.installed || !s.jobError;
-  // 3. signed in
-  const signing = s.job && s.job.kind === 'login';
-  const st = { Running: 'Connected', Starting: 'Tailscale is starting', NeedsLogin: 'Not signed in', NeedsMachineAuth: 'Waiting for this PC to be approved in Tailscale', Stopped: 'Tailscale is turned off', NoState: 'Tailscale is starting' }[ts.state] || ts.state;
-  frStep('frSign', !s.installed ? 'wait' : connected ? 'good' : s.tsError ? 'bad' : 'next',
-    !s.installed ? 'After Tailscale is installed.' : connected ? `Connected as ${ts.name} (${ts.ip}).` : s.tsError ? `Tailscale did not answer: ${s.tsError}` : signing ? 'Finish signing in in your browser. Any Google, Microsoft or GitHub account works.' : `${st}. Sign in with any Google, Microsoft or GitHub account.`);
-  $('#frLogin').hidden = !s.installed || connected; $('#frLogin').querySelector('span').textContent = ts.state === 'Stopped' ? 'Connect' : signing ? 'Open sign-in again' : 'Sign in';
-  // 4. host: share this PC so the friend can reach it
-  const online = ts.peers.filter((p) => p.online);
-  frStep('frShare', !connected ? 'wait' : online.length ? 'good' : 'next',
-    !connected ? 'After you are signed in.' : online.length ? `Your address: ${ts.ip}. Your friend's PC is on your Tailscale.` : `Press Share this PC, find ${ts.name}, choose ... > Share and send your friend the link. They open it and sign in. Your address: ${ts.ip}.`, host);
-  // 5. the other PC
-  const saved = s.saved && ts.peers.find((p) => p.ip === s.saved);
-  if (!ts.peers.some((p) => p.ip === FR.pick)) FR.pick = saved ? saved.ip : online.length === 1 ? online[0].ip : '';
-  const pick = ts.peers.find((p) => p.ip === FR.pick);
-  $('#frPeer .lbl b').textContent = host ? 'Your friend\'s PC' : 'The host\'s PC';
-  frStep('frPeer', !connected ? 'wait' : pick && pick.online ? 'good' : pick ? 'warn' : 'next',
-    !connected ? 'After you are signed in.' : !ts.peers.length ? (host ? 'Not on your Tailscale yet. Share this PC above.' : 'Nothing here yet. Open the share link your friend sent you and sign in with the same account as here.')
-      : pick ? (pick.online ? `${pick.name} (${pick.ip})` : `${pick.name} is offline: is Tailscale on there?`) : 'Pick it:');
-  $('#frPeers').innerHTML = connected ? ts.peers.map((p) => `<button role="option" data-ip="${esc(p.ip)}" class="${p.ip === FR.pick ? 'on' : ''} ${p.online ? '' : 'off'}" aria-selected="${p.ip === FR.pick}">${esc(p.name)}${p.online ? '' : ' (offline)'}</button>`).join('') : '';
-  // 6. connection check: once per pick, by itself
-  if (connected && pick && pick.online && FR.pingIp !== pick.ip && !FR.pinging) frPing(pick.ip);
-  const pg = FR.pingIp === FR.pick ? FR.ping : null;
-  let lc = 'wait', lt = 'After you pick the other PC.';
-  if (FR.pinging) { lc = 'next'; lt = 'Checking...'; }
-  else if (pg && pg.ok) {
-    lc = pg.direct ? 'good' : 'warn';
-    lt = pg.direct ? `Direct, ${pg.ms} ms.` : `Through Tailscale's relay, ${pg.ms} ms. It works, but a router or firewall is blocking a direct link, so it may not beat Host Mode.`;
-    if (!host) lt += pg.hostUp ? ' Host\'s game is ready.' : ' The host has not started hosting yet.';
-  } else if (pg) { lc = 'bad'; lt = `No answer: ${pg.error || 'unknown'}.`; }
-  frStep('frLink', lc, lt);
-  $('#frPing').hidden = !pick || FR.pinging;
-  // go
-  const blocker = !pkgOk ? 'Dauntless Forever 1.14.7 first.' : !s.installed ? 'Install Tailscale first.' : !connected ? 'Sign in to Tailscale first.' : s.running ? 'Close Dauntless (and Host Mode) on this PC first.' : !host && !(pick && pick.online) ? 'Pick the host\'s PC first.' : '';
-  const go = $('#frGo');
-  go.disabled = !!blocker || FR.busy === 'go';
-  go.classList.toggle('busy', FR.busy === 'go');
-  go.querySelector('span').textContent = host ? 'Start hosting' : pick ? `Join ${pick.name}` : 'Join';
-  $('#frGoNote').textContent = blocker || (host ? 'A window opens and asks for administrator rights, then your game starts. Tell your friend to join once you reach Ramsgate.'
-    : (pg && pg.ok && !pg.hostUp ? 'The host has not started yet: wait until they say they are in Ramsgate. ' : '') + 'A window opens and starts your game on the host\'s server. Keep it open while you play.');
-}
-async function frPing(ip) {
-  FR.pinging = true; FR.pingIp = ip; FR.ping = null; frRender();
-  const r = await api('/api/friend', { action: 'ping', ip });
-  FR.pinging = false; if (FR.pingIp === ip) FR.ping = r; frRender();
-}
-$('#frRole').addEventListener('click', async (e) => {
-  const b = e.target.closest('button'); if (!b || b.classList.contains('on')) return;
-  SFX.select(true); FR.role = b.dataset.v; FR.pingIp = ''; frRender();
-  const s = await api('/api/friend', { action: 'role', role: FR.role }); if (s && s.ok) { FR.s = s; frRender(); }
-});
-$('#frPeers').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; SFX.tick(); FR.pick = b.dataset.ip; FR.pingIp = ''; frRender(); });
-$('#frInstall').addEventListener('click', async () => {
-  SFX.tick(); const r = await api('/api/friend', { action: 'install' });
-  if (!r.ok) toast('Not installed', r.error || 'Something went wrong.', 'error', 5200); else if (r.started) toast('Installing Tailscale', 'Windows may ask for permission: say Yes.', 'queued');
-  frLoad();
-});
-$('#frDl').addEventListener('click', () => frOpen('https://tailscale.com/download/windows'));
-$('#frLogin').addEventListener('click', async () => {
-  if (FR.busy) return; FR.busy = 'login'; SFX.tick(); $('#frLogin').classList.add('busy');
-  const r = await api('/api/friend', { action: 'login' });
-  FR.busy = ''; $('#frLogin').classList.remove('busy');
-  if (r.authUrl) { frOpen(r.authUrl); toast('Sign in in your browser', 'Then come back here: this page ticks itself off.', 'queued', 5200); }
-  else if (r.connected) toast('Connected', 'Tailscale is on.', 'delivered');
-  else toast('Not signed in', r.error || 'Something went wrong.', 'error', 6500);
-  frLoad();
-});
-$('#frCopy').addEventListener('click', async () => { const ip = FR.s && FR.s.ts && FR.s.ts.ip; if (ip && await copyText(ip)) { SFX.tick(); toast('Copied', ip); } });
-$('#frShareBtn').addEventListener('click', () => frOpen('https://login.tailscale.com/admin/machines'));
-$('#frPing').addEventListener('click', () => { if (FR.pick) { SFX.tick(); frPing(FR.pick); } });
-$('#frGo').addEventListener('click', async () => {
-  const host = (FR.role || FR.s.role || 'join') === 'host';
-  FR.busy = 'go'; SFX.tick(); frRender();
-  const r = await api('/api/friend', host ? { action: 'host' } : { action: 'join', ip: FR.pick });
-  FR.busy = ''; frRender();
-  if (r.ok) toast(host ? 'Hosting' : 'Joining', host ? `Say Yes to Windows. Your friend joins ${r.ip}.` : 'The join window is open. Keep it open while you play.', 'delivered', 5200);
-  else toast(host ? 'Not hosting' : 'Not joining', r.error || 'Something went wrong.', 'error', 6000);
-  frLoad();
-});
-$('nav > button[data-tab="friend"]').addEventListener('click', () => { FR.pingIp = ''; frLoad(); requestAnimationFrame(() => placeInd($('#frRole'))); });
-setInterval(() => { if (activeTab() === 'friend' && !document.hidden && !FR.busy) frLoad(); }, 3000);
 $('nav > button[data-tab="parts"]').addEventListener('click', () => { renderParts(); renderDust(); requestAnimationFrame(() => { placeInd($('#partsQty')); placeInd($('#dustQty')); }); });
 
 /* ================================================= rules */

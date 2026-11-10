@@ -805,261 +805,42 @@ async function slayersSync(running) {
   finally { slayersBusy = false; }
 }
 
-// ---------------------------------------------------------------- Host Mode relay fix (hostfix.js; temporary)
-// Kept in step on start and whenever DF's backend file changes: the fix is put back after DF's launcher restores its
-// file, never on a file Lantern does not recognise, at most 6 times an hour, with DF's original kept next to it
-// (recorder-1147.js.lantern-original). Applies the next time the backend starts. While Host Mode runs, the game's own
-// delay readings (player_fps in logs\requests.jsonl) show whether it works. Off: "hostFix": false in trainer-settings.json.
-// 3.9.33: only on a PC that hosts (Host Mode seen in DF's launcher.log or data\relay-1147.json); anywhere else DF's
-// original is put back, as nothing there needs the fix. And never within HOSTFIX_SETTLE of DF writing the file: right
-// after re-fetching its files DF checks them again, and a fix put in before that check made DF stop fetching and blame
-// an antivirus ("still wrong after the fetch ... Antivirus?", launcher 0.4.10 notePackageResults).
+// ---------------------------------------------------------------- Host Mode relay fix: retired (3.9.37)
+// 3.9.32-3.9.36 patched one line of DF's backend\recorder-1147.js (addison2k/DauntlessForever#12) and kept DF's
+// original as recorder-1147.js.lantern-original. DF is fixing it itself, so Lantern no longer patches. On a PC it patched,
+// DF's original goes back once: only over Lantern's own fix, and only from a copy that matches it. DF's own new code,
+// or anything else, is never touched. Checked on each state tick, keyed on the file's stat.
 const HOSTFIX = require('./hostfix.js');
-const HOSTFIX_SETTLE = 20000;
-let hostFixState = { state: 'unknown' }, hostFixKey = '', hostFixBusy = false, hostFixTimes = [], hostFixSaid = '', hostFixLiveAt = 0;
-let hostLogKey = '';
-function hostsHere(p) {
-  if (settings.hostedHere) return true;
-  if (fs.existsSync(path.join(p.dataDir, 'relay-1147.json'))) return rememberHost();
-  const log = path.join(p.pkg, '..', '..', 'launcher.log'), k = statKey(log);   // %LOCALAPPDATA%\DauntlessForever\launcher.log
-  if (k === hostLogKey) return false;
-  hostLogKey = k;
-  return /hostmode Host Mode is up/.test(readText(log) || '') ? rememberHost() : false;
+let hostFixUndoKey = '';
+function hostFixUndo() {
+  const p = places(); if (!p.pkg) return;
+  const f = path.join(p.pkg, 'backend', 'recorder-1147.js'), key = statKey(f);
+  if (key === hostFixUndoKey) return;
+  hostFixUndoKey = key;
+  const text = readText(f), bak = f + '.lantern-original';
+  if (text === null) return;
+  if (HOSTFIX.status(text) !== 'patched') { if (fs.existsSync(bak)) { try { fs.unlinkSync(bak); } catch {} } return; }   // DF's file again: the old copy is not needed
+  const orig = readText(bak), strip = (t) => t.split('\n').filter((l) => !l.includes(HOSTFIX.MARK)).join('\n');
+  if (orig === null || HOSTFIX.status(orig) !== 'original' || strip(HOSTFIX.patch(orig)) !== strip(text)) {
+    return panelLog('Host Mode fix retired: DF\'s backend still has Lantern\'s old fix and no matching original to put back (DF\'s launcher restores it on its next check, or use More > Repair)');
+  }
+  try { fs.writeFileSync(f + '.lantern-tmp', orig); fs.renameSync(f + '.lantern-tmp', f); fs.unlinkSync(bak); hostFixUndoKey = statKey(f); panelLog('Host Mode fix retired: Dauntless Forever\'s original recorder-1147.js put back'); }
+  catch (e) { panelLog('Host Mode fix retired: could not put DF\'s original back: ' + e.message); }
 }
-function rememberHost() { settings.hostedHere = true; saveSettings(); return true; }
-const hostFixPublic = () => ({ state: hostFixState.state, detail: hostFixState.detail || '', host: !!settings.hostedHere, off: settings.hostFix === false });
-const hostFixSet = (state, detail = '') => { if (hostFixState.state !== state || hostFixState.detail !== detail) panelLog(`Host Mode fix: ${state}${detail ? ' - ' + detail : ''}`); hostFixState = { state, detail, at: Date.now() }; };
-function hostFixSay(key, kind, title, text) { if (hostFixSaid === key) return; hostFixSaid = key; note(kind, title, text); panelLog(`Host Mode fix: ${title}: ${text}`); }
-const nodeCheck = (p, file) => new Promise((resolve) => execFile(p.node, ['--check', file], { windowsHide: true, timeout: 30000 }, (e, out, err) => resolve(e ? String(err || e.message).split('\n').filter(Boolean).slice(0, 3).join(' ') : '')));
-async function hostFixSync(running) {
-  if (hostFixBusy) return;
-  const p = places();
-  if (!p.pkg) return;
-  if (settings.hostFix === false) { hostFixSet('off', 'turned off in trainer-settings.json'); return; }
-  const f = path.join(p.pkg, 'backend', 'recorder-1147.js');
-  const host = hostsHere(p);
-  const key = statKey(f) + '|' + host;
-  if (key !== hostFixKey) {
-    hostFixBusy = true;
-    let again = false;
-    try { hostFixKey = key; again = (host ? await hostFixApply(p, f, running) : hostFixRemove(p, f)) === 'later'; }
-    catch (e) { hostFixSet('failed', e.message); hostFixSay('error:' + e.message, 'error', 'Host Mode lag fix could not be applied', e.message); }
-    finally { hostFixBusy = false; hostFixKey = again ? '' : statKey(f) + '|' + host; }
+// Friend tab (Tailscale) retired in 3.9.39. Hosting from it wrote the PC's Tailscale address into DF's data\lan_ip.txt,
+// which DF's LAN - HOST then uses instead of finding the home network address. Once: remove it if it still holds a
+// Tailscale address (100.64.0.0/10), and forget the tab's settings. Delete this once everyone is past 3.9.39.
+function friendUndo() {
+  if (!settings.friendRole && !settings.friendHost) return;
+  const p = places(); if (!p.pkg) return;
+  const f = path.join(p.dataDir, 'lan_ip.txt'), ip = (readText(f) || '').trim();
+  if (/^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.\d{1,3}\.\d{1,3}$/.test(ip)) {
+    try { fs.unlinkSync(f); panelLog(`Friend tab retired: removed the Tailscale address ${ip} from DF's data\\lan_ip.txt`); }
+    catch (e) { return panelLog('Friend tab retired: could not remove data\\lan_ip.txt: ' + e.message); }
   }
-  if (running && ['patched', 'working', 'not working'].includes(hostFixState.state) && Date.now() - hostFixLiveAt > 60000) { hostFixLiveAt = Date.now(); hostFixLive(p, f); }
-}
-async function hostFixApply(p, f, running) {
-  let text;
-  try { text = fs.readFileSync(f, 'utf8'); } catch (e) { return hostFixSet('missing', `no ${f}`); }
-  const st = HOSTFIX.status(text);
-  if (st === 'patched') return hostFixSet('patched', 'in place');
-  if (st === 'changed') {
-    hostFixSet('changed', 'DF changed this code: left alone');
-    return hostFixSay('changed', 'mod', 'Host Mode lag fix not applied', 'Dauntless Forever changed its backend file, so Lantern leaves it alone. If DF has fixed the lag (addison2k/DauntlessForever#12), nothing more is needed.');
-  }
-  // DF's original: put the fix back, once DF is done with the file
-  const now = Date.now();
-  if (now - fs.statSync(f).mtimeMs < HOSTFIX_SETTLE) { hostFixSet('original', 'waiting for Dauntless Forever to finish checking its files'); return 'later'; }
-  hostFixTimes = hostFixTimes.filter((t) => now - t < 3600000);
-  if (hostFixTimes.length >= 6) {
-    hostFixSet('paused', 'restored 6 times within an hour');
-    return hostFixSay('loop', 'error', 'Host Mode lag fix paused', 'Dauntless Forever restored its file 6 times within an hour, so Lantern stopped putting the fix back. It tries again after Lantern restarts.');
-  }
-  hostFixTimes.push(now);
-  const bak = f + '.lantern-original';
-  if (readText(bak) !== text) fs.writeFileSync(bak, text);   // DF's own file, as it was before the fix
-  const out = HOSTFIX.patch(text), tmp = path.join(path.dirname(f), 'recorder-1147.lantern-tmp.js');
-  fs.writeFileSync(tmp, out);
-  const bad = await nodeCheck(p, tmp);
-  if (bad) { try { fs.unlinkSync(tmp); } catch {} throw new Error(`the fixed file did not pass a syntax check (${bad}); DF's file was left as it is`); }
-  if (fs.readFileSync(f, 'utf8') !== text) { try { fs.unlinkSync(tmp); } catch {} return hostFixSet('original', 'DF was writing the file; trying again'); }
-  fs.renameSync(tmp, f);
-  if (HOSTFIX.status(fs.readFileSync(f, 'utf8')) !== 'patched') { fs.writeFileSync(f, text); throw new Error('the file did not read back as fixed; DF\'s original was put back'); }
-  hostFixSet('patched', 'put back after DF restored its file');
-  if (running) hostFixSay('restart:' + now, 'mod', 'Host Mode lag fix put back', 'Dauntless Forever had restored its file while the game ran. Close the game and Host Mode, then start them again for the fix to work.');
+  delete settings.friendRole; delete settings.friendHost; saveSettings();
 }
 const readText = (f) => { try { return fs.readFileSync(f, 'utf8'); } catch { return null; } };
-// A PC that does not host: the fix does nothing here, and DF's launcher flags the changed file. DF's original goes back
-// (only from Lantern's own copy of it, and only over Lantern's own fix).
-function hostFixRemove(p, f) {
-  const text = readText(f);
-  if (text === null) return hostFixSet('missing', `no ${f}`);
-  if (HOSTFIX.status(text) !== 'patched') return hostFixSet('not needed', 'this PC does not host');
-  const orig = readText(f + '.lantern-original');
-  if (orig === null || HOSTFIX.status(orig) !== 'original' || HOSTFIX.patch(orig).split('\n').filter((l) => !l.includes(HOSTFIX.MARK)).join('\n') !== text.split('\n').filter((l) => !l.includes(HOSTFIX.MARK)).join('\n')) {
-    hostFixSet('not needed', 'fixed file left as it is: no matching original to put back');
-    return hostFixSay('noorig', 'mod', 'Host Mode lag fix: not needed here', 'This PC does not host, but Lantern has no matching copy of Dauntless Forever\'s original file to put back. Use Repair in the Dauntless Forever launcher (More > Repair).');
-  }
-  fs.writeFileSync(f + '.lantern-tmp', orig); fs.renameSync(f + '.lantern-tmp', f);
-  hostFixSet('not needed', 'this PC does not host: Dauntless Forever\'s original file put back');
-}
-// The fix only counts once the game says so: your game's own delay readings since the backend started with the fixed file
-function hostFixLive(p, f) {
-  try {
-    if (!fs.existsSync(path.join(p.dataDir, 'relay-1147.json'))) return;   // not Host Mode: nothing to measure
-    const started = fs.statSync(path.join(p.dataDir, 'recorder.pid')).mtimeMs;
-    if (started < fs.statSync(f).mtimeMs) return hostFixSet('patched', 'the running backend started before the fix: restart Host Mode');
-    const st = readJson(path.join(p.dataDir, 'state.json'), null);
-    const me = st && st.players && st.players[st.lastPlayer];
-    if (!me || !me.accountId) return;
-    const log = path.join(p.pkg, 'logs', 'requests.jsonl'), size = fs.statSync(log).size, n = Math.min(size, 512 * 1024);
-    const fd = fs.openSync(log, 'r'), buf = Buffer.alloc(n);
-    try { fs.readSync(fd, buf, 0, n, size - n); } finally { fs.closeSync(fd); }
-    const lags = [];
-    for (const l of buf.toString('utf8').split('\n')) {
-      if (!l.includes('player_fps') || !l.includes(me.accountId)) continue;
-      let r, evs; try { r = JSON.parse(l); evs = [].concat(JSON.parse(r.body)); } catch { continue; }
-      for (const e of evs) if (e.EventName === 'player_fps' && e.player_id === me.accountId && e.total_gputime > 0 && Date.parse(e.Timestamp) > started) lags.push(Number(e.avg_lag));
-    }
-    if (lags.length < 3) return;
-    const med = lags.sort((a, b) => a - b)[lags.length >> 1], ms = Math.round(med * 1000);
-    if (med <= 0.05) { hostFixSet('working', `your game's delay in Host Mode: ${ms} ms`); hostFixSaid = hostFixSaid.startsWith('slow') ? '' : hostFixSaid; }
-    else { hostFixSet('not working', `your game still reports ${ms} ms in Host Mode`); hostFixSay('slow', 'error', 'Host Mode lag fix is in, but not working', `Your game still reports about ${ms} ms of delay in Host Mode (about 10 ms is expected). Dauntless Forever may route the host differently now; check addison2k/DauntlessForever#12.`); }
-  } catch {}
-}
-
-// ---------------------------------------------------------------- Friend tab: direct co-op over Tailscale
-// Host: Tailscale's address goes into DF's data\lan_ip.txt, then DF's "LAN - HOST" runs (it asks for administrator
-// rights to open the game ports to the home network and Tailscale's range, 100.64.0.0/10). Friend: DF's "LAN - JOIN"
-// runs with the host's Tailscale address. No relay in between. Tailscale itself: installed with winget, signed in on
-// Tailscale's own page (the tab opens it); both are the user's own clicks.
-const FRIEND = require('./friend.js');
-let friendJob = null;   // { kind: 'install'|'login', at, error, authUrl, done }
-const tsRun = (exe, args, timeout = 8000) => new Promise((resolve) => execFile(exe, args, { windowsHide: true, timeout, maxBuffer: 4 * 1024 * 1024 }, (e, out, err) => resolve({ code: e ? (e.code ?? 1) : 0, out: String(out || ''), err: String(err || '') })));
-function friendScripts(p) {
-  const host = p.pkg && path.join(p.pkg, 'tools', 'lan-host-1147.ps1'), join = p.pkg && path.join(p.pkg, 'tools', 'lan-join-1147.ps1');
-  return { host: host && fs.existsSync(host) ? host : null, join: join && fs.existsSync(join) ? join : null };
-}
-// a DF script in its own console window, like double-clicking its .bat (it says what it does and waits there).
-// Node's detached spawn gives no console on Windows, so "start" opens one. args are checked (100.x addresses only).
-// keepOpen: the window stays after the script ends, so an error can be read (LAN - JOIN has no pause of its own here).
-function friendStart(p, script, args, keepOpen) {
-  const line = `/d /c start "Dauntless - play with a friend" powershell.exe -NoProfile${keepOpen ? ' -NoExit' : ''} -ExecutionPolicy Bypass -File "${script}" ${args.join(' ')}`;
-  const c = spawn('cmd.exe', [line], { cwd: p.pkg, detached: true, stdio: 'ignore', windowsHide: true, windowsVerbatimArguments: true });
-  c.on('error', (e) => panelLog(`Friend: could not start ${path.basename(script)}: ${e.message}`));
-  c.unref();
-}
-// is the host's game backend up? (DF's own check, the one LAN - JOIN does first)
-const friendProbe = (ip) => new Promise((resolve) => {
-  const r = http.get({ host: ip, port: 63000, path: '/_recorder/ping', timeout: 3000 }, (res) => { res.resume(); resolve(res.statusCode === 200); });
-  r.on('timeout', () => { r.destroy(); resolve(false); });
-  r.on('error', () => resolve(false));
-});
-// On Windows tailscaled stays in "NoState" (Tailscale is starting) until Tailscale's own app (tailscale-ipn.exe, the icon
-// by the clock) runs: it starts the backend for the signed-in Windows user. Seen 10 Nov: app not running after a restart,
-// "tailscale up" then waited forever with no sign-in address. So the tab starts the app when it is not running.
-let tsWokeAt = 0, friendUp = null;
-function tsWake(exe) {
-  if (Date.now() - tsWokeAt < 30000) return Promise.resolve(false);
-  tsWokeAt = Date.now();
-  return new Promise((resolve) => execFile('tasklist.exe', ['/FI', 'IMAGENAME eq tailscale-ipn.exe', '/NH'], { windowsHide: true, timeout: 8000 }, (e, out) => {
-    const gui = path.join(path.dirname(exe), 'tailscale-ipn.exe');
-    if (/tailscale-ipn\.exe/i.test(String(out || '')) || !fs.existsSync(gui)) return resolve(false);
-    panelLog('Friend: Tailscale was stuck starting; started its app (tailscale-ipn.exe)');
-    try { spawn(gui, [], { detached: true, stdio: 'ignore' }).unref(); } catch {}
-    resolve(true);
-  }));
-}
-async function friendStatus() {
-  const p = places(), sc = friendScripts(p), exe = FRIEND.findExe();
-  const out = { ok: true, pkg: !!p.pkg, scripts: !!(sc.host && sc.join), running: !!lastRunning, installed: !!exe, role: settings.friendRole || '', saved: settings.friendHost || '',
-    lanIp: (p.pkg && (readText(path.join(p.dataDir, 'lan_ip.txt')) || '').trim()) || '', job: friendJob && !friendJob.done ? { kind: friendJob.kind, authUrl: friendJob.authUrl || '' } : null,
-    jobError: friendJob && friendJob.done && friendJob.error ? friendJob.error : '' };
-  if (!exe) return out;
-  const r = await tsRun(exe, ['status', '--json']);
-  const st = FRIEND.parseStatus(r.out);
-  if (!st) return { ...out, ts: { state: 'NoState', peers: [] }, tsError: (r.err || r.out).trim().split('\n')[0] || 'Tailscale did not answer.' };
-  if (friendJob && friendJob.kind === 'login' && st.state === 'Running') friendJob.done = true;
-  if (st.state === 'NoState') await tsWake(exe);
-  return { ...out, ts: st };
-}
-async function friendAction(b) {
-  const p = places(), a = String(b.action || 'status');
-  if (a === 'status') return friendStatus();
-  if (a === 'role') { settings.friendRole = b.role === 'host' ? 'host' : 'join'; saveSettings(); return friendStatus(); }
-  if (a === 'install') {
-    if (FRIEND.findExe()) return { ok: true, already: true };
-    if (friendJob && !friendJob.done) return { ok: false, error: 'Already working on it.' };
-    const job = friendJob = { kind: 'install', at: Date.now() };
-    panelLog('Friend: installing Tailscale with winget');
-    // winget is an app alias: run through cmd. Tailscale's installer asks Windows for administrator rights itself.
-    execFile('cmd.exe', ['/d', '/c', 'winget', 'install', '--id', 'Tailscale.Tailscale', '-e', '--silent', '--accept-package-agreements', '--accept-source-agreements'],
-      { windowsHide: true, timeout: 10 * 60 * 1000, maxBuffer: 8 * 1024 * 1024 }, (e, out) => {
-        const ok = !!FRIEND.findExe();
-        job.done = true;
-        job.error = ok ? '' : /not recognized|is not recognised/i.test(String(out) + (e && e.message)) ? 'winget is not on this PC.' : `The installer did not finish${e && e.code ? ` (code ${e.code})` : ''}.`;
-        panelLog(`Friend: Tailscale install ${ok ? 'done' : 'failed: ' + job.error}`);
-      });
-    return { ok: true, started: true };
-  }
-  const exe = FRIEND.findExe();
-  if (!exe) return { ok: false, error: 'Install Tailscale first.' };
-  if (a === 'login') {
-    // "tailscale up" connects with the PC's saved settings and, if needed, prints the sign-in address. It waits there until
-    // the sign-in is done, so it runs on in the background; the tab opens the address in the browser.
-    if (friendJob && friendJob.kind === 'login' && !friendJob.done && friendJob.authUrl) return { ok: true, authUrl: friendJob.authUrl };
-    // Tailscale's app not running yet: start it and give the backend up to 30 s (it took ~12 s here)
-    let st0 = FRIEND.parseStatus((await tsRun(exe, ['status', '--json'])).out);
-    if (!st0 || st0.state === 'NoState') {
-      tsWokeAt = 0; await tsWake(exe);
-      for (let i = 0; i < 15 && (!st0 || st0.state === 'NoState'); i++) { await new Promise((r) => setTimeout(r, 2000)); st0 = FRIEND.parseStatus((await tsRun(exe, ['status', '--json'])).out); }
-      if (!st0 || st0.state === 'NoState') return { ok: false, error: 'Tailscale is still starting. Open Tailscale from the Start menu, wait for its icon by the clock, then press Sign in again.' };
-    }
-    if (st0.state === 'Running') return { ok: true, connected: true };
-    if (friendUp) { try { friendUp.kill(); } catch {} }   // an earlier "tailscale up" still waiting
-    const job = friendJob = { kind: 'login', at: Date.now(), authUrl: '' };
-    const c = friendUp = spawn(exe, ['up'], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
-    let text = '';
-    const url = await new Promise((resolve) => {
-      const t = setTimeout(() => resolve(''), 15000);
-      const on = (d) => { text += d; const u = FRIEND.findAuthUrl(text); if (u) { clearTimeout(t); resolve(u); } };
-      c.stdout.on('data', on); c.stderr.on('data', on);
-      c.on('exit', () => { clearTimeout(t); resolve(FRIEND.findAuthUrl(text)); });
-      c.on('error', (e) => { text += e.message; clearTimeout(t); resolve(''); });
-    });
-    c.on('exit', () => { job.done = true; });
-    setTimeout(() => { try { c.kill(); } catch {} }, 10 * 60 * 1000);   // nobody signed in within 10 minutes
-    job.authUrl = url;
-    if (url) return { ok: true, authUrl: url };
-    const st = FRIEND.parseStatus((await tsRun(exe, ['status', '--json'])).out);
-    if (st && st.state === 'Running') { job.done = true; return { ok: true, connected: true }; }
-    if (st && st.authUrl) { job.authUrl = st.authUrl; return { ok: true, authUrl: st.authUrl }; }
-    job.done = true;
-    const why = text.trim().split('\n').filter(Boolean).pop() || '';
-    panelLog(`Friend: tailscale up gave no sign-in address: ${why}`);
-    return { ok: false, error: /non-default flags/i.test(why) ? 'This PC has its own Tailscale settings. Click the Tailscale icon by the clock and choose Connect.' : (why || 'Tailscale did not answer. Open Tailscale from the Start menu and sign in there.') };
-  }
-  if (a === 'ping') {
-    const ip = String(b.ip || '');
-    if (!FRIEND.isTailnetIp(ip)) return { ok: false, error: 'That is not a Tailscale address (100.x.x.x).' };
-    const r = await tsRun(exe, ['ping', '--c', '8', '--timeout', '3s', ip], 30000);
-    const pg = FRIEND.parsePing(r.out + '\n' + r.err);
-    return { ...pg, ip, hostUp: await friendProbe(ip) };
-  }
-  if (a === 'host' || a === 'join') {
-    if (!p.pkg) return { ok: false, error: 'Dauntless Forever 1.14.7 was not found.' };
-    const sc = friendScripts(p);
-    if (!sc.host || !sc.join) return { ok: false, error: 'Dauntless Forever\'s LAN scripts are missing. Use More > Repair in the Dauntless Forever launcher.' };
-    if (lastRunning || await backendUp(0)) return { ok: false, error: 'Dauntless is already running on this PC. Close the game (and Host Mode) first.' };
-    const st = FRIEND.parseStatus((await tsRun(exe, ['status', '--json'])).out);
-    if (!st || st.state !== 'Running' || !st.ip) return { ok: false, error: 'Tailscale is not connected. Sign in first.' };
-    if (a === 'host') {
-      fs.writeFileSync(path.join(p.dataDir, 'lan_ip.txt'), st.ip);   // DF's LAN - HOST uses this address for every game
-      settings.friendRole = 'host'; saveSettings();
-      panelLog(`Friend: hosting over Tailscale at ${st.ip}`);
-      friendStart(p, sc.host, []);
-      return { ok: true, ip: st.ip };
-    }
-    const ip = String(b.ip || '');
-    if (!FRIEND.isTailnetIp(ip)) return { ok: false, error: 'Pick the host first.' };
-    if (ip === st.ip) return { ok: false, error: 'That is this PC. Pick your friend\'s PC.' };
-    settings.friendRole = 'join'; settings.friendHost = ip; saveSettings();
-    panelLog(`Friend: joining ${ip} over Tailscale`);
-    friendStart(p, sc.join, ['-Address', ip], true);
-    return { ok: true, ip };
-  }
-  return { ok: false, error: 'Unknown action.' };
-}
 
 // ---------------------------------------------------------------- behemoth overlay
 // The game mod (in your game and in each hunt server) writes the behemoth you are fighting to track\<process>.json in
@@ -1223,7 +1004,7 @@ async function buildState() {
     escalation: running && inEscalation,
     rulesPending: rulesPending(p),
     overlay: { ...overlaySettings(), restoreBossbar: undefined, bossbarBefore: undefined, running: overlayAlive() },
-    slayers: slayersStatus, hostFix: hostFixPublic(),
+    slayers: slayersStatus,
     queue: queue.map((j) => ({ what: describe(j) })), history,
     deliveries: deliveries.filter((d) => d.status === 'saved').map((d) => ({ what: d.what, at: d.at })),
   };
@@ -1245,7 +1026,8 @@ async function tickState() {
     lastRunning = s.running;
     ensureOverlay(s.running);
     slayersSync(s.running).catch(() => {});
-    hostFixSync(s.running).catch(() => {});
+    try { hostFixUndo(); } catch {}
+    try { friendUndo(); } catch {}
   }
   const text = JSON.stringify(s);
   if (text !== lastStateText) { lastStateText = text; push('state', s); }
@@ -1429,30 +1211,6 @@ const routes = {
     const r = await routes['POST /api/items']({ action: 'add', character: b.character, counts: { [PARTS.AETHERDUST]: amount }, label: `Aetherdust +${amount.toLocaleString('en-US')}` });
     return r.ok ? { ...r, amount } : r;
   },
-  // Hotfix tab: the Host Mode lag fix on demand. Patching by hand counts as "this PC hosts" and turns the fix on again
-  // if it was switched off; the same checks as the automatic fix apply (DF's exact line only, syntax check, read-back).
-  'POST /api/hostfix': async (b) => {
-    const p = places(); if (!p.pkg) return { ok: false, error: 'Dauntless Forever 1.14.7 was not found.' };
-    const f = path.join(p.pkg, 'backend', 'recorder-1147.js');
-    if (b.action === 'check') { hostFixKey = ''; await hostFixSync(lastRunning); return { ok: true, fix: hostFixPublic() }; }
-    if (b.action !== 'patch') return { ok: false, error: 'Unknown action.' };
-    if (hostFixBusy) return { ok: false, error: 'Lantern is already working on it. Try again in a moment.' };
-    if (settings.hostFix === false) delete settings.hostFix;
-    if (!settings.hostedHere) rememberHost();
-    const before = HOSTFIX.status(readText(f) || '');
-    if (before === 'patched') { hostFixSet(hostFixState.state === 'working' ? 'working' : 'patched', hostFixState.state === 'working' ? hostFixState.detail : 'in place'); return { ok: true, already: true, fix: hostFixPublic() }; }
-    if (before === 'changed') { hostFixKey = ''; await hostFixSync(lastRunning); return { ok: false, error: 'Dauntless Forever changed this part of its backend, so Lantern will not patch it. If DF fixed the lag (issue #12), nothing more is needed.', fix: hostFixPublic() }; }
-    hostFixTimes = [];   // asked for by hand: the hourly limit starts over
-    hostFixBusy = true;
-    let r;
-    try { r = await hostFixApply(p, f, lastRunning); }
-    catch (e) { hostFixSet('failed', e.message); return { ok: false, error: e.message, fix: hostFixPublic() }; }
-    finally { hostFixBusy = false; hostFixKey = r === 'later' ? '' : statKey(f) + '|' + hostsHere(p); }
-    if (r === 'later') return { ok: false, wait: true, error: 'Dauntless Forever just restored its files and is still checking them. Lantern patches in a few seconds by itself.', fix: hostFixPublic() };
-    return { ok: HOSTFIX.status(readText(f) || '') === 'patched', fix: hostFixPublic(), restart: !!lastRunning };
-  },
-  // Friend tab: direct co-op over Tailscale (see friend.js). One route, several steps; the tab asks 'status' every few s.
-  'POST /api/friend': async (b) => friendAction(b || {}),
   // Bounties tab: your slots, what can go in them and what each tier pays. Read often while the tab is open.
   'POST /api/bounties': async (b) => {
     const p = places(); if (!p.pkg) return { ok: false, error: 'Package not found.' };

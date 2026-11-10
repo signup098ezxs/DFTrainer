@@ -75,24 +75,15 @@ SLAYERS CLUB
   Playing in a friend's game: their save holds your character until it comes home, so Lantern changes your save
   after you leave, and the club travels with you the next time you join. In their game you have it from then on.
 
-HOST MODE LAG FIX (temporary, until Dauntless Forever fixes it: github.com/addison2k/DauntlessForever/issues/12)
-  In Host Mode Dauntless Forever sends the host's own game out to the online relay and back (~110 ms instead of
-  ~10). Lantern Client fixes that one line in DF's backend\recorder-1147.js, and puts the fix back whenever DF's
-  launcher restores its file (keeping DF's original as recorder-1147.js.lantern-original). It never touches a file it
-  does not recognise, and while Host Mode runs it checks your game's own delay readings to see that the fix works.
-  To turn it off: "hostFix": false in trainer-settings.json. Only on a PC that hosts (Host Mode used once); elsewhere
-  DF's original stays. Lantern waits 20 s after DF writes the file, so DF's own check right after it passes.
+HOST MODE LAG FIX (retired in 3.9.37: Dauntless Forever fixes it itself, github.com/addison2k/DauntlessForever/issues/12)
+  3.9.32-3.9.36 patched one line of DF's backend\recorder-1147.js so the host's own game did not go out to the relay
+  and back. Lantern no longer patches it and the Hotfix tab is gone. On a PC it patched, Lantern puts DF's original
+  back once (from recorder-1147.js.lantern-original, only over its own fix) and deletes that copy.
 
-PLAY WITH A FRIEND (Friend tab: direct co-op over Tailscale)
-  Instead of Dauntless Forever's internet relay (Host Mode, ~100+ ms for the friend), both PCs join one private
-  Tailscale network and the friend's game talks straight to the host's PC. The tab is a checklist that ticks itself
-  off: Dauntless Forever 1.14.7 and its LAN scripts, Tailscale (installed with winget on request), sign-in (opens
-  Tailscale's own page), the other PC (picked by itself when there is only one), a connection check (direct or
-  through Tailscale's relay, in ms; for the friend also whether the host's game is up), then one button.
-  Host: writes the host's Tailscale address into DF's data\lan_ip.txt and runs DF's LAN - HOST (asks Windows for
-  administrator rights; opens the game ports only to the home network and 100.64.0.0/10, and closes them when the
-  game closes). Friend: runs DF's LAN - JOIN with the host's address. The host shares their PC with the friend once
-  from the Tailscale admin page (Share this PC).
+FRIEND TAB (retired in 3.9.39: no longer needed now that Dauntless Forever fixed the Host Mode delay)
+  3.9.35-3.9.38 set up direct co-op over Tailscale. The tab is gone; play together with Host Mode again. If you hosted
+  from it, Lantern removes the Tailscale address it wrote into DF's data\lan_ip.txt once. Tailscale itself stays
+  installed: uninstall it from Windows Settings > Apps if you do not want it.
 
 GOOD TO KNOW
   - The in-game parts could not be tested in the real game when they were written (no Windows or game there). The
