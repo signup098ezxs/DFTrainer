@@ -80,7 +80,8 @@ HOST MODE LAG FIX (temporary, until Dauntless Forever fixes it: github.com/addis
   ~10). Lantern Client fixes that one line in DF's backend\recorder-1147.js, and puts the fix back whenever DF's
   launcher restores its file (keeping DF's original as recorder-1147.js.lantern-original). It never touches a file it
   does not recognise, and while Host Mode runs it checks your game's own delay readings to see that the fix works.
-  To turn it off: "hostFix": false in trainer-settings.json.
+  To turn it off: "hostFix": false in trainer-settings.json. Only on a PC that hosts (Host Mode used once); elsewhere
+  DF's original stays. Lantern waits 20 s after DF writes the file, so DF's own check right after it passes.
 
 GOOD TO KNOW
   - The in-game parts could not be tested in the real game when they were written (no Windows or game there). The

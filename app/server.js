@@ -810,8 +810,23 @@ async function slayersSync(running) {
 // file, never on a file Lantern does not recognise, at most 6 times an hour, with DF's original kept next to it
 // (recorder-1147.js.lantern-original). Applies the next time the backend starts. While Host Mode runs, the game's own
 // delay readings (player_fps in logs\requests.jsonl) show whether it works. Off: "hostFix": false in trainer-settings.json.
+// 3.9.33: only on a PC that hosts (Host Mode seen in DF's launcher.log or data\relay-1147.json); anywhere else DF's
+// original is put back, as nothing there needs the fix. And never within HOSTFIX_SETTLE of DF writing the file: right
+// after re-fetching its files DF checks them again, and a fix put in before that check made DF stop fetching and blame
+// an antivirus ("still wrong after the fetch ... Antivirus?", launcher 0.4.10 notePackageResults).
 const HOSTFIX = require('./hostfix.js');
+const HOSTFIX_SETTLE = 20000;
 let hostFixState = { state: 'unknown' }, hostFixKey = '', hostFixBusy = false, hostFixTimes = [], hostFixSaid = '', hostFixLiveAt = 0;
+let hostLogKey = '';
+function hostsHere(p) {
+  if (settings.hostedHere) return true;
+  if (fs.existsSync(path.join(p.dataDir, 'relay-1147.json'))) return rememberHost();
+  const log = path.join(p.pkg, '..', '..', 'launcher.log'), k = statKey(log);   // %LOCALAPPDATA%\DauntlessForever\launcher.log
+  if (k === hostLogKey) return false;
+  hostLogKey = k;
+  return /hostmode Host Mode is up/.test(readText(log) || '') ? rememberHost() : false;
+}
+function rememberHost() { settings.hostedHere = true; saveSettings(); return true; }
 const hostFixSet = (state, detail = '') => { if (hostFixState.state !== state || hostFixState.detail !== detail) panelLog(`Host Mode fix: ${state}${detail ? ' - ' + detail : ''}`); hostFixState = { state, detail, at: Date.now() }; };
 function hostFixSay(key, kind, title, text) { if (hostFixSaid === key) return; hostFixSaid = key; note(kind, title, text); panelLog(`Host Mode fix: ${title}: ${text}`); }
 const nodeCheck = (p, file) => new Promise((resolve) => execFile(p.node, ['--check', file], { windowsHide: true, timeout: 30000 }, (e, out, err) => resolve(e ? String(err || e.message).split('\n').filter(Boolean).slice(0, 3).join(' ') : '')));
@@ -821,12 +836,14 @@ async function hostFixSync(running) {
   if (!p.pkg) return;
   if (settings.hostFix === false) { hostFixSet('off', 'turned off in trainer-settings.json'); return; }
   const f = path.join(p.pkg, 'backend', 'recorder-1147.js');
-  const key = statKey(f);
+  const host = hostsHere(p);
+  const key = statKey(f) + '|' + host;
   if (key !== hostFixKey) {
     hostFixBusy = true;
-    try { hostFixKey = key; await hostFixApply(p, f, running); }
+    let again = false;
+    try { hostFixKey = key; again = (host ? await hostFixApply(p, f, running) : hostFixRemove(p, f)) === 'later'; }
     catch (e) { hostFixSet('failed', e.message); hostFixSay('error:' + e.message, 'error', 'Host Mode lag fix could not be applied', e.message); }
-    finally { hostFixBusy = false; hostFixKey = statKey(f); }
+    finally { hostFixBusy = false; hostFixKey = again ? '' : statKey(f) + '|' + host; }
   }
   if (running && ['patched', 'working', 'not working'].includes(hostFixState.state) && Date.now() - hostFixLiveAt > 60000) { hostFixLiveAt = Date.now(); hostFixLive(p, f); }
 }
@@ -839,8 +856,9 @@ async function hostFixApply(p, f, running) {
     hostFixSet('changed', 'DF changed this code: left alone');
     return hostFixSay('changed', 'mod', 'Host Mode lag fix not applied', 'Dauntless Forever changed its backend file, so Lantern leaves it alone. If DF has fixed the lag (addison2k/DauntlessForever#12), nothing more is needed.');
   }
-  // DF's original: put the fix back
+  // DF's original: put the fix back, once DF is done with the file
   const now = Date.now();
+  if (now - fs.statSync(f).mtimeMs < HOSTFIX_SETTLE) { hostFixSet('original', 'waiting for Dauntless Forever to finish checking its files'); return 'later'; }
   hostFixTimes = hostFixTimes.filter((t) => now - t < 3600000);
   if (hostFixTimes.length >= 6) {
     hostFixSet('paused', 'restored 6 times within an hour');
@@ -860,6 +878,20 @@ async function hostFixApply(p, f, running) {
   if (running) hostFixSay('restart:' + now, 'mod', 'Host Mode lag fix put back', 'Dauntless Forever had restored its file while the game ran. Close the game and Host Mode, then start them again for the fix to work.');
 }
 const readText = (f) => { try { return fs.readFileSync(f, 'utf8'); } catch { return null; } };
+// A PC that does not host: the fix does nothing here, and DF's launcher flags the changed file. DF's original goes back
+// (only from Lantern's own copy of it, and only over Lantern's own fix).
+function hostFixRemove(p, f) {
+  const text = readText(f);
+  if (text === null) return hostFixSet('missing', `no ${f}`);
+  if (HOSTFIX.status(text) !== 'patched') return hostFixSet('not needed', 'this PC does not host');
+  const orig = readText(f + '.lantern-original');
+  if (orig === null || HOSTFIX.status(orig) !== 'original' || HOSTFIX.patch(orig).split('\n').filter((l) => !l.includes(HOSTFIX.MARK)).join('\n') !== text.split('\n').filter((l) => !l.includes(HOSTFIX.MARK)).join('\n')) {
+    hostFixSet('not needed', 'fixed file left as it is: no matching original to put back');
+    return hostFixSay('noorig', 'mod', 'Host Mode lag fix: not needed here', 'This PC does not host, but Lantern has no matching copy of Dauntless Forever\'s original file to put back. Use Repair in the Dauntless Forever launcher (More > Repair).');
+  }
+  fs.writeFileSync(f + '.lantern-tmp', orig); fs.renameSync(f + '.lantern-tmp', f);
+  hostFixSet('not needed', 'this PC does not host: Dauntless Forever\'s original file put back');
+}
 // The fix only counts once the game says so: your game's own delay readings since the backend started with the fixed file
 function hostFixLive(p, f) {
   try {
