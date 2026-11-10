@@ -75,6 +75,17 @@ SLAYERS CLUB
   Playing in a friend's game: their save holds your character until it comes home, so Lantern changes your save
   after you leave, and the club travels with you the next time you join. In their game you have it from then on.
 
+BETTEROMNIS
+  Small buffs to Omnicell passives, a mod of its own, BetterOmnis, on Dauntless Forever's Mods page next to Lantern
+  Client's (DFTrainer). Actives are not changed, and the disc shows the new numbers:
+    Bastion shields received 15% -> 18%, Iceborne health +100 -> +125, Discipline healing penalty 50% -> 45%,
+    Tempest attack speed 10% -> 15% (also speeds the Storm Dash animation), Revenant lifesteal 2% -> 3%.
+  Switch it on and Lantern Client puts its pak (zzzzzzzzzzzzzzzz_BetterOmnis_P.pak) in Archon\Content\Paks; off takes it
+  out. Changes wait until the game and its hunt servers are fully closed. It needs Lantern Client running and the
+  DFTrainer mod on: without them the pak is taken out. After a game update that changes those files it pauses itself.
+  Full effect only in hunts you host (the host's hunt server decides); in someone else's hunt your disc shows the new
+  numbers but you get theirs.
+
 HOST MODE LAG FIX (retired in 3.9.37: Dauntless Forever fixes it itself, github.com/addison2k/DauntlessForever/issues/12)
   3.9.32-3.9.36 patched one line of DF's backend\recorder-1147.js so the host's own game did not go out to the relay
   and back. Lantern no longer patches it and the Hotfix tab is gone. On a PC it patched, Lantern puts DF's original

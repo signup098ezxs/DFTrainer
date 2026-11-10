@@ -1,5 +1,5 @@
 {
-  "version": "3.9.39",
+  "version": "3.9.40",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Dauntless Forever fixed the Host Mode delay, so Lantern goes back to how it was: the Hotfix tab, the Host Mode lag fix and the Friend tab (Tailscale) are gone. Lantern puts DF's original backend file back if it had patched it, and removes the Tailscale address it wrote into DF's LAN settings."
+  "notes": "New mod: BetterOmnis. Switch it on in Dauntless Forever's Mods page (needs Lantern's mod on) for small Omnicell passive buffs: Bastion shields 18%, Iceborne +125 health, Discipline healing penalty 45%, Tempest attack speed 15%, Revenant lifesteal 3%. Actives unchanged; the disc shows the new numbers. Changes apply with the game fully closed; full effect in hunts you host."
 }

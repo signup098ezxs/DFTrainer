@@ -37,6 +37,9 @@ const MOD_NAME = 'DFTrainer';
 const SLAYERS_MOD = 'SlayersClub';   // the Slayers Club switch on Dauntless Forever's Mods page (see "Slayers Club" below)
 const SLAYERS_SRC = path.join(HERE, 'mod', SLAYERS_MOD);
 const SLAYERS = require('./slayers.js');
+const OMNIS_MOD = 'BetterOmnis';   // the BetterOmnis switch on Dauntless Forever's Mods page (see "BetterOmnis" below)
+const OMNIS_SRC = path.join(HERE, 'mod', OMNIS_MOD);
+const OMNIS = require('./omnis.js');
 // the game mod this panel ships (its main.lua says "local MOD_VERSION"): copies of the game started before an update
 // keep running the old one (hunt servers stay up between hunts), so the panel says when that is the case
 const MOD_VERSION = (() => { try { return (/local MOD_VERSION\s*=\s*"([^"]+)"/.exec(fs.readFileSync(path.join(__dirname, 'mod', 'DFTrainer', 'Scripts', 'main.lua'), 'utf8')) || [])[1] || ''; } catch { return ''; } })();
@@ -102,7 +105,7 @@ function placesUncached() {
   return {
     pkg, gameDir, node: (cfg.Node && fs.existsSync(cfg.Node)) ? cfg.Node : process.execPath,
     ue4ssDll: ue && path.join(ue, 'UE4SS.dll'), modsDir: ue && path.join(ue, 'Mods'), modDir: ue && path.join(ue, 'Mods', MOD_NAME),
-    slayersDir: ue && path.join(ue, 'Mods', SLAYERS_MOD),
+    slayersDir: ue && path.join(ue, 'Mods', SLAYERS_MOD), omnisDir: ue && path.join(ue, 'Mods', OMNIS_MOD),
     dataDir: path.join(pkg, 'data'), requestLog: path.join(pkg, 'logs', 'requests.jsonl'),
   };
 }
@@ -404,6 +407,7 @@ async function setup() {
   writeToggles(p, readToggles(p));
   steps.push('Copied the Lantern Client mod.');
   if (await slayersInstall(p)) steps.push('Added the Slayers Club mod (switch it on in the launcher\'s Mods page).');
+  if (await omnisInstall(p)) steps.push('Added the BetterOmnis mod (switch it on in the launcher\'s Mods page).');
   if (ue4ssSafeSettings(p)) steps.push('Turned off the UE4SS object cache (it crashed the game while loading).');
   for (const a of [['set', 'on'], ['set', 'servers-on'], ['mod', MOD_NAME, 'on']]) {
     const r = await runTool(p, 'ue4ss.cjs', a);
@@ -805,6 +809,76 @@ async function slayersSync(running) {
   finally { slayersBusy = false; }
 }
 
+// ---------------------------------------------------------------- BetterOmnis
+// Small buffs to Omnicell passives (omnis.js, betteromnis/): one override pak in the game's Paks folder. Its switch is
+// the BetterOmnis mod on Dauntless Forever's Mods page, next to Lantern's own (DFTrainer); the mod itself does nothing
+// in the game. This panel keeps the pak in step with the switch:
+//   on   pak put in, only while the game's own pak still has the files it was made from (a game update: left out).
+//   off  pak taken out.
+// Lantern is required: with DFTrainer not set up or switched off, the pak is taken out. Changes wait until no copy of
+// the game runs (your game and every hunt server): they read the Paks folder only when they start. A new mod folder
+// starts switched off.
+async function omnisInstall(p) {
+  if (!p.omnisDir || !p.modDir || !fs.existsSync(path.join(p.modDir, 'Scripts', 'main.lua'))) return false;   // Lantern's mod is not set up
+  const fresh = !fs.existsSync(p.omnisDir);
+  for (const rel of modFiles(OMNIS_SRC)) {
+    const a = path.join(OMNIS_SRC, rel), b = path.join(p.omnisDir, rel);
+    let same = false; try { same = fs.readFileSync(a).equals(fs.readFileSync(b)); } catch {}
+    if (!same) { fs.mkdirSync(path.dirname(b), { recursive: true }); fs.copyFileSync(a, b); }
+  }
+  if (fresh) {
+    const r = await runTool(p, 'ue4ss.cjs', ['mod', OMNIS_MOD, 'off']);
+    if (!r.ok) panelLog(`BetterOmnis: could not set its switch: ${r.error || 'ue4ss.cjs failed'}`);
+  }
+  return fresh;
+}
+let omnisKey = '', omnisRetry = 0, omnisBusy = false, omnisSaid = '';
+let omnisStatus = { state: 'unknown' };   // for GET /api/state and panel.log
+const omnisSet = (state, detail = '') => { if (omnisStatus.state !== state || omnisStatus.detail !== detail) panelLog(`BetterOmnis: ${state}${detail ? ' - ' + detail : ''}`); omnisStatus = { state, detail, at: Date.now() }; };
+function omnisSay(key, kind, title, text, inGame = false) {
+  if (omnisSaid === key) return;   // once, not on every look
+  omnisSaid = key;
+  note(kind, title, text);
+  panelLog(`BetterOmnis: ${title}: ${text}`);
+  if (inGame) announce(`[Lantern] ${title}: ${text}`);
+}
+async function omnisSync(running) {
+  if (omnisBusy || !LIC.ok()) return;
+  const p = places();
+  if (!p.pkg || !p.gameDir || !p.omnisDir || !p.modDir) return;
+  const paks = OMNIS.paksDir(p.gameDir);
+  // looked at again when a switch, the game, the pak or the game's own pak changed, or at the retry time
+  const key = [statKey(path.join(p.modsDir, 'mods.txt')), statKey(path.join(p.modDir, 'Scripts', 'main.lua')), fs.existsSync(p.omnisDir),
+    running, statKey(path.join(paks, OMNIS.M.pak)), statKey(path.join(paks, OMNIS.M.base.pak))].join('|');
+  if (key === omnisKey && !(omnisRetry && Date.now() >= omnisRetry)) return;
+  omnisBusy = true; omnisKey = key; omnisRetry = 0;
+  try {
+    await omnisInstall(p);   // adds the folder for an existing Lantern install, and brings an older copy up to date
+    if (!fs.existsSync(path.join(p.omnisDir, 'Scripts', 'main.lua'))) return;
+    const want = modListed(p, OMNIS_MOD) || fs.existsSync(path.join(p.omnisDir, 'enabled.txt'));   // as ue4ss.cjs reads it
+    const lantern = fs.existsSync(path.join(p.modDir, 'Scripts', 'main.lua')) && modListed(p);
+    const base = want && lantern ? OMNIS.baseOk(p.gameDir) : true;
+    const target = want && lantern && base;
+    const now = OMNIS.installed(p.gameDir);
+    const why = !want ? '' : !lantern ? 'DFTrainer mod not set up or switched off' : !base ? 'game files changed (game updated?)' : '';
+    if (want && !lantern) omnisSay('blocked', 'mod', 'BetterOmnis needs Lantern', 'Switch on the DFTrainer mod (Lantern Client) on Dauntless Forever\'s Mods page, or press Set up here. Until then the Omnicells stay as they are.', running);
+    else if (want && !base) omnisSay('base', 'error', 'BetterOmnis is paused', 'The game\'s files are not the ones BetterOmnis was made for (game updated?). The Omnicells stay as they are until Lantern is updated for them.');
+    if (target ? now === 'on' : now === 'off') { omnisSet(target ? 'on' : want ? 'blocked' : 'off', why); if (!why) omnisSaid = ''; return; }
+    const game = running || await OMNIS.gameRunning();
+    if (game !== false) {   // true, or could not tell: never change the Paks folder under a running copy
+      omnisRetry = Date.now() + 15000;
+      omnisSet('waiting', `${target ? 'on' : 'off'} when the game is fully closed`);
+      return omnisSay('wait-' + target, 'queued', `BetterOmnis turns ${target ? 'on' : 'off'} when the game is fully closed`, 'The game and its hunt servers load Omnicell values only when they start.', running);
+    }
+    if (target) OMNIS.install(p.gameDir); else OMNIS.remove(p.gameDir);
+    omnisKey = '';   // the pak's stat changed: look again next tick (settles at once)
+    omnisSet(target ? 'on' : want ? 'blocked' : 'off', why || (target ? 'pak in the game' : 'pak taken out'));
+    if (!why) omnisSaid = '';
+    note('applied', target ? 'BetterOmnis on' : 'BetterOmnis off', target ? `${OMNIS.summary()}. Full effect in hunts you host.` : 'Omnicells are back to the game\'s own values.');
+  } catch (e) { omnisSet('error', e.message); omnisRetry = Date.now() + 30000; omnisSay('error:' + e.message, 'error', 'BetterOmnis could not be changed', e.message); }
+  finally { omnisBusy = false; }
+}
+
 // ---------------------------------------------------------------- Host Mode relay fix: retired (3.9.37)
 // 3.9.32-3.9.36 patched one line of DF's backend\recorder-1147.js (addison2k/DauntlessForever#12) and kept DF's
 // original as recorder-1147.js.lantern-original. DF is fixing it itself, so Lantern no longer patches. On a PC it patched,
@@ -1004,7 +1078,7 @@ async function buildState() {
     escalation: running && inEscalation,
     rulesPending: rulesPending(p),
     overlay: { ...overlaySettings(), restoreBossbar: undefined, bossbarBefore: undefined, running: overlayAlive() },
-    slayers: slayersStatus,
+    slayers: slayersStatus, omnis: omnisStatus,
     queue: queue.map((j) => ({ what: describe(j) })), history,
     deliveries: deliveries.filter((d) => d.status === 'saved').map((d) => ({ what: d.what, at: d.at })),
   };
@@ -1026,6 +1100,7 @@ async function tickState() {
     lastRunning = s.running;
     ensureOverlay(s.running);
     slayersSync(s.running).catch(() => {});
+    omnisSync(s.running).catch(() => {});
     try { hostFixUndo(); } catch {}
     try { friendUndo(); } catch {}
   }
