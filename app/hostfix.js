@@ -1,15 +1,9 @@
-// Lantern Client - the Host Mode relay fix. Licence: AGPL-3.0-only.
+// Lantern Client - the Host Mode relay fix, RETIRED in 3.9.37. Licence: AGPL-3.0-only.
 //
-// TEMPORARY, until Dauntless Forever fixes it (addison2k/DauntlessForever#12). In Host Mode DF's backend
-// (backend\recorder-1147.js, GET /candidate/status) gives every game the relay's address for the city and hunt servers,
-// the host's own game too, so the host's game goes out to the relay and back to the same PC (~110 ms instead of ~10).
-// The fix: only joiners (guestRequest: 127.0.0.2 through DF's gateway, or a LAN address) get the relay's address.
-//
-// DF's launcher puts its original file back when it checks its files ("package checked ... WRONG"), usually when it
-// starts. server.js then applies the fix again (hostFixSync). It only ever replaces this one exact line of DF's code:
-// if DF changes that code (a fix of its own, or anything else), Lantern leaves the file alone and says so.
-// To turn it off: "hostFix": false in trainer-settings.json. To retire it once DF has fixed the issue: delete this file
-// and its few lines in server.js (search "hostFix").
+// 3.9.32-3.9.36 patched one line of DF's backend\recorder-1147.js (addison2k/DauntlessForever#12: in Host Mode the
+// host's own game went out to the relay and back). DF is fixing it itself, so Lantern no longer patches anything.
+// This file only lets server.js (hostFixUndo) recognise Lantern's old fix and DF's original, to put DF's original back
+// on a PC that was patched. Delete it, and hostFixUndo in server.js, once everyone has updated past 3.9.37.
 'use strict';
 const MARK = 'DF-HOSTLOCAL';
 const OLD = "if (srv) out.serverInfo = { buildId: cd.buildId, gameSessionId: cd.gameSessionId, host: (PUBLIC_HOST && (!srv.host || srv.host === '127.0.0.1')) ? PUBLIC_HOST : (srv.host || '127.0.0.1'), port: srv.port + (PUBLIC_HOST ? PUBLIC_PORT_OFFSET : 0) };";
