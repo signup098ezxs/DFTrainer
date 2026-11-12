@@ -25,6 +25,7 @@ const LIVE = require('./live.js');
 const { protectedIds, isStarter } = require('./protect.js');
 const BUILDS = require('./builds/index.js');
 const GAMETEXT = require('./gametext.js');
+const STACKS = require('./stacks.js');
 // Installed by the launcher, each version lives in its own folder (app\<version>): settings live one level up, in the
 // install folder (DFT_ROOT), so updates keep them. Started by hand (node server.js), they stay next to this file.
 const ROOT = process.env.DFT_ROOT || null;
@@ -142,7 +143,8 @@ function catalog(p) {
     const type = g[2] === 'Emotes' && /^EM_INTRO_/.test(g[0]) ? 'Hunt arrivals' : g[2];
     return [g[0], named ? names.get(g[0]) : g[0], type, GEAR_KINDS.has(g[2]) ? 0 : 1, named ? 0 : 1];   // id, name, type, cosmetic, unnamed
   });
-  for (const grp of readJson(path.join(p.pkg, 'items.json'), {}).groups || []) for (const i of grp.items || []) names.set(i.id, i.name);
+  const curated = new Set();   // the Currencies page's own list
+  for (const grp of readJson(path.join(p.pkg, 'items.json'), {}).groups || []) for (const i of grp.items || []) { names.set(i.id, i.name); curated.add(i.id); }
   // items.json calls it "Cell Dust"; in game it is Aetherdust (UI::Common.CellDust), the currency Timeweave crafting costs
   if (text.get('UI::Common.CellDust')) names.set(PARTS.AETHERDUST, text.get('UI::Common.CellDust'));
   // the game's crafting table (recipe per item: craft, then upgrades), for gear whose parts come from other behemoths
@@ -154,7 +156,7 @@ function catalog(p) {
   // ARMSTRONG -> Torgadoro, from the game's own item names; then (trusted more) MANTIS -> Sahvyt from its armour
   // descriptions in the game text, "forged from Sahvyt trophies" (3.9.26: Sahvyt, Frostwülf, Urska, Phaelanx, Alyra)
   const codeNames = new Map([...BEHEMOTHS.namesFromItems(full), ...BEHEMOTHS.namesFromTrophies(full, (i) => GAMETEXT.description(text, i))]);
-  CATALOG = { gear, names, storage, groupOf, types, behemoths, codeNames, recipes,
+  CATALOG = { gear, names, storage, groupOf, types, behemoths, codeNames, recipes, full, curated,
     get live() { return live || (live = { storage, picker: new Set(gear.map((g) => g[0])), cosmetics: gear.filter((g) => g[3]).map((g) => g[0]) }); } };
   CATALOG_KEY = key;
   return CATALOG;
@@ -191,6 +193,12 @@ function cells(p) {
   }
   c.cells = out;
   return out;
+}
+// every other counted item (behemoth parts, tokens, curiosities, materials...): the Currencies page's full list (stacks.js)
+function stacks(p) {
+  const c = catalog(p);
+  if (!c.stacks) c.stacks = STACKS.build(c.full, c.names, new Set([...c.live.picker, ...c.curated, ...cells(p).map((x) => x[0])]));
+  return c.stacks;
 }
 
 // ---------------------------------------------------------------- weapon levels
@@ -1192,7 +1200,7 @@ const routes = {
     const p = places(); if (!p.pkg) return { ok: false };
     const groups = (readJson(path.join(p.pkg, 'items.json'), {}).groups || []);
     const c = catalog(p);
-    return { ok: true, build: GAME_BUILD, gear: c.gear, types: c.types, groups, rules: rulesInfo(p), cells: cells(p) };
+    return { ok: true, build: GAME_BUILD, gear: c.gear, types: c.types, groups, rules: rulesInfo(p), cells: cells(p), stacks: stacks(p) };
   },
   // Meta Build Creator (anyone with a key): the choices, and a build for them (made in a worker thread)
   'GET /api/builds/options': async () => ({ ok: true, ...BUILDS.options() }),
@@ -1240,7 +1248,15 @@ const routes = {
   'POST /api/items': async (b) => {
     const p = places(); if (!p.pkg) return { ok: false, error: 'Package not found.' };
     const bad = validJob(b); if (bad) return { ok: false, error: bad };
-    const job = { action: b.action, character: String(b.character), list: b.list, counts: b.counts, label: String(b.label || '').slice(0, 120) || undefined };
+    // counts only for counted items (the Currencies page's list, cells, and every other stacked item): a count on gear,
+    // a cosmetic, a break record or an unknown id would write a broken stack to the save
+    if (COUNTED.has(b.action)) {
+      const c = catalog(p);
+      if (!c.counted) c.counted = new Set([...c.curated, ...cells(p).map((x) => x[0]), ...stacks(p).items.map((x) => x[0])]);
+      const wrong = Object.keys(b.counts).filter((id) => !c.counted.has(id));
+      if (wrong.length) return { ok: false, error: `Not a counted item in the 1.14.7 catalog: ${wrong.slice(0, 3).join(', ')}${wrong.length > 3 ? ` and ${wrong.length - 3} more` : ''}.` };
+    }
+    const job ={ action: b.action, character: String(b.character), list: b.list, counts: b.counts, label: String(b.label || '').slice(0, 120) || undefined };
     if (await backendUp(0)) return giveLive(p, job);
     if (queue.length) { enqueue(job); return { ok: true, queued: true }; }
     const r = await applyJob(p, job);

@@ -1,5 +1,5 @@
 {
-  "version": "3.9.40",
+  "version": "3.9.41",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "New mod: BetterOmnis. Switch it on in Dauntless Forever's Mods page (needs Lantern's mod on) for small Omnicell passive buffs: Bastion shields 18%, Iceborne +125 health, Discipline healing penalty 45%, Tempest attack speed 15%, Revenant lifesteal 3%. Actives unchanged; the disc shows the new numbers. Changes apply with the game fully closed; full effect in hunts you host."
+  "notes": "Currencies page: new \"Every other counted item\" list with the rest of the 1.14.7 catalog's counted items (909 more): behemoth parts, tokens, quest and rumour tokens, curiosities and other materials, with search and categories. Set any amount and Apply, offline or while you play. Test and unnamed items stay hidden unless you switch them on. Counts are now refused for anything that is not a counted item (gear, cosmetics, break records), so a wrong id can't reach your save."
 }

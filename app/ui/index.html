@@ -604,6 +604,9 @@ input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border: 0; bord
 .cur input:focus { border-color: rgba(var(--a-rgb), .5); }
 .cur input.changed { color: var(--aether); border-color: rgba(var(--a-rgb), .55); box-shadow: 0 0 16px -4px rgba(var(--a-rgb), .55); }
 .cur input.flash { animation: flash .6s var(--ease); }
+#moreWrap { margin-top: 6px; }
+#moreWrap .group { margin-bottom: 10px; }
+.cur .tag { height: 18px; padding: 0 7px; margin: 0 0 0 6px; font-size: 11px; vertical-align: 1px; }
 @keyframes flash { 0% { box-shadow: 0 0 0 0 rgba(var(--a-rgb), .9); } 100% { box-shadow: 0 0 16px -4px rgba(var(--a-rgb), .55); } }
 .chipbtn { height: 30px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--seam2); background: none; color: var(--ash); font: 600 12.5px var(--display); transition: color .2s, border-color .2s; }
 .chipbtn:hover { color: var(--aether); border-color: rgba(var(--a-rgb), .45); }
@@ -963,8 +966,18 @@ div.lrow { cursor: default; }
 
     <!-- CURRENCIES -->
     <section id="tab-currency">
-      <div class="head"><div><h2>Currencies and materials</h2><p class="lede">Set any amount, then apply. Works while you play.</p></div><span class="grow"></span><button class="btn" id="maxAll">Max everything</button><button class="btn primary" id="applyCur" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"/></svg>Apply changes</button></div>
+      <div class="head"><div><h2>Currencies and materials</h2><p class="lede">Set any amount, then apply. Works while you play.</p></div><span class="grow"></span><button class="btn" id="maxAll" title="Every currency in the list at the top (not the parts and tokens further down)">Max everything</button><button class="btn primary" id="applyCur" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"/></svg>Apply changes</button></div>
       <div class="wrap" id="groups"></div>
+      <div class="wrap" id="moreWrap">
+        <div class="group"><h4>Every other counted item</h4><p class="lede" id="moreInfo">Behemoth parts, tokens, curiosities and other materials from the 1.14.7 catalog. Changes join the list above: Apply changes sets them all.</p></div>
+        <div class="toolbar">
+          <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="mq" placeholder="Search parts, tokens, materials..." autocomplete="off" spellcheck="false"></div>
+          <label class="opt"><span class="sw sm"><input type="checkbox" id="mTemp"><span class="track"></span><span class="knob"></span></span>Unnamed and test items</label>
+        </div>
+        <div class="cats" id="mCats"></div>
+        <div class="listhead"><span id="mCount"></span></div>
+        <div class="list" id="more"></div>
+      </div>
     </section>
 
     <!-- PARTS: behemoth parts for the gear equipped now -->
@@ -1666,7 +1679,7 @@ function tourSteps() {
     { target: '#charSel', title: 'Who gets it', body: '<p>Pick which character receives gifts, or all of them. While you play, it follows the character you are on.</p>' },
     { tab: 'parts', target: 'nav > button[data-tab="parts"]', title: 'Parts', body: '<p>Every behemoth part for the weapon and armour you have equipped, up to <b>90 of each</b>, in one press. Parts only: no other materials. Works while you play.</p>' },
     { tab: 'bounties', target: 'nav > button[data-tab="bounties"]', title: 'Bounties', body: '<p>Your four slots: what each bounty asks, its rewards and its progress. Pick a slot, pick any bounty, and it goes in with no draft and no token. Rewards are still claimed in game.</p>' },
-    { tab: 'currency', target: '#tab-currency .head', title: 'Currencies and materials', body: '<p>Type any amount of Rams, Merits, tokens, materials and cell cores, then press <b>Apply changes</b>. <b>Max everything</b> fills them all. Works while you play.</p>' },
+    { tab: 'currency', target: '#tab-currency .head', title: 'Currencies and materials', body: '<p>Type any amount of Rams, Merits, tokens, materials and cell cores, then press <b>Apply changes</b>. <b>Max everything</b> fills the currencies at the top. Below them, <b>Every other counted item</b> has the rest of the catalog: behemoth parts, tokens, curiosities and materials. Works while you play.</p>' },
     { tab: 'rules', target: '#rules > :first-child', title: 'Game rules', body: '<p>XP speeds (weapons, Hunt Pass, mastery), reward amounts (materials, Rams, Merits, Rare Cores), free crafting, free platinum and extra loadout slots. Pick a setting and it is saved; it applies the next time you press <b>Play</b>.</p>' },
     { tab: 'builds', target: 'nav > button[data-tab="builds"]', title: 'Build Creator', body: '<p>Answer a few questions (goals, weapon, target, play style) and get a full 1.14.7 build: weapon, armour, cells, lantern and Omnicell, checked against the game\'s rules, with why each piece is there and where the data comes from.</p>' },
     { tab: 'feed', target: 'nav > button[data-tab="feed"]', title: 'Live feed', body: '<p>Everything that reaches your game, as it happens: gifts delivered, the mod connecting, updates. Turn on <b>desktop alerts</b> there to see them while you are in game.</p>' },
@@ -2454,19 +2467,52 @@ function renderCur() {
     return `<div class="cur"><div>${esc(i.name)}<small>${esc(i.blurb || i.id)}</small></div><input data-id="${esc(i.id)}" inputmode="numeric" value="${v.toLocaleString('en-US')}" class="${edits[i.id] != null ? 'changed' : ''}" aria-label="${esc(i.name)}"><button class="chipbtn" data-max="${esc(i.id)}">Max</button></div>`;
   }).join('')}</div></div>`).join('');
   $('#applyCur').disabled = !Object.keys(edits).length;
+  renderMore();
 }
-$('#groups').addEventListener('input', (e) => {
+// every other counted item (CAT.stacks: [id, name, kind, unnamed, test]), set with the same edits and Apply changes
+let mCat = '', mShown = 120, moreDeferred = false;
+function moreFiltered() {
+  const q = $('#mq').value.trim().toLowerCase(), temp = $('#mTemp').checked;
+  return CAT.stacks.items.filter((s) => (q ? true : s[2] === mCat) && (temp || (!s[3] && !s[4])) && (!q || s.key.includes(q)));
+}
+function renderMore() {
+  if (!CAT || !CAT.stacks) return;
+  const f = document.activeElement;
+  if (f && f.tagName === 'INPUT' && $('#more').contains(f)) { moreDeferred = true; return; }
+  moreDeferred = false;
+  const temp = $('#mTemp').checked, q = $('#mq').value, n = {};
+  for (const s of CAT.stacks.items) if (temp || (!s[3] && !s[4])) n[s[2]] = (n[s[2]] || 0) + 1;
+  const kinds = CAT.stacks.kinds.filter((k) => n[k]);
+  if (!kinds.includes(mCat)) mCat = kinds[0] || '';
+  $('#mCats').innerHTML = kinds.map((k) => `<button data-c="${esc(k)}" class="${k === mCat && !q ? 'on' : ''}">${esc(k)}<em>${n[k]}</em></button>`).join('');
+  const list = moreFiltered();
+  $('#mCount').textContent = `${list.length.toLocaleString()} item${list.length === 1 ? '' : 's'}${q ? ' found' : ' in ' + mCat}`;
+  $('#more').innerHTML = (list.slice(0, mShown).map((s) => {
+    const v = edits[s[0]] ?? curOf(s[0]);
+    const tag = s[4] ? ' <span class="tag dim" title="Marked do-not-use, test or not checked in game">Test</span>' : s[3] ? ' <span class="tag dim" title="No in-game name: the name is made from the item id">Name unknown</span>' : '';
+    return `<div class="cur"><div>${esc(s[1])}${tag}<small>${esc(s[0])}${q ? ', ' + esc(s[2]) : ''}</small></div><input data-id="${esc(s[0])}" inputmode="numeric" value="${v.toLocaleString('en-US')}" class="${edits[s[0]] != null ? 'changed' : ''}" aria-label="${esc(s[1])}"><button class="chipbtn" data-max="${esc(s[0])}">Max</button></div>`;
+  }).join('') || '<div class="empty">Nothing matches. Try part of a name, like "hide" or "token".</div>')
+    + (list.length > mShown ? `<div class="more"><button class="link" id="mMore">Show ${Math.min(300, list.length - mShown)} more</button></div>` : '');
+  const m = $('#mMore'); if (m) m.onclick = () => { SFX.tick(); mShown += 300; renderMore(); };
+}
+$('#mCats').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; SFX.tick(); mCat = b.dataset.c; $('#mq').value = ''; mShown = 120; renderMore(); });
+let mqt; $('#mq').addEventListener('input', () => { clearTimeout(mqt); mqt = setTimeout(() => { mShown = 120; renderMore(); }, 110); });
+$('#mTemp').addEventListener('change', (e) => { e.target.checked ? SFX.switchOn() : SFX.switchOff(); mShown = 120; renderMore(); });
+$('#more').addEventListener('focusout', () => { if (moreDeferred) setTimeout(() => { if (moreDeferred) renderMore(); }, 0); });
+['#groups', '#more'].forEach((box) => {
+$(box).addEventListener('input', (e) => {
   const i = e.target.closest('input'); if (!i) return;
   const n = Math.max(0, Math.min(MAXV, Math.floor(Number(i.value.replace(/[^\d]/g, '')) || 0)));
   if (n === curOf(i.dataset.id)) delete edits[i.dataset.id]; else edits[i.dataset.id] = n;
   i.classList.toggle('changed', edits[i.dataset.id] != null); $('#applyCur').disabled = !Object.keys(edits).length;
 });
-$('#groups').addEventListener('focusout', (e) => { const i = e.target.closest('input'); if (i) i.value = (edits[i.dataset.id] ?? curOf(i.dataset.id)).toLocaleString('en-US'); });
-$('#groups').addEventListener('click', (e) => {
+$(box).addEventListener('focusout', (e) => { const i = e.target.closest('input'); if (i) i.value = (edits[i.dataset.id] ?? curOf(i.dataset.id)).toLocaleString('en-US'); });
+$(box).addEventListener('click', (e) => {
   const b = e.target.closest('[data-max]'); if (!b) return;
   SFX.step(4); edits[b.dataset.max] = MAXV;
   const i = b.parentElement.querySelector('input'); i.value = MAXV.toLocaleString('en-US'); i.classList.add('changed'); i.classList.remove('flash'); void i.offsetWidth; i.classList.add('flash');
   $('#applyCur').disabled = false;
+});
 });
 $('#groups').addEventListener('focusout', () => { if (curDeferred) setTimeout(() => { if (curDeferred) renderCur(); }, 0); });
 $('#maxAll').onclick = () => { SFX.step(5); CAT.groups.forEach((g) => (g.items || []).forEach((i) => { edits[i.id] = MAXV; })); renderCur(); $$('#groups input').forEach((i) => i.classList.add('flash')); };
@@ -2682,6 +2728,7 @@ $('#charSel').addEventListener('change', () => { ownedCache = null; charPicked =
 
 function prepCatalog(c) {
   for (const g of c.gear) { g.key = (g[1] + ' ' + g[0]).toLowerCase(); g.test = /^\[(temp|test|wip|dev)\]/i.test(g[1]); }
+  for (const s of (c.stacks && c.stacks.items) || []) s.key = (s[1] + ' ' + s[0]).toLowerCase();
   return c;
 }
 async function loadAll() {
