@@ -1,6 +1,6 @@
 {
  "pak": "zzzzzzzzzzzzzzzz_BetterOmnis_P.pak",
- "sha256": "189ce1a8bb87fa3cf6309f6fdde7997cb28ffb277c6442e7da978710443d375d",
+ "sha256": "daba143e25f7f4a87adec130125e61000f82f3d4e7a8044fac95af745545fa50",
  "game": "1.14.7",
  "base": {
   "pak": "Archon_0-WindowsClient.pak",
@@ -52,6 +52,26 @@
    {
     "offset": 29230326,
     "sha1": "f6bd9ae7f9f7d21d5785e45d56857220fcbc8b8c"
+   },
+   {
+    "offset": 21325824,
+    "sha1": "6b071ffe1a913a85b597729b3295c9d785fa2412",
+    "pak": "Archon_0-WindowsClient.pak"
+   },
+   {
+    "offset": 29636608,
+    "sha1": "445726aabd2c3f7ed65a70f6924315ff06e6da6e",
+    "pak": "Archon_0-WindowsClient.pak"
+   },
+   {
+    "offset": 1175552,
+    "sha1": "73c1762c135c6f9c27d2067bf6a2807d3f508b55",
+    "pak": "Archon_24-WindowsClient.pak"
+   },
+   {
+    "offset": 65841152,
+    "sha1": "2a487d45b4840c8c0033b947437eff7b28eb111b",
+    "pak": "Archon_24-WindowsClient.pak"
    }
   ]
  },
@@ -84,7 +104,13 @@
    "omnicell": "Revenant",
    "what": "Lifesteal",
    "from": 2,
-   "to": 3
+   "to": 5
+  },
+  {
+   "omnicell": "Revenant",
+   "what": "new Blood Ward passive (below 50% health: 23% less damage taken, +8% lifesteal)",
+   "from": null,
+   "to": null
   }
  ]
 }

@@ -1,5 +1,5 @@
 {
-  "version": "3.9.41",
+  "version": "3.9.42",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Currencies page: new \"Every other counted item\" list with the rest of the 1.14.7 catalog's counted items (909 more): behemoth parts, tokens, quest and rumour tokens, curiosities and other materials, with search and categories. Set any amount and Apply, offline or while you play. Test and unnamed items stay hidden unless you switch them on. Counts are now refused for anything that is not a counted item (gear, cosmetics, break records), so a wrong id can't reach your save."
+  "notes": "BetterOmnis: Revenant is much stronger. Lifesteal 3% -> 5%, and a new passive, Blood Ward: below 50% health you take 23% less damage and gain +8% lifesteal. Umbral Pact is unchanged. Switch BetterOmnis on (or keep it on); Lantern swaps the pak in when the game is fully closed. Full effect in hunts you host."
 }

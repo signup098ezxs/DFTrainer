@@ -857,7 +857,7 @@ async function omnisSync(running) {
   const paks = OMNIS.paksDir(p.gameDir);
   // looked at again when a switch, the game, the pak or the game's own pak changed, or at the retry time
   const key = [statKey(path.join(p.modsDir, 'mods.txt')), statKey(path.join(p.modDir, 'Scripts', 'main.lua')), fs.existsSync(p.omnisDir),
-    running, statKey(path.join(paks, OMNIS.M.pak)), statKey(path.join(paks, OMNIS.M.base.pak))].join('|');
+    running, statKey(path.join(paks, OMNIS.M.pak)), ...OMNIS.basePaks().map((k) => statKey(path.join(paks, k)))].join('|');
   if (key === omnisKey && !(omnisRetry && Date.now() >= omnisRetry)) return;
   omnisBusy = true; omnisKey = key; omnisRetry = 0;
   try {

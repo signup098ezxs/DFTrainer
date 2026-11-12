@@ -79,7 +79,9 @@ BETTEROMNIS
   Small buffs to Omnicell passives, a mod of its own, BetterOmnis, on Dauntless Forever's Mods page next to Lantern
   Client's (DFTrainer). Actives are not changed, and the disc shows the new numbers:
     Bastion shields received 15% -> 18%, Iceborne health +100 -> +125, Discipline healing penalty 50% -> 45%,
-    Tempest attack speed 10% -> 15% (also speeds the Storm Dash animation), Revenant lifesteal 2% -> 3%.
+    Tempest attack speed 10% -> 15% (also speeds the Storm Dash animation), Revenant lifesteal 2% -> 5%.
+  Revenant also gets a new passive, Blood Ward: below 50% health you take 23% less damage and gain +8% lifesteal
+  (Revenant State still blocks all healing). Its disc text is English in every language.
   Switch it on and Lantern Client puts its pak (zzzzzzzzzzzzzzzz_BetterOmnis_P.pak) in Archon\Content\Paks; off takes it
   out. Changes wait until the game and its hunt servers are fully closed. It needs Lantern Client running and the
   DFTrainer mod on: without them the pak is taken out. After a game update that changes those files it pauses itself.

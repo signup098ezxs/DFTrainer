@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // BetterOmnis: small buffs to Omnicell passives (actives untouched), as one override pak in the game's Paks folder.
 // betteromnis/ holds the pak and betteromnis.json (built by tools/betteromnis/build.py; each buff changes the gameplay
-// value and the disc number together). The pak replaces 12 files of Archon_0-WindowsClient.pak; it is only put in
-// while that pak still has exactly the files it was made from (fingerprints in betteromnis.json), so a game update
+// value and the disc number together). The pak replaces 14 files of the game's paks and adds one (Revenant's Blood Ward); it is only put in
+// while those paks still have exactly the files it was made from (fingerprints in betteromnis.json), so a game update
 // never gets stale copies. Taking it out = deleting the file. Never while any copy of the game runs: the game and its
 // hunt servers read the Paks folder only when they start.
 const fs = require('fs');
@@ -18,17 +18,22 @@ const GAME_EXE = 'Dauntless-Win64-Shipping.exe';   // your game and each hunt se
 const paksDir = (gameDir) => path.join(gameDir, 'Archon', 'Content', 'Paks');
 const sha256 = (f) => crypto.createHash('sha256').update(fs.readFileSync(f)).digest('hex');
 
-// the game's own pak still has the files the buffs were made from (reads 53 bytes per file: the entry header's SHA-1)
+// the game's own paks still have the files the buffs were made from (reads 53 bytes per file: the entry header's
+// SHA-1). An entry names its pak when it is not M.base.pak (Revenant's catalog row is in Archon_24).
 function baseOk(gameDir) {
-  let fd;
-  try {
-    fd = fs.openSync(path.join(paksDir(gameDir), M.base.pak), 'r');
-    const h = Buffer.alloc(53);
-    for (const e of M.base.entries) {
-      if (fs.readSync(fd, h, 0, 53, e.offset) !== 53 || h.subarray(28, 48).toString('hex') !== e.sha1) return false;
-    }
-    return true;
-  } catch { return false; } finally { if (fd !== undefined) try { fs.closeSync(fd); } catch {} }
+  const byPak = new Map();
+  for (const e of M.base.entries) { const k = e.pak || M.base.pak; if (!byPak.has(k)) byPak.set(k, []); byPak.get(k).push(e); }
+  for (const [pak, entries] of byPak) {
+    let fd;
+    try {
+      fd = fs.openSync(path.join(paksDir(gameDir), pak), 'r');
+      const h = Buffer.alloc(53);
+      for (const e of entries) {
+        if (fs.readSync(fd, h, 0, 53, e.offset) !== 53 || h.subarray(28, 48).toString('hex') !== e.sha1) return false;
+      }
+    } catch { return false; } finally { if (fd !== undefined) try { fs.closeSync(fd); } catch {} }
+  }
+  return true;
 }
 // 'on' = this version's pak is in; 'old' = a pak by that name with other bytes (an earlier BetterOmnis); 'off' = none
 function installed(gameDir) {
@@ -55,6 +60,7 @@ function gameRunning() {
     });
   });
 }
-const summary = () => M.buffs.map((b) => `${b.omnicell} ${b.what.toLowerCase()} ${b.from} -> ${b.to}`).join(', ');
+const summary = () => M.buffs.map((b) => (b.from == null ? `${b.omnicell}: ${b.what}` : `${b.omnicell} ${b.what.toLowerCase()} ${b.from} -> ${b.to}`)).join(', ');
+const basePaks = () => [...new Set(M.base.entries.map((e) => e.pak || M.base.pak))];   // the game paks it was made from
 
-module.exports = { M, baseOk, installed, install, remove, gameRunning, summary, paksDir };
+module.exports = { M, baseOk, installed, install, remove, gameRunning, summary, paksDir, basePaks };
