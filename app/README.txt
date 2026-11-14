@@ -97,9 +97,8 @@ MODEL SWAPS
   (downloading needs a free Sketchfab account: its API token, which "Open my token page" shows you, is kept on your
   PC and sent only to Sketchfab; searching needs no account); a folder someone else converted can be copied
   into the library folder the tab names; "Add a character" converts a glTF model file (.gltf / .glb, a humanoid
-  standing in a T-pose or A-pose, with or without a skeleton). Converting needs Python 3 with numpy and Pillow, and
-  once the Oodle library (oo2core_9_win64.dll, not shipped with the game) to read four of the game's own files;
-  characters copied from someone else need neither. Lantern hosts no models: each one keeps its author, licence
+  standing in a T-pose or A-pose, with or without a skeleton). Converting needs Python 3 with numpy and Pillow (python -m pip install numpy pillow);
+  characters copied from someone else do not. Lantern hosts no models: each one keeps its author, licence
   and Sketchfab page in its model.json.
   How: each character is a pak of its own in Archon\Content\Paks (LanternModel_<id>_P.pak: new files under
   /Game/Lantern/ModelSwaps/, nothing of the game replaced). In the game, Lantern's native library draws it on a part

@@ -26,7 +26,13 @@ def pak(files):   # pak v8, uncompressed: the layout Dauntless Forever's own pak
 
 
 def templates(cache, paks, oodle):   # the Dauntless packages the character's files are copied from
-    cache = Path(cache); want = [t + ext for t in build.TEMPLATES for ext in ('.uasset', '.uexp')]
+    want = [t + ext for t in build.TEMPLATES for ext in ('.uasset', '.uexp')]
+    # they come with the converter (templates\, 590 KB, from Dauntless 1.14.7), so nothing has to be read from the
+    # game: its paks are Oodle-compressed and the game ships no Oodle library (a user hit exactly that, 14 Nov 2026).
+    # Reading them from the game's own paks stays as the way for a copy of the converter without that folder.
+    shipped = Path(__file__).resolve().parent / 'templates'
+    if all((shipped / w).exists() for w in want): return shipped
+    cache = Path(cache)
     if all((cache / w).exists() for w in want): return cache
     if not oodle or not os.path.exists(oodle): raise fit.Unfit('the game files could not be read: no Oodle library (oo2core_9_win64.dll) was given')
     pakex.OODLE = oodle; left = set(want)

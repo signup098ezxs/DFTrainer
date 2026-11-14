@@ -1,5 +1,5 @@
 {
-  "version": "3.9.45",
+  "version": "3.9.46",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Model Swaps: an \"Open my token page\" button next to the Sketchfab token field. It opens the page of your Sketchfab account that shows your API token, in your browser: copy it, paste it, done."
+  "notes": "Model Swaps: adding a character from Sketchfab or from a file no longer asks for an Oodle library (\"the game files could not be read\"). The four game files the converter starts from now come with Lantern. Converting still needs Python with numpy and Pillow."
 }
