@@ -143,7 +143,8 @@ async function convert({ lib, file, id, name, game, author, description, source,
   id = ID.test(String(id || '')) ? id : idFrom(name || path.basename(path.dirname(file)));
   const tmp = path.join(lib, '.converting');
   fs.rmSync(tmp, { recursive: true, force: true }); fs.mkdirSync(tmp, { recursive: true });
-  const args = ['-I', '-B', path.join(TOOL_DIR, 'convert.py'),   // -B: no compiled files written into Lantern's folder file, '--id', id, '--out', tmp, '--name', str(name, 60) || id, '--cache', cache, '--paks', paks];
+  // -I: only the converter's own folder is importable; -B: no compiled files written into Lantern's folder
+  const args = ['-I', '-B', path.join(TOOL_DIR, 'convert.py'), file, '--id', id, '--out', tmp, '--name', str(name, 60) || id, '--cache', cache, '--paks', paks];
   for (const [k, v] of [['game', game], ['author', author], ['description', description], ['source', source], ['license', license]]) if (str(v, 400)) args.push('--' + k, str(v, 400));
   if (oodle) args.push('--oodle', oodle);
   const r = await run(py, args, 600000);
