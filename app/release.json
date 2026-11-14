@@ -1,5 +1,5 @@
 {
-  "version": "3.9.49",
+  "version": "3.9.50",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Model Swaps: shoulders, collars and hoods no longer bend with the head. The converter bound everything at chin height to the head bone; now only the head, the neck and the hair follow it. Characters added before this update keep the old binding: add them again (from Sketchfab or from the file) to get the fix."
+  "notes": "Model Swaps: the head now turns on the character's own neck. Its joint was placed where a Slayer carries the head, so a character that carries it further back swung off its collar when it turned; the turn is also spread over the neck instead of wrung at one height. Characters added before this update keep the old binding: add them again to get the fix."
 }

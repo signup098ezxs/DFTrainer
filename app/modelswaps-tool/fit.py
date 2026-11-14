@@ -116,8 +116,15 @@ def landmarks(P, s, joints=None, given=None):
             w = c[:, 0].max() - c[:, 0].min()
             if best is None or w < best[0]: best = (w, z)
     z_neck = best[1] if best else z_sh + 0.25 * (H - z_sh)
-    L['head'] = np.array([0.0, S('head')[1], z_neck + 0.015 * H])
-    for b, f in (('neck_01', 0.45), ('neck_02', 0.75)): L[b] = np.array([0.0, S(b)[1], z_sh + f * (L['head'][2] - z_sh)])
+    # the head turns about its joint, so the joint must sit under the model's own head, front to back: a model that
+    # carries its head further back than the Slayer had the joint 8 cm in front of its neck, and the head swung off
+    # the collar when it turned (the user's screenshot, 14 Nov 2026). The neck joints lead there from the chest.
+    zh = z_neck + 0.015 * H
+    skull = col[(col[:, 2] > zh + 0.02 * H) & (col[:, 2] < zh + 0.12 * H)]   # chin to brow, without the hair's top
+    yh = (skull[:, 1].min() + skull[:, 1].max()) / 2 if len(skull) >= 6 else S('head')[1]
+    L['head'] = np.array([0.0, yh, zh])
+    y0 = S('spine_03')[1]
+    for b, f in (('neck_01', 0.45), ('neck_02', 0.75)): L[b] = np.array([0.0, y0 + f * (yh - y0), z_sh + f * (zh - z_sh)])
     for sd in ('_l', '_r'): L['clavicle' + sd] = S('clavicle' + sd) + (L['upperarm' + sd] - S('upperarm' + sd))
     for b in ('upperarm', 'lowerarm', 'hand', 'tip', 'thigh', 'calf', 'foot', 'clavicle'):   # a body is the same on both sides
         l, r = L[b + '_l'], L[b + '_r']; m = np.array([(abs(l[0]) + abs(r[0])) / 2, (l[1] + r[1]) / 2, (l[2] + r[2]) / 2])
@@ -401,7 +408,10 @@ def bind(parts, s, given=None, log=print):
     # the head is rigid: one bone, with a short blend down the neck. Hands: a short blend at the wrist, then fingers
     t = head_share(P, np.concatenate([q['I'] + o for q, o in zip(parts, np.cumsum([0] + [len(q['P']) for q in parts[:-1]]))]), L,
                    np.concatenate([np.full(len(q['P']), i) for i, q in enumerate(parts)]))
-    Wt *= (1 - t)[:, None]; Wt[:, s.i('head')] += t
+    # up the neck the share passes through the upper neck bone: the game turns the head with both neck bones and the
+    # head together, so the twist spreads over the neck's length instead of wringing it at one height
+    wh = np.where(t >= 1, 1.0, np.clip(2 * t - 1, 0, 1)); wn = np.where((t > 0) & (t < 1), 1 - np.abs(2 * t - 1), 0.0)
+    Wt *= (1 - wh - wn)[:, None]; Wt[:, s.i('head')] += wh; Wt[:, s.i('neck_02')] += wn
     for sd in ('_l', '_r'):
         a, b, tip = L['lowerarm' + sd], L['hand' + sd], L['tip' + sd]; d = (tip - b) / np.linalg.norm(tip - b)
         side = P[:, 0] * (1 if sd == '_l' else -1) > abs(L['upperarm_l'][0])
