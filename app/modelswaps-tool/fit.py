@@ -167,6 +167,59 @@ def sides(parts, z_hip):
     return out, np.concatenate(sides_)
 
 
+def head_share(P, T, L, part=None):
+    """How much each vertex follows the head bone (0..1).
+    A height limit alone is wrong: the tops of the shoulders, a collar and a hood are as high as the chin, and bound
+    to the head they shear every time it turns (the user's "his shoulders are messed up", 14 Nov 2026). So:
+      - the upper head (a quarter of the way up from the head joint and higher) follows the head; everything below
+        the neck line does not;
+      - in between, inside the neck's own column, the
+        share rises with height, as a neck bends;
+      - in between and outside that column, a vertex goes with whichever is nearer ALONG THE MESH: the upper head (a
+        hair strand hanging by the jaw is, through the hair) or the chest (a collar or hood is, through the jacket).
+    Along the mesh means from triangle to triangle across shared edges, with corners at the same place counted as
+    one (many models are exported as loose triangles). Whole pieces or materials cannot decide it: a model's hair, hood and trousers
+    can all be one welded piece and share a material."""
+    import heapq
+    hz, nz, top = L['head'][2], L['neck_01'][2], P[:, 2].max()
+    ramp = np.clip((P[:, 2] - nz) / max(hz - nz, 1e-6), 0, 1)
+    ring = P[(np.abs(P[:, 0]) < abs(L['upperarm_l'][0])) & (P[:, 2] > hz - 2.5) & (P[:, 2] < hz + 1.0)]
+    if len(ring) < 3: return ramp * (np.abs(P[:, 0]) < abs(L['upperarm_l'][0]) * 1.6)
+    # the neck: the middle of that ring, as wide as its narrower side
+    cx, cy = (ring[:, 0].min() + ring[:, 0].max()) / 2, (ring[:, 1].min() + ring[:, 1].max()) / 2
+    neck = float(np.clip(min(ring[:, 0].max() - ring[:, 0].min(), ring[:, 1].max() - ring[:, 1].min()) / 2, 3.0, 9.0))
+    cone = np.hypot(P[:, 0] - cx, P[:, 1] - cy) < neck * 1.15   # the neck's own column: no wider, a hood's rim sits right around it
+    upper = P[:, 2] > hz + 0.25 * (top - hz); chest = P[:, 2] < nz - 3.0
+    key = {}; weld = np.empty(len(P), int)
+    for i, q in enumerate(map(tuple, np.round(P / 0.05).astype(int))): weld[i] = key.setdefault(q, i)
+    # triangles are neighbours when they share an edge (two corners at the same places), not when they only touch at
+    # a point: a hair strand resting on a hood must not join the two
+    W = weld[T]; cen = P[T].mean(1); edge = {}
+    for t, tri in enumerate(W):
+        for u, v in ((tri[0], tri[1]), (tri[1], tri[2]), (tri[2], tri[0])):
+            if u != v: edge.setdefault((u, v) if u < v else (v, u), []).append(t)
+    nbr = [[] for _ in range(len(W))]
+    for ts in edge.values():
+        for i in ts[:6]:
+            for j in ts[:6]:
+                if i != j: nbr[i].append((j, float(np.linalg.norm(cen[i] - cen[j]))))
+    def spread(seed):   # distance along the mesh from the nearest seed triangle, per triangle
+        dist = np.full(len(W), np.inf); heap = [(0.0, int(t)) for t in np.nonzero(seed)[0]]
+        while heap:
+            d, u = heapq.heappop(heap)
+            if d >= dist[u]: continue
+            dist[u] = d
+            for v, w in nbr[u]:
+                if d + w < dist[v]: heapq.heappush(heap, (d + w, v))
+        return dist
+    th, tc = spread(upper[T].all(1)), spread(chest[T].all(1))
+    # a vertex goes with the head when the triangles it is a corner of are nearer the upper head than the chest
+    vh = np.full(len(P), np.inf); vc = np.full(len(P), np.inf)
+    for k in range(3): np.minimum.at(vh, T[:, k], th); np.minimum.at(vc, T[:, k], tc)
+    with_head = (vh < vc) | (np.isinf(vh) & np.isinf(vc) & (P[:, 2] >= hz))   # a loose bit that reaches neither: by its height
+    return np.where(upper, 1.0, np.where(chest, 0.0, np.where(cone, ramp, with_head.astype(float))))
+
+
 FINGERS = ('index', 'middle', 'ring', 'pinky', 'thumb')
 
 
@@ -345,9 +398,9 @@ def bind(parts, s, given=None, log=print):
             same = np.nonzero((F[:, 0] >= 0) == (side[r] > 0))[0]
             w = s.Wt[same[np.argmin(np.linalg.norm(F[same] - P[r], axis=1))]].copy(); w[mask] = 0
             Wt[r] = w / max(w.sum(), 1e-9)
-    # head and hands are rigid: one bone each, with a short blend at neck and wrist
-    hz, nz = L['head'][2], L['neck_01'][2]; col = np.abs(P[:, 0]) < abs(L['upperarm_l'][0]) * 1.6
-    t = np.clip((P[:, 2] - nz) / max(hz - nz, 1e-6), 0, 1) * col
+    # the head is rigid: one bone, with a short blend down the neck. Hands: a short blend at the wrist, then fingers
+    t = head_share(P, np.concatenate([q['I'] + o for q, o in zip(parts, np.cumsum([0] + [len(q['P']) for q in parts[:-1]]))]), L,
+                   np.concatenate([np.full(len(q['P']), i) for i, q in enumerate(parts)]))
     Wt *= (1 - t)[:, None]; Wt[:, s.i('head')] += t
     for sd in ('_l', '_r'):
         a, b, tip = L['lowerarm' + sd], L['hand' + sd], L['tip' + sd]; d = (tip - b) / np.linalg.norm(tip - b)

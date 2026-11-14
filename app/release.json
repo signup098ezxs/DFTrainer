@@ -1,5 +1,5 @@
 {
-  "version": "3.9.48",
+  "version": "3.9.49",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Model Swaps: adding a character from Sketchfab or from a file no longer asks for an Oodle library (\"the game files could not be read\"). The four game files the converter starts from now come with Lantern. Converting still needs Python with numpy and Pillow."
+  "notes": "Model Swaps: shoulders, collars and hoods no longer bend with the head. The converter bound everything at chin height to the head bone; now only the head, the neck and the hair follow it. Characters added before this update keep the old binding: add them again (from Sketchfab or from the file) to get the fix."
 }
