@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Model Swaps: another character's model shown in place of your own Slayer, on your screen only.
 // A character is a folder in the library (<Lantern's data folder>\models\<id>\) made by the converter
-// (modelswaps-tool\convert.py) or copied from someone else:
+// (modelswaps-tool\convert.py) from a file of your own or from a Sketchfab download, or copied from someone else:
 //   model.json   name, source game, author, the pak's name and checksum, the mesh's path in the game, compatibility notes
 //   <pak>        the character's own game files (mesh, material, textures) under /Game/Lantern/ModelSwaps/<id>/
 //   preview.png
@@ -134,13 +134,13 @@ async function python() {   // '' when there is none that can run the converter
 }
 const idFrom = (name) => (String(name).toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 32) || 'character');
 // -> { ok, id, stats } or { ok: false, error }. The tool writes into a temporary folder; a complete entry replaces the old one.
-async function convert({ lib, file, name, game, author, description, source, license, paks, oodle, cache }) {
+async function convert({ lib, file, id, name, game, author, description, source, license, paks, oodle, cache }) {
   const py = await python();
   if (!py) return { ok: false, error: 'Converting needs Python 3 with numpy and Pillow on this PC (python -m pip install numpy pillow). Characters someone else converted work without it: copy their folder into the library.' };
   file = String(file || '').trim().replace(/^"|"$/g, '');
   if (!/\.(gltf|glb)$/i.test(file)) return { ok: false, error: 'Give the path of a glTF model file (.gltf or .glb).' };
   if (!fs.existsSync(file) || !fs.statSync(file).isFile()) return { ok: false, error: 'That file was not found.' };
-  const id = idFrom(name || path.basename(path.dirname(file)));
+  id = ID.test(String(id || '')) ? id : idFrom(name || path.basename(path.dirname(file)));
   const tmp = path.join(lib, '.converting');
   fs.rmSync(tmp, { recursive: true, force: true }); fs.mkdirSync(tmp, { recursive: true });
   const args = ['-I', path.join(TOOL_DIR, 'convert.py'), file, '--id', id, '--out', tmp, '--name', str(name, 60) || id, '--cache', cache, '--paks', paks];
@@ -157,57 +157,72 @@ async function convert({ lib, file, name, game, author, description, source, lic
   return { ok: true, id, stats: res.stats };
 }
 
-// ---------------------------------------------------------------- characters to download
-// Ready-made characters (converted with the current converter, so every fix is in them) are files of the "models"
-// release of Lantern's own GitHub repository: <id>.json (the character's model.json), <id>.pak and <id>.png. The list
-// is models/catalog.json on the main branch: [{ id, name, game, author, license, source, description, size, sha256 }].
-// Addresses are always built here from the repository and the id: the list cannot point anywhere else. A download is
-// checked twice (the list's checksum, then the same checks as any library entry) before it replaces anything.
-// DFT_MODELS_BASE (a http://127.0.0.1 address only) is for tests: the list and the files come from there.
-const TEST_BASE = /^http:\/\/127\.0\.0\.1:\d+$/.test(process.env.DFT_MODELS_BASE || '') ? process.env.DFT_MODELS_BASE : '';
-const catalogUrl = (repo) => TEST_BASE ? `${TEST_BASE}/catalog.json` : `https://raw.githubusercontent.com/${repo}/main/models/catalog.json`;
-const assetUrl = (repo, name) => TEST_BASE ? `${TEST_BASE}/${name}` : `https://github.com/${repo}/releases/download/models/${name}`;
-async function get(url, max, ms = 30000) {   // -> Buffer; throws on anything but a 200 of at most max bytes
-  const r = await fetch(url, { headers: { 'User-Agent': 'LanternClient' }, signal: AbortSignal.timeout(ms), redirect: 'follow' });
-  if (!r.ok) throw new Error(`the download answered ${r.status}`);
-  if (Number(r.headers.get('content-length')) > max) throw new Error('the file is larger than it should be');
-  const parts = []; let n = 0;
-  for await (const c of r.body) { n += c.length; if (n > max) throw new Error('the file is larger than it should be'); parts.push(c); }
-  return Buffer.concat(parts);
+// ---------------------------------------------------------------- characters from Sketchfab
+// Sketchfab's public search lists models that may be downloaded; the download itself needs a Sketchfab account: its
+// API token (sketchfab.com > Settings > Password & API) is sent only to api.sketchfab.com, as "Authorization: Token".
+// The model comes as one .glb file from the address Sketchfab answers with, and goes through the same converter as
+// a file of your own, so every fix is applied; its author, licence and page are kept in the character's model.json.
+// Nothing is hosted by Lantern. DFT_SKETCHFAB_BASE (a http://127.0.0.1 address only) is for tests.
+const SF_TEST = /^http:\/\/127\.0\.0\.1:\d+$/.test(process.env.DFT_SKETCHFAB_BASE || '') ? process.env.DFT_SKETCHFAB_BASE : '';
+const SF = SF_TEST || 'https://api.sketchfab.com';
+const SF_UID = /^[0-9a-f]{32}$/;
+const MAX_GLB = 300 * 1024 * 1024;
+async function sfJson(pathname, token, ms = 20000) {
+  const headers = { 'User-Agent': 'LanternClient', Accept: 'application/json' };
+  if (token) headers.Authorization = `Token ${token}`;
+  let r; try { r = await fetch(SF + pathname, { headers, signal: AbortSignal.timeout(ms) }); } catch { throw new Error('Sketchfab did not answer. Check your connection and try again.'); }
+  if (r.status === 401 || r.status === 403) throw Object.assign(new Error(token ? 'Sketchfab did not accept your API token. Check it in your Sketchfab settings.' : 'Downloading needs a Sketchfab account: add your API token first.'), { auth: true });
+  if (r.status === 404) throw new Error('Sketchfab does not have that model (any more).');
+  if (r.status === 429) throw new Error('Sketchfab asks to slow down: wait a minute and try again.');
+  if (!r.ok) throw new Error(`Sketchfab answered ${r.status}.`);
+  try { return await r.json(); } catch { throw new Error('Sketchfab answered with something unreadable.'); }
 }
-let catCache = null, catAt = 0;
-async function catalog(repo, fresh = false) {
-  if (!repo && !TEST_BASE) return [];
-  if (catCache && !fresh && Date.now() - catAt < 300000) return catCache;
-  let rows; try { rows = JSON.parse((await get(`${catalogUrl(repo)}${TEST_BASE ? '' : `?t=${Date.now()}`}`, 1e6, 15000)).toString('utf8')); } catch (e) { throw new Error(`The list of characters could not be fetched (${e.message}).`); }
-  catCache = (Array.isArray(rows) ? rows : []).filter((r) => r && ID.test(String(r.id)) && /^[0-9a-f]{64}$/.test(String(r.sha256)) && Number(r.size) > 1000 && Number(r.size) <= MAX_PAK).slice(0, 500)
-    .map((r) => ({ id: r.id, name: str(r.name, 60) || r.id, game: str(r.game, 80), author: str(r.author, 80), license: str(r.license, 60), source: str(r.source, 300), description: str(r.description, 400), size: Number(r.size), sha256: r.sha256 }));
-  catAt = Date.now();
-  return catCache;
+const sfRow = (m) => {
+  const thumbs = ((m.thumbnails || {}).images || []).filter((t) => /^https:\/\/media\.sketchfab\.com\//.test(String(t.url))).sort((a, b) => a.width - b.width);
+  const glb = (m.archives || {}).glb || {};
+  return { uid: m.uid, name: str(m.name, 80), author: str((m.user || {}).displayName || (m.user || {}).username, 80), license: str((m.license || {}).label, 60),
+    faces: Number(m.faceCount) || 0, size: Number(glb.size) || 0, page: /^https:\/\/sketchfab\.com\//.test(String(m.viewerUrl)) ? m.viewerUrl : '',
+    thumb: ((thumbs.find((t) => t.width >= 200) || thumbs[thumbs.length - 1] || {}).url) || '' };
+};
+// -> { items, next }: downloadable character models; adult-only ones are left out
+async function sfSearch(q, cursor) {
+  const qs = new URLSearchParams({ type: 'models', downloadable: 'true', count: '24', max_face_count: '200000', categories: 'characters-creatures', q: str(q, 80) });
+  if (/^\d{1,6}$/.test(String(cursor || ''))) qs.set('cursor', String(cursor));
+  const r = await sfJson(`/v3/search?${qs}`);
+  const items = (r.results || []).filter((m) => m && SF_UID.test(String(m.uid)) && m.isDownloadable && !m.isAgeRestricted).map(sfRow);
+  let next = ''; try { next = new URL(r.next).searchParams.get('cursor') || ''; } catch {}
+  return { items, next };
 }
-const pics = new Map();   // previews of characters not downloaded yet, kept while the panel runs
-async function remotePreview(repo, id) {
-  if (!ID.test(id)) throw new Error('Not a character.');
-  if (!pics.has(id)) { const b = await get(assetUrl(repo, `${id}.png`), 4e6); if (b.length < 8 || b.readUInt32BE(0) !== 0x89504e47) throw new Error('not a picture'); if (pics.size > 200) pics.clear(); pics.set(id, b); }
-  return pics.get(id);
+async function sfWho(token) { const r = await sfJson('/v3/me', token); return str(r.displayName || r.username, 80) || 'your account'; }
+// the model's .glb into dir -> { file, row }. The file comes from wherever Sketchfab says (its own storage), without the token
+async function sfFetch(uid, token, dir) {
+  if (!SF_UID.test(String(uid))) throw new Error('Not a Sketchfab model.');
+  const row = sfRow(await sfJson(`/v3/models/${uid}`));
+  const d = await sfJson(`/v3/models/${uid}/download`, token);
+  const g = d && d.glb;
+  if (!g || !/^https?:\/\//.test(String(g.url))) throw new Error('Sketchfab offers no .glb file for this model.');
+  if (!SF_TEST && !/^https:\/\//.test(g.url)) throw new Error('Sketchfab gave an address that is not secure.');
+  if (Number(g.size) > MAX_GLB) throw new Error('That model is too large (over 300 MB).');
+  let r; try { r = await fetch(g.url, { signal: AbortSignal.timeout(600000) }); } catch { throw new Error('The model file could not be fetched.'); }
+  if (!r.ok) throw new Error(`The model file could not be fetched (${r.status}).`);
+  fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, 'model.glb'), fd = fs.openSync(file, 'w'); let n = 0;
+  try { for await (const c of r.body) { n += c.length; if (n > MAX_GLB) throw new Error('That model is too large (over 300 MB).'); fs.writeSync(fd, c); } } finally { fs.closeSync(fd); }
+  const head = Buffer.alloc(4); const f2 = fs.openSync(file, 'r'); fs.readSync(f2, head, 0, 4, 0); fs.closeSync(f2);
+  if (head.toString('latin1') !== 'glTF') throw new Error('Sketchfab sent something that is not a .glb model.');
+  return { file, row };
 }
-async function download(repo, lib, id) {
-  const row = (await catalog(repo)).find((r) => r.id === id);
-  if (!row) throw new Error('That character is not on the list.');
-  const tmp = path.join(lib, '.downloading'), dir = path.join(tmp, id);
-  fs.rmSync(tmp, { recursive: true, force: true }); fs.mkdirSync(dir, { recursive: true });
+// download + convert -> { ok, id, name } or { ok: false, error }
+async function sfGet({ lib, uid, token, paks, oodle, cache }) {
+  const tmp = path.join(lib, '.sketchfab');
+  fs.rmSync(tmp, { recursive: true, force: true });
   try {
-    const meta = await get(assetUrl(repo, `${id}.json`), 1e6);
-    const pak = await get(assetUrl(repo, `${id}.pak`), row.size, 600000);
-    if (pak.length !== row.size || crypto.createHash('sha256').update(pak).digest('hex') !== row.sha256) throw new Error('the downloaded file does not match the list (try again)');
-    fs.writeFileSync(path.join(dir, 'model.json'), meta); fs.writeFileSync(path.join(dir, pakName(id)), pak);
-    try { fs.writeFileSync(path.join(dir, 'preview.png'), await remotePreview(repo, id)); } catch {}
-    const made = read(tmp, id);
-    if (made.problem) throw new Error(made.problem);
-    const dest = path.join(lib, id);
-    fs.rmSync(dest, { recursive: true, force: true }); fs.renameSync(dir, dest);
-    return { ok: true, id, name: made.name };
-  } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
+    const { file, row } = await sfFetch(uid, token, tmp);
+    const id = `${idFrom(row.name).slice(0, 25)}_${uid.slice(0, 6)}`;   // the same model always lands in the same folder
+    const r = await convert({ lib, file, id, name: row.name || id, author: row.author ? `${row.author} (Sketchfab)` : 'Sketchfab', license: row.license, source: row.page, paks, oodle, cache });
+    return r.ok ? { ...r, name: row.name || id } : r;
+  } catch (e) { return { ok: false, error: e.message, auth: !!e.auth }; }
+  finally { fs.rmSync(tmp, { recursive: true, force: true }); }
 }
 
-module.exports = { catalog, download, remotePreview, ID, list, read, inGame, install, strays, removePak, writeConfig, status, remove, convert, python, pakName, meshPath, paksDir, idFrom };
+module.exports = { sfSearch, sfWho, sfGet, SF_UID, ID, list, read, inGame, install, strays, removePak, writeConfig, status, remove, convert, python, pakName, meshPath, paksDir, idFrom };

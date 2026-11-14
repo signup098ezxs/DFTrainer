@@ -440,7 +440,7 @@ section.on .bcard:nth-child(2) { animation-delay: .05s; } section.on .bcard:nth-
 .msize b { min-width: 46px; color: var(--frost); font-variant-numeric: tabular-nums; }
 .mcat { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); gap: 10px; padding-bottom: 12px; }
 .mrow { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 8px; border-radius: 12px; border: 1px solid var(--seam); background: rgba(6, 10, 15, .35); }
-.mrow img, .mrow .nopic { flex: none; width: 54px; height: 72px; border-radius: 8px; object-fit: cover; object-position: 50% 12%; background: #181a20; font-size: 0; }
+.mrow img, .mrow .nopic { flex: none; width: 96px; height: 54px; border-radius: 8px; object-fit: cover; background: #181a20; font-size: 0; }
 .mrow .who { flex: 1; min-width: 0; }
 .mrow .who b { display: block; font: 600 14px/1.25 var(--display); color: var(--frost); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mrow .who span { display: block; font-size: 12px; color: var(--ash); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1071,9 +1071,15 @@ div.lrow { cursor: default; }
         </div>
         <div class="mgrid" id="mGrid" role="listbox" aria-label="Characters"></div>
         <div class="setcard mdetail" id="mDetail" hidden></div>
-        <div class="setcard" style="margin-bottom:14px"><h3>Download characters</h3>
-          <p class="mnote" id="mCatNote">Ready-made characters, already converted for Dauntless: one press and they are in your library.</p>
-          <div class="mcat" id="mCat"></div>
+        <div class="setcard" style="margin-bottom:14px"><h3>Find characters on Sketchfab</h3>
+          <p class="mnote">Search Sketchfab's free, downloadable models and add one with a press: it is downloaded and converted for Dauntless here on your PC. <b>Downloading needs a free Sketchfab account</b> (searching does not). Works best with a human-shaped character standing with its arms out or half down; other models are refused with the reason.</p>
+          <div class="mbar"><div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="sfQ" placeholder="Search Sketchfab, for example a character's name" aria-label="Search Sketchfab" maxlength="80"></div><button class="btn primary" id="sfGo"><span>Search</span></button></div>
+          <div class="mcat" id="sfList"></div>
+          <div class="acts" id="sfMoreRow" hidden style="display:flex;padding-bottom:12px"><button class="btn" id="sfMore"><span>More results</span></button></div>
+          <div class="kform" id="sfTokenBox">
+            <label class="full"><span id="sfTokenLbl">Your Sketchfab API token (from <code>sketchfab.com/settings/password</code>, "API token")</span><input class="txt" id="sfToken" type="password" maxlength="64" autocomplete="off" spellcheck="false" placeholder="Paste it here: it stays on this PC and is sent only to Sketchfab"></label>
+            <div class="go"><button class="btn" id="sfTokenSave"><span>Save token</span></button><button class="btn" id="sfTokenClear" hidden><span>Forget token</span></button><span class="mnote" id="sfTokenState" style="margin:0"></span></div>
+          </div>
         </div>
         <div class="setcard" style="margin-bottom:14px"><h3>Add a character</h3>
           <p class="mnote" id="mLibNote"></p>
@@ -2808,6 +2814,7 @@ async function modelsLoad() {
   const r = await api('/api/models'); mBusy = false;
   if (!r.ok) return;
   MS.status = r.status; MS.selected = r.selected; MS.canConvert = r.canConvert;
+  if (SFS.signedIn !== !!r.sketchfab) { SFS.signedIn = !!r.sketchfab; sfRenderToken(); }
   $('#mLibNote').innerHTML = `Characters live in <code>${esc(r.library)}</code>, one folder each: copy a folder there to add a character someone else converted. To convert a model yourself, give its file below (a humanoid standing in a T-pose or A-pose).${r.canConvert ? '' : ' Converting needs Python 3 with numpy and Pillow on this PC.'}`;
   if (document.activeElement && document.activeElement.id === 'mSize') return mRenderState();   // not while the slider is held
   const sig = JSON.stringify([r.models, r.selected]);
@@ -2875,28 +2882,56 @@ $('#mConvert').onclick = async (e) => {
   for (const id of ['mFile', 'mName', 'mGame', 'mAuthor', 'mDesc']) $('#' + id).value = '';
   MS.pick = r.id; MS.sig = ''; modelsLoad();
 };
-// characters to download
-let mCatAt = 0;
-async function catalogLoad(force) {
-  if (!force && Date.now() - mCatAt < 60000) return;
-  mCatAt = Date.now();
-  const r = await api('/api/models/catalog');
-  if (!r.ok) { $('#mCat').innerHTML = ''; $('#mCatNote').textContent = r.error || 'The list of characters could not be fetched.'; return; }
-  $('#mCatNote').textContent = r.items.length ? 'Ready-made characters, already converted for Dauntless: one press and they are in your library.' : 'No characters to download yet.';
-  $('#mCat').innerHTML = r.items.map((m) => `<div class="mrow"><img alt="" loading="lazy" src="/models/preview/${encodeURIComponent(m.id)}.png?from=list&t=${encodeURIComponent(TOKEN)}" onerror="this.style.visibility='hidden'">
-    <div class="who"><b>${esc(m.name)}</b><span>${esc(m.game || 'Unknown game')}</span><span>${esc([m.author && 'By ' + m.author, m.license, (m.size / 1048576).toFixed(1) + ' MB'].filter(Boolean).join(' · '))}</span></div>
-    <button class="btn${m.have && !m.update ? '' : ' primary'}" data-get="${esc(m.id)}"${m.have && !m.update ? ' disabled' : ''}><span>${m.update ? 'Update' : m.have ? 'In library' : 'Download'}</span></button></div>`).join('');
+// characters from Sketchfab: search (open), download (needs your Sketchfab API token), convert here
+const SFS = { q: '', next: '', items: [], signedIn: false };
+function sfRenderToken(who) {
+  $('#sfTokenClear').hidden = !SFS.signedIn;
+  $('#sfTokenState').textContent = SFS.signedIn ? (who ? `Signed in to Sketchfab as ${who}.` : 'A Sketchfab token is saved on this PC.') : 'No token yet: you can search, but not download.';
 }
-$('#mCat').addEventListener('click', async (e) => {
-  const btn = e.target.closest('button[data-get]'); if (!btn || btn.disabled || btn.classList.contains('busy')) return;
-  btn.classList.add('busy'); btn.lastChild.textContent = 'Downloading...';
-  const r = await api('/api/models/download', { id: btn.dataset.get });
+function sfRender() {
+  $('#sfList').innerHTML = SFS.items.map((m) => `<div class="mrow">${/^https:\/\/media\.sketchfab\.com\//.test(m.thumb) ? `<img alt="" loading="lazy" referrerpolicy="no-referrer" src="${esc(m.thumb)}">` : '<div class="nopic"></div>'}
+    <div class="who"><b title="${esc(m.name)}">${esc(m.name)}</b><span>${esc(m.author ? 'By ' + m.author : 'Sketchfab')}</span><span>${esc([m.license, m.faces ? m.faces.toLocaleString() + ' triangles' : '', m.size ? (m.size / 1048576).toFixed(1) + ' MB' : ''].filter(Boolean).join(' · '))}</span></div>
+    <button class="btn primary" data-uid="${esc(m.uid)}"><span>Add</span></button></div>`).join('') || (SFS.q ? '<div class="mempty" style="grid-column:1/-1">Nothing found. Try another name.</div>' : '');
+  $('#sfMoreRow').hidden = !SFS.next;
+}
+async function sfSearch(more) {
+  const btn = more ? $('#sfMore') : $('#sfGo'); if (btn.classList.contains('busy')) return;
+  const q = more ? SFS.q : $('#sfQ').value.trim(); if (!q) return;
+  btn.classList.add('busy');
+  const r = await api('/api/models/sketchfab/search', { q, cursor: more ? SFS.next : '' });
   btn.classList.remove('busy');
-  if (!r.ok) { btn.lastChild.textContent = 'Download'; SFX.error(); toast('Not downloaded', r.error || 'That did not work.', 'error', 9000); return; }
-  SFX.give(); toast('Character downloaded', `${r.name} is in your library: pick it and press Apply.`, 'applied', 6000);
-  MS.pick = r.id; MS.sig = ''; await modelsLoad(); catalogLoad(true);
+  if (!r.ok) { SFX.error(); toast('Search did not work', r.error || 'Sketchfab did not answer.', 'error', 7000); return; }
+  SFS.q = q; SFS.next = r.next; SFS.items = more ? SFS.items.concat(r.items) : r.items; SFS.signedIn = r.signedIn;
+  sfRender(); sfRenderToken();
+}
+$('#sfGo').onclick = () => sfSearch(false);
+$('#sfMore').onclick = () => sfSearch(true);
+$('#sfQ').addEventListener('keydown', (e) => { if (e.key === 'Enter') sfSearch(false); });
+$('#sfList').addEventListener('click', async (e) => {
+  const btn = e.target.closest('button[data-uid]'); if (!btn || btn.classList.contains('busy')) return;
+  if (!SFS.signedIn) { SFX.error(); toast('A Sketchfab account is needed', 'Downloading from Sketchfab needs a free account: paste your API token below, then press Add again.', 'error', 9000); $('#sfToken').focus(); return; }
+  btn.classList.add('busy'); btn.lastChild.textContent = 'Downloading and converting...';
+  const r = await api('/api/models/sketchfab/download', { uid: btn.dataset.uid });
+  btn.classList.remove('busy'); btn.lastChild.textContent = 'Add';
+  if (!r.ok) {
+    if (r.auth) { SFS.signedIn = false; sfRenderToken(); }
+    if (/Oodle/i.test(r.error || '')) $('#mOodleRow').hidden = false;
+    SFX.error(); toast('Not added', r.error || 'That did not work.', 'error', 12000); return;
+  }
+  btn.disabled = true; btn.lastChild.textContent = 'In library';
+  SFX.give(); toast('Character added', `${r.name} is in your library: pick it and press Apply.`, 'applied', 6000);
+  MS.pick = r.id; MS.sig = ''; modelsLoad();
 });
-$('nav > button[data-tab="models"]').addEventListener('click', () => { modelsLoad(); catalogLoad(false); });
+$('#sfTokenSave').onclick = async (e) => {
+  const btn = e.currentTarget, token = $('#sfToken').value.trim(); if (btn.classList.contains('busy') || !token) return;
+  btn.classList.add('busy');
+  const r = await api('/api/models/sketchfab/token', { token });
+  btn.classList.remove('busy');
+  if (!r.ok) { SFX.error(); toast('Token not saved', r.error || 'That did not work.', 'error', 8000); return; }
+  $('#sfToken').value = ''; SFS.signedIn = true; sfRenderToken(r.who); SFX.select(true); toast('Sketchfab token saved', `Signed in as ${r.who}.`, 'ok', 4000);
+};
+$('#sfTokenClear').onclick = async () => { const r = await api('/api/models/sketchfab/token', { token: '' }); if (r.ok) { SFS.signedIn = false; sfRenderToken(); } };
+$('nav > button[data-tab="models"]').addEventListener('click', () => modelsLoad());
 setInterval(() => { if (activeTab() === 'models' && !document.hidden) modelsLoad(); }, 3000);
 
 /* ================================================= rules */

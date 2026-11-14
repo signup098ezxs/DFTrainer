@@ -1494,26 +1494,34 @@ const routes = {
   'GET /api/models': async () => {
     const p = places();
     return {
-      ok: true, selected: settings.modelSwap || null, status: modelsStatus, library: MODELS_LIB, canConvert: !!(await MODELS.python()),
+      ok: true, selected: settings.modelSwap || null, status: modelsStatus, library: MODELS_LIB, canConvert: !!(await MODELS.python()), sketchfab: !!settings.sketchfabToken,
       models: MODELS.list(MODELS_LIB).map((m) => ({ id: m.id, name: m.name, game: m.game, author: m.author, description: m.description, source: m.source, license: m.license,
         notes: m.notes, stats: m.stats, size: m.size || 0, scale: m.scale || 1, height: m.height || 0, myScale: Number((settings.modelSwapScale || {})[m.id]) || null, preview: !!m.preview, problem: m.problem, inGame: !m.problem && p.gameDir ? MODELS.inGame(p.gameDir, m) : 'off' })),
     };
   },
-  // ready-made characters from Lantern's repository (modelswaps.js "characters to download")
-  'GET /api/models/catalog': async () => {
-    try {
-      const have = new Map(MODELS.list(MODELS_LIB).filter((m) => !m.problem).map((m) => [m.id, m.sha256]));
-      const rows = await MODELS.catalog(RELEASE.repo);
-      return { ok: true, items: rows.map((r) => ({ ...r, sha256: undefined, have: have.has(r.id), update: have.has(r.id) && have.get(r.id) !== r.sha256 })) };
-    } catch (e) { return { ok: false, error: e.message }; }
+  // characters from Sketchfab (modelswaps.js "characters from Sketchfab"). The API token stays in this PC's settings:
+  // it is sent to api.sketchfab.com only, never to the window (the tab only learns whether there is one)
+  'POST /api/models/sketchfab/search': async (b) => {
+    try { return { ok: true, ...(await MODELS.sfSearch(b.q, b.cursor)), signedIn: !!settings.sketchfabToken, canConvert: !!(await MODELS.python()) }; }
+    catch (e) { return { ok: false, error: e.message }; }
   },
-  'POST /api/models/download': async (b) => {
+  'POST /api/models/sketchfab/token': async (b) => {
+    const t = String(b.token || '').trim();
+    if (!t) { delete settings.sketchfabToken; saveSettings(); return { ok: true, signedIn: false }; }
+    if (!/^[0-9A-Za-z]{20,64}$/.test(t)) return { ok: false, error: 'That does not look like a Sketchfab API token (a row of letters and digits from your Sketchfab settings).' };
+    try { const who = await MODELS.sfWho(t); settings.sketchfabToken = t; saveSettings(); return { ok: true, signedIn: true, who }; }
+    catch (e) { return { ok: false, error: e.message }; }
+  },
+  'POST /api/models/sketchfab/download': async (b) => {
+    const p = places(); if (!p.gameDir) return { ok: false, error: 'The game folder is not known yet.' };
+    if (!settings.sketchfabToken) return { ok: false, auth: true, error: 'Downloading needs a Sketchfab account: add your API token first.' };
     fs.mkdirSync(MODELS_LIB, { recursive: true });
-    try {
-      const r = await MODELS.download(RELEASE.repo, MODELS_LIB, String(b.id || ''));
-      modelsKey = ''; note('ok', 'Character downloaded', `${r.name} is in the library.`);
-      return r;
-    } catch (e) { panelLog(`Model Swaps: download failed: ${e.message}`); return { ok: false, error: `The character could not be downloaded: ${e.message}` }; }
+    const oodle = String(settings.modelSwapOodle || '');
+    const r = await MODELS.sfGet({ lib: MODELS_LIB, uid: String(b.uid || ''), token: settings.sketchfabToken, paks: MODELS.paksDir(p.gameDir),
+      oodle: oodle && fs.existsSync(oodle) ? oodle : '', cache: path.join(process.env.DFT_ROOT || HERE, 'modelswaps-cache') });
+    if (r.ok) { modelsKey = ''; note('ok', 'Character added', `${r.name} is in the library.`); }
+    else panelLog(`Model Swaps: Sketchfab download failed: ${r.error}${r.detail ? ' | ' + r.detail : ''}`);
+    return r;
   },
   'POST /api/models/apply': async (b) => {
     const p = places(); if (!p.pkg) return { ok: false, error: 'Package not found.' };
@@ -1596,9 +1604,7 @@ const server = http.createServer(async (req, res) => {
     const pic = /^\/models\/preview\/([a-z0-9_]{1,32})\.png$/.exec(url.pathname);
     if (req.method === 'GET' && pic) {
       if (url.searchParams.get('t') !== TOKEN) return send(res, 403, 'Forbidden', 'text/plain');
-      let data;
-      if (url.searchParams.get('from') === 'list') { try { data = await MODELS.remotePreview(RELEASE.repo, pic[1]); } catch { return send(res, 404, 'Not found', 'text/plain'); } }   // not downloaded yet
-      else try { data = fs.readFileSync(path.join(MODELS_LIB, pic[1], 'preview.png')); } catch { return send(res, 404, 'Not found', 'text/plain'); }
+      let data; try { data = fs.readFileSync(path.join(MODELS_LIB, pic[1], 'preview.png')); } catch { return send(res, 404, 'Not found', 'text/plain'); }
       if (data.length > 4e6 || data.readUInt32BE(0) !== 0x89504e47) return send(res, 404, 'Not found', 'text/plain');   // only a PNG is sent as one
       return send(res, 200, data, 'image/png');
     }

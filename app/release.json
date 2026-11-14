@@ -1,5 +1,5 @@
 {
-  "version": "3.9.43",
+  "version": "3.9.44",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "New: Model Swaps. Play as another character: a new tab where you pick a character and press Apply. Only how your own Slayer looks on your screen changes; your armour stays equipped and nothing about gameplay, other players or behemoths is touched. Characters can be downloaded in the tab, copied in, or converted from a glTF model file. \"Use my own Slayer\" puts everything back. Close the game once after updating so the new game mod is installed."
+  "notes": "Model Swaps: find characters on Sketchfab from inside the tab. Search its free, downloadable models and press Add: the model is downloaded and converted for Dauntless on your PC, with every fix (legs, hands, fingers, size). Downloading needs a free Sketchfab account (its API token, pasted once; searching needs none). Converting needs Python with numpy and Pillow."
 }

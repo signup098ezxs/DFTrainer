@@ -93,11 +93,14 @@ MODEL SWAPS
   back. Only how your own Slayer looks on your screen changes: your armour stays equipped (it is only not drawn),
   and no stat, hitbox, movement, animation, other player, NPC or behemoth is touched. Other players see your Slayer.
   Your choice is kept across restarts.
-  Characters: "Download characters" lists ready-made ones (one press); a folder someone else converted can be copied
+  Characters: "Find characters on Sketchfab" searches Sketchfab's free, downloadable models and adds one with a press
+  (downloading needs a free Sketchfab account: its API token, from sketchfab.com/settings/password, is kept on your
+  PC and sent only to Sketchfab; searching needs no account); a folder someone else converted can be copied
   into the library folder the tab names; "Add a character" converts a glTF model file (.gltf / .glb, a humanoid
   standing in a T-pose or A-pose, with or without a skeleton). Converting needs Python 3 with numpy and Pillow, and
   once the Oodle library (oo2core_9_win64.dll, not shipped with the game) to read four of the game's own files;
-  downloaded and copied characters need neither.
+  characters copied from someone else need neither. Lantern hosts no models: each one keeps its author, licence
+  and Sketchfab page in its model.json.
   How: each character is a pak of its own in Archon\Content\Paks (LanternModel_<id>_P.pak: new files under
   /Game/Lantern/ModelSwaps/, nothing of the game replaced). In the game, Lantern's native library draws it on a part
   of its own that follows your Slayer's pose, and hides the Slayer's body, head, hair, armour and accessories.

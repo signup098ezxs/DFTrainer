@@ -16,5 +16,3 @@ launcher/launcher
 app/mod/DFTrainer/native/
 build-native/
 
-# built by tools/models-publish.mjs
-dist-models/

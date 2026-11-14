@@ -14,7 +14,7 @@ A companion panel for [Dauntless Forever](https://github.com/addison2k/Dauntless
 | `launcher/` | `Lantern Client.exe`, written in Go (standard library only): installer, launcher, updater and uninstaller in one |
 | `tools/build.mjs` | Builds a release into `dist/`: the app zip, the launcher exe carrying it, and the signed manifest |
 | `tools/keygen.mjs` | Makes the release signing key (once per project) |
-| `app/modelswaps.js`, `app/modelswaps-tool/`, `app/mod/ModelSwaps/` | Model Swaps: the character library, the converter (Python) and the game mod; the in-game work is in `native/lantern_native.cpp`. `models/catalog.json` + the `models` release are the characters the tab can download (`tools/models-publish.mjs`) |
+| `app/modelswaps.js`, `app/modelswaps-tool/`, `app/mod/ModelSwaps/` | Model Swaps: the character library, the converter (Python) and the game mod; the in-game work is in `native/lantern_native.cpp`. The tab can also search Sketchfab and download a model with the user's own Sketchfab API token; nothing is hosted here |
 | `licenses/revoked.txt` | Revoked key ids, one per line. Clients read it at start and every few hours |
 | `.github/workflows/release.yml` | Publishes a release whenever `app/release.json` gets a new version on `main` |
 
