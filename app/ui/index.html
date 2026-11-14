@@ -1077,8 +1077,8 @@ div.lrow { cursor: default; }
           <div class="mcat" id="sfList"></div>
           <div class="acts" id="sfMoreRow" hidden style="display:flex;padding-bottom:12px"><button class="btn" id="sfMore"><span>More results</span></button></div>
           <div class="kform" id="sfTokenBox">
-            <label class="full"><span id="sfTokenLbl">Your Sketchfab API token (from <code>sketchfab.com/settings/password</code>, "API token")</span><input class="txt" id="sfToken" type="password" maxlength="64" autocomplete="off" spellcheck="false" placeholder="Paste it here: it stays on this PC and is sent only to Sketchfab"></label>
-            <div class="go"><button class="btn" id="sfTokenSave"><span>Save token</span></button><button class="btn" id="sfTokenClear" hidden><span>Forget token</span></button><span class="mnote" id="sfTokenState" style="margin:0"></span></div>
+            <label class="full"><span id="sfTokenLbl">Your Sketchfab API token: press <b>Open my token page</b>, sign in to Sketchfab if it asks, copy the "API token" shown there and paste it here</span><input class="txt" id="sfToken" type="password" maxlength="64" autocomplete="off" spellcheck="false" placeholder="Paste it here: it stays on this PC and is sent only to Sketchfab"></label>
+            <div class="go"><button class="btn primary" id="sfTokenOpen" title="Opens sketchfab.com/settings/password in your browser"><span>Open my token page</span></button><button class="btn" id="sfTokenSave"><span>Save token</span></button><button class="btn" id="sfTokenClear" hidden><span>Forget token</span></button><span class="mnote" id="sfTokenState" style="margin:0"></span></div>
           </div>
         </div>
         <div class="setcard" style="margin-bottom:14px"><h3>Add a character</h3>
@@ -2909,7 +2909,7 @@ $('#sfMore').onclick = () => sfSearch(true);
 $('#sfQ').addEventListener('keydown', (e) => { if (e.key === 'Enter') sfSearch(false); });
 $('#sfList').addEventListener('click', async (e) => {
   const btn = e.target.closest('button[data-uid]'); if (!btn || btn.classList.contains('busy')) return;
-  if (!SFS.signedIn) { SFX.error(); toast('A Sketchfab account is needed', 'Downloading from Sketchfab needs a free account: paste your API token below, then press Add again.', 'error', 9000); $('#sfToken').focus(); return; }
+  if (!SFS.signedIn) { SFX.error(); toast('A Sketchfab account is needed', 'Downloading from Sketchfab needs a free account: press Open my token page below, paste the token, then press Add again.', 'error', 9000); $('#sfTokenOpen').scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
   btn.classList.add('busy'); btn.lastChild.textContent = 'Downloading and converting...';
   const r = await api('/api/models/sketchfab/download', { uid: btn.dataset.uid });
   btn.classList.remove('busy'); btn.lastChild.textContent = 'Add';
@@ -2930,6 +2930,9 @@ $('#sfTokenSave').onclick = async (e) => {
   if (!r.ok) { SFX.error(); toast('Token not saved', r.error || 'That did not work.', 'error', 8000); return; }
   $('#sfToken').value = ''; SFS.signedIn = true; sfRenderToken(r.who); SFX.select(true); toast('Sketchfab token saved', `Signed in as ${r.who}.`, 'ok', 4000);
 };
+// the page of your Sketchfab account that shows the API token, in your own browser (where you are signed in)
+const SF_TOKEN_PAGE = 'https://sketchfab.com/settings/password';
+$('#sfTokenOpen').onclick = () => { SFX.select(true); if (window.dftOpen) window.dftOpen(SF_TOKEN_PAGE); else window.open(SF_TOKEN_PAGE, '_blank', 'noopener'); $('#sfToken').focus(); };
 $('#sfTokenClear').onclick = async () => { const r = await api('/api/models/sketchfab/token', { token: '' }); if (r.ok) { SFS.signedIn = false; sfRenderToken(); } };
 $('nav > button[data-tab="models"]').addEventListener('click', () => modelsLoad());
 setInterval(() => { if (activeTab() === 'models' && !document.hidden) modelsLoad(); }, 3000);

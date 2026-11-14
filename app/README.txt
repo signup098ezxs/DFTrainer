@@ -94,7 +94,7 @@ MODEL SWAPS
   and no stat, hitbox, movement, animation, other player, NPC or behemoth is touched. Other players see your Slayer.
   Your choice is kept across restarts.
   Characters: "Find characters on Sketchfab" searches Sketchfab's free, downloadable models and adds one with a press
-  (downloading needs a free Sketchfab account: its API token, from sketchfab.com/settings/password, is kept on your
+  (downloading needs a free Sketchfab account: its API token, which "Open my token page" shows you, is kept on your
   PC and sent only to Sketchfab; searching needs no account); a folder someone else converted can be copied
   into the library folder the tab names; "Add a character" converts a glTF model file (.gltf / .glb, a humanoid
   standing in a T-pose or A-pose, with or without a skeleton). Converting needs Python 3 with numpy and Pillow, and

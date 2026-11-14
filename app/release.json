@@ -1,5 +1,5 @@
 {
-  "version": "3.9.44",
+  "version": "3.9.45",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "Model Swaps: find characters on Sketchfab from inside the tab. Search its free, downloadable models and press Add: the model is downloaded and converted for Dauntless on your PC, with every fix (legs, hands, fingers, size). Downloading needs a free Sketchfab account (its API token, pasted once; searching needs none). Converting needs Python with numpy and Pillow."
+  "notes": "Model Swaps: an \"Open my token page\" button next to the Sketchfab token field. It opens the page of your Sketchfab account that shows your API token, in your browser: copy it, paste it, done."
 }
