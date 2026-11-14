@@ -16,3 +16,7 @@ launcher/launcher
 app/mod/DFTrainer/native/
 build-native/
 
+
+# Python's compiled files
+__pycache__/
+*.pyc

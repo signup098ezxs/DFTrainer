@@ -1,5 +1,5 @@
 {
-  "version": "3.9.46",
+  "version": "3.9.47",
   "repo": "signup098ezxs/DFTrainer",
   "notes": "Model Swaps: adding a character from Sketchfab or from a file no longer asks for an Oodle library (\"the game files could not be read\"). The four game files the converter starts from now come with Lantern. Converting still needs Python with numpy and Pillow."
 }
