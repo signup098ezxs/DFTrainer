@@ -15,3 +15,6 @@ launcher/launcher
 # built by tools/build-native.sh (CI)
 app/mod/DFTrainer/native/
 build-native/
+
+# built by tools/models-publish.mjs
+dist-models/

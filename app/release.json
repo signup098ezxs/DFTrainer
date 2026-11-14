@@ -1,5 +1,5 @@
 {
-  "version": "3.9.42",
+  "version": "3.9.43",
   "repo": "signup098ezxs/DFTrainer",
-  "notes": "BetterOmnis: Revenant is much stronger. Lifesteal 3% -> 5%, and a new passive, Blood Ward: below 50% health you take 23% less damage and gain +8% lifesteal. Umbral Pact is unchanged. Switch BetterOmnis on (or keep it on); Lantern swaps the pak in when the game is fully closed. Full effect in hunts you host."
+  "notes": "New: Model Swaps. Play as another character: a new tab where you pick a character and press Apply. Only how your own Slayer looks on your screen changes; your armour stays equipped and nothing about gameplay, other players or behemoths is touched. Characters can be downloaded in the tab, copied in, or converted from a glTF model file. \"Use my own Slayer\" puts everything back. Close the game once after updating so the new game mod is installed."
 }

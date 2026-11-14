@@ -88,6 +88,24 @@ BETTEROMNIS
   Full effect only in hunts you host (the host's hunt server decides); in someone else's hunt your disc shows the new
   numbers but you get theirs.
 
+MODEL SWAPS
+  Play as another character. Model Swaps tab: pick a character and press Apply; "Use my own Slayer" puts everything
+  back. Only how your own Slayer looks on your screen changes: your armour stays equipped (it is only not drawn),
+  and no stat, hitbox, movement, animation, other player, NPC or behemoth is touched. Other players see your Slayer.
+  Your choice is kept across restarts.
+  Characters: "Download characters" lists ready-made ones (one press); a folder someone else converted can be copied
+  into the library folder the tab names; "Add a character" converts a glTF model file (.gltf / .glb, a humanoid
+  standing in a T-pose or A-pose, with or without a skeleton). Converting needs Python 3 with numpy and Pillow, and
+  once the Oodle library (oo2core_9_win64.dll, not shipped with the game) to read four of the game's own files;
+  downloaded and copied characters need neither.
+  How: each character is a pak of its own in Archon\Content\Paks (LanternModel_<id>_P.pak: new files under
+  /Game/Lantern/ModelSwaps/, nothing of the game replaced). In the game, Lantern's native library draws it on a part
+  of its own that follows your Slayer's pose, and hides the Slayer's body, head, hair, armour and accessories.
+  A character put in while the game runs shows after a game restart; switching between characters already in the
+  game, the Size slider and going back to your Slayer happen at once. It needs Modded mode on.
+  Limits: the face does not animate, hair and cloth do not move on their own, see-through parts are cut-outs, and
+  weapons stay on the Slayer's own hands (far from 100% size they sit a little off the character's hands).
+
 HOST MODE LAG FIX (retired in 3.9.37: Dauntless Forever fixes it itself, github.com/addison2k/DauntlessForever/issues/12)
   3.9.32-3.9.36 patched one line of DF's backend\recorder-1147.js so the host's own game did not go out to the relay
   and back. Lantern no longer patches it and the Hotfix tab is gone. On a PC it patched, Lantern puts DF's original

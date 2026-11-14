@@ -411,6 +411,42 @@ section.on .bcard:nth-child(2) { animation-delay: .05s; } section.on .bcard:nth-
 .brow span { display: block; font-size: 12px; color: var(--ash); }
 .bpickfoot { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 10px; font-size: 13px; color: var(--ash); }
 .bpickfoot .btn.armed { filter: hue-rotate(150deg) saturate(1.3); }
+/* Model Swaps */
+.mbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 12px; }
+.mgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(168px, 100%), 1fr)); gap: 12px; margin-bottom: 14px; }
+.mcard { position: relative; display: flex; flex-direction: column; min-width: 0; padding: 0; text-align: left; font: inherit; color: inherit; cursor: pointer; overflow: hidden; border-radius: 14px; border: 1px solid var(--seam); background: linear-gradient(180deg, var(--hull2), var(--hull)); transition: transform .25s var(--ease), border-color .2s, box-shadow .3s; }
+.mcard:hover { transform: translateY(-2px); border-color: rgba(var(--a-rgb), .4); }
+.mcard.sel { border-color: rgba(var(--a-rgb), .75); box-shadow: 0 0 0 1px rgba(var(--a-rgb), .4), 0 8px 26px -14px rgba(var(--a-rgb), .8); }
+.mcard:focus-visible { outline: 2px solid var(--aether); outline-offset: 2px; }
+.mcard .pic { display: block; width: 100%; aspect-ratio: 3 / 4; object-fit: cover; object-position: 50% 12%; background: #181a20; }
+.mcard .nopic { display: grid; place-items: center; aspect-ratio: 3 / 4; color: var(--ash2); font-size: 12px; background: #181a20; }
+.mcard .cap { padding: 8px 10px 10px; min-width: 0; }
+.mcard .cap b { display: block; font: 600 14px/1.25 var(--display); color: var(--frost); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mcard .cap span { display: block; font-size: 12px; color: var(--ash); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mtag { position: absolute; left: 8px; top: 8px; padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 600; letter-spacing: .04em; background: rgba(6, 10, 15, .82); border: 1px solid var(--seam2); color: var(--ash); }
+.mtag.on { color: var(--a-ink); background: var(--aether); border-color: var(--aether); box-shadow: 0 0 14px -2px var(--aether); }
+.mtag.bad { color: #ffc0cb; border-color: rgba(255, 90, 116, .5); }
+.mdetail { display: grid; grid-template-columns: minmax(0, 200px) minmax(0, 1fr); gap: 16px; padding: 14px 16px; margin-bottom: 14px; }
+.mdetail .pic { width: 100%; border-radius: 10px; background: #181a20; }
+.mdetail h3 { margin: 0; font: 600 18px/1.25 var(--display); color: var(--frost); overflow-wrap: anywhere; }
+.mdetail .sub { margin: 2px 0 8px; color: var(--ash); font-size: 13px; overflow-wrap: anywhere; }
+.mdetail p { margin: 0 0 8px; font-size: 13.5px; line-height: 1.4; }
+.mdetail ul { margin: 0 0 10px; padding-left: 18px; color: var(--ash); font-size: 12.5px; line-height: 1.45; }
+.mdetail .prob { color: #ffc0cb; }
+.mdetail .acts { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.mnote { color: var(--ash); font-size: 12.5px; line-height: 1.45; margin: 6px 0 10px; overflow-wrap: anywhere; }
+.msize { display: flex; align-items: center; gap: 12px; margin: 0 0 4px; font-size: 13px; color: var(--ash); }
+.msize input { flex: 1; max-width: 320px; }
+.msize b { min-width: 46px; color: var(--frost); font-variant-numeric: tabular-nums; }
+.mcat { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); gap: 10px; padding-bottom: 12px; }
+.mrow { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 8px; border-radius: 12px; border: 1px solid var(--seam); background: rgba(6, 10, 15, .35); }
+.mrow img, .mrow .nopic { flex: none; width: 54px; height: 72px; border-radius: 8px; object-fit: cover; object-position: 50% 12%; background: #181a20; font-size: 0; }
+.mrow .who { flex: 1; min-width: 0; }
+.mrow .who b { display: block; font: 600 14px/1.25 var(--display); color: var(--frost); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mrow .who span { display: block; font-size: 12px; color: var(--ash); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mnote code { -webkit-user-select: text; user-select: text; color: var(--frost); }
+.mempty { padding: 26px 16px; text-align: center; color: var(--ash); border: 1px dashed var(--seam2); border-radius: 14px; margin-bottom: 14px; }
+@media (max-width: 640px) { .mdetail { grid-template-columns: 1fr; } .mdetail .pic { max-width: 180px; } }
 @media (prefers-reduced-motion: reduce) { section.on .bcard, .bcard.claimed::after { animation: none; } .bcard, .bbar i { transition: none; } }
 .setcard { padding: 14px 16px 6px; border-radius: 14px; border: 1px solid var(--seam); background: linear-gradient(180deg, var(--hull2), var(--hull)); }
 .setcard.wide { grid-column: 1 / -1; }
@@ -893,6 +929,7 @@ div.lrow { cursor: default; }
     <button data-tab="currency"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="m12 8 4 4-4 4-4-4z"/></svg>Currencies</button>
     <button data-tab="parts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20c2-6 6-10 16-16-3 9-7 13-13 15"/><path d="M8 16l-3-3M12 13l-2-2"/></svg>Parts</button>
     <button data-tab="bounties"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg>Bounties</button>
+    <button data-tab="models"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/><path d="m17 3 1 2 2 1-2 1-1 2-1-2-2-1 2-1z"/></svg>Model Swaps</button>
     <button data-tab="rules"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>Game rules</button>
     <button data-tab="builds"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="M12 22V12M3 7l9 5 9-5"/></svg>Build Creator</button>
     <button data-tab="feed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Live feed <span class="count" id="feedCount"></span></button>
@@ -1019,6 +1056,36 @@ div.lrow { cursor: default; }
           </div>
           <div class="blist" id="bList" role="listbox" aria-label="Bounties"></div>
           <div class="bpickfoot"><span id="bPickInfo"></span><span class="grow"></span><button class="btn primary" id="bGive" disabled><span>Add bounty</span></button></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MODEL SWAPS -->
+    <section id="tab-models">
+      <div class="head"><div><h2>Model Swaps</h2><p class="lede">Play as another character. Only how your own Slayer looks on your screen changes: your armour stays equipped, and nothing about gameplay, other players or behemoths is touched.</p></div></div>
+      <div class="wrap">
+        <div class="mbar">
+          <span class="pill" id="mState"><i></i><span>Your own Slayer</span></span>
+          <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="mSearch" placeholder="Search characters" aria-label="Search characters"></div>
+          <button class="btn" id="mReset" disabled><span>Use my own Slayer</span></button>
+        </div>
+        <div class="mgrid" id="mGrid" role="listbox" aria-label="Characters"></div>
+        <div class="setcard mdetail" id="mDetail" hidden></div>
+        <div class="setcard" style="margin-bottom:14px"><h3>Download characters</h3>
+          <p class="mnote" id="mCatNote">Ready-made characters, already converted for Dauntless: one press and they are in your library.</p>
+          <div class="mcat" id="mCat"></div>
+        </div>
+        <div class="setcard" style="margin-bottom:14px"><h3>Add a character</h3>
+          <p class="mnote" id="mLibNote"></p>
+          <div class="kform">
+            <label class="full">Model file (.gltf or .glb), full path<input class="txt" id="mFile" maxlength="400" placeholder="C:\Models\character\scene.gltf" spellcheck="false"></label>
+            <label>Name<input class="txt" id="mName" maxlength="60" placeholder="Character name"></label>
+            <label>Source game<input class="txt" id="mGame" maxlength="80" placeholder="Optional"></label>
+            <label>Author or creator<input class="txt" id="mAuthor" maxlength="80" placeholder="Optional"></label>
+            <label>Description<input class="txt" id="mDesc" maxlength="300" placeholder="Optional"></label>
+            <label class="full" id="mOodleRow" hidden>Oodle library (oo2core_9_win64.dll), full path<input class="txt" id="mOodle" maxlength="400" placeholder="Needed once: it reads the game's own files" spellcheck="false"></label>
+            <div class="go"><button class="btn primary" id="mConvert"><span>Convert and add</span></button></div>
+          </div>
         </div>
       </div>
     </section>
@@ -1679,6 +1746,7 @@ function tourSteps() {
     { target: '#charSel', title: 'Who gets it', body: '<p>Pick which character receives gifts, or all of them. While you play, it follows the character you are on.</p>' },
     { tab: 'parts', target: 'nav > button[data-tab="parts"]', title: 'Parts', body: '<p>Every behemoth part for the weapon and armour you have equipped, up to <b>90 of each</b>, in one press. Parts only: no other materials. Works while you play.</p>' },
     { tab: 'bounties', target: 'nav > button[data-tab="bounties"]', title: 'Bounties', body: '<p>Your four slots: what each bounty asks, its rewards and its progress. Pick a slot, pick any bounty, and it goes in with no draft and no token. Rewards are still claimed in game.</p>' },
+    { tab: 'models', target: 'nav > button[data-tab="models"]', title: 'Model Swaps', body: '<p>Play as another character: pick one and press <b>Apply</b>. Only your own Slayer\'s looks change, on your screen. <b>Use my own Slayer</b> puts everything back.</p>' },
     { tab: 'currency', target: '#tab-currency .head', title: 'Currencies and materials', body: '<p>Type any amount of Rams, Merits, tokens, materials and cell cores, then press <b>Apply changes</b>. <b>Max everything</b> fills the currencies at the top. Below them, <b>Every other counted item</b> has the rest of the catalog: behemoth parts, tokens, curiosities and materials. Works while you play.</p>' },
     { tab: 'rules', target: '#rules > :first-child', title: 'Game rules', body: '<p>XP speeds (weapons, Hunt Pass, mastery), reward amounts (materials, Rams, Merits, Rare Cores), free crafting, free platinum and extra loadout slots. Pick a setting and it is saved; it applies the next time you press <b>Play</b>.</p>' },
     { tab: 'builds', target: 'nav > button[data-tab="builds"]', title: 'Build Creator', body: '<p>Answer a few questions (goals, weapon, target, play style) and get a full 1.14.7 build: weapon, armour, cells, lantern and Omnicell, checked against the game\'s rules, with why each piece is there and where the data comes from.</p>' },
@@ -2689,6 +2757,147 @@ $('#bGive').onclick = async (e) => {
 $('nav > button[data-tab="bounties"]').addEventListener('click', () => { bountiesLoad(true); requestAnimationFrame(() => placeInd($('#bTier'))); });
 setInterval(() => { if (activeTab() === 'bounties' && !document.hidden) bountiesLoad(false); }, 4000);
 $('nav > button[data-tab="parts"]').addEventListener('click', () => { renderParts(); renderDust(); requestAnimationFrame(() => { placeInd($('#partsQty')); placeInd($('#dustQty')); }); });
+
+/* ================================================= model swaps */
+const MS = { models: [], selected: null, pick: null, status: null, canConvert: true, sig: '', armed: 0 };
+const mPic = (m, cls = 'pic') => m.preview ? `<img class="${cls}" alt="" loading="lazy" src="/models/preview/${encodeURIComponent(m.id)}.png?t=${encodeURIComponent(TOKEN)}&v=${m.size}">` : `<div class="nopic">No preview</div>`;
+function mStateText(st) {
+  if (!st) return ['', 'Your own Slayer'];
+  const d = st.detail || '';
+  switch (st.state) {
+    case 'shown': return ['on', `Showing ${d} in the game`];
+    case 'ready': case 'restart': case 'waiting': return ['warn', d || 'Waiting for the game'];
+    case 'blocked': case 'error': case 'modsoff': return ['bad', d || 'Not available'];
+    default: return ['', d || 'Your own Slayer'];
+  }
+}
+function mRenderState() {
+  const [cls, text] = mStateText(MS.status);
+  pill('#mState', cls, text);
+  $('#mReset').disabled = !MS.selected;
+}
+function mRenderGrid() {
+  const q = $('#mSearch').value.trim().toLowerCase();
+  const rows = MS.models.filter((m) => !q || `${m.name} ${m.game} ${m.author}`.toLowerCase().includes(q));
+  if (!MS.models.length) $('#mGrid').innerHTML = '<div class="mempty" style="grid-column:1/-1">No characters yet. Add one below, or copy a character folder someone made into the library folder.</div>';
+  else if (!rows.length) $('#mGrid').innerHTML = '<div class="mempty" style="grid-column:1/-1">No character matches that search.</div>';
+  else $('#mGrid').innerHTML = rows.map((m) => {
+    const tag = m.problem ? '<span class="mtag bad">Cannot be used</span>' : m.id === MS.selected ? '<span class="mtag on">Active</span>' : '';
+    return `<button class="mcard${MS.pick === m.id ? ' sel' : ''}" role="option" aria-selected="${MS.pick === m.id}" data-id="${esc(m.id)}">${mPic(m)}${tag}<div class="cap"><b>${esc(m.name)}</b><span>${esc(m.game || 'Unknown game')}</span></div></button>`;
+  }).join('');
+}
+function mRenderDetail() {
+  const m = MS.models.find((x) => x.id === MS.pick), box = $('#mDetail');
+  clearTimeout(MS.armed); MS.armed = 0;
+  if (!m) { box.hidden = true; box.innerHTML = ''; return; }
+  const active = m.id === MS.selected;
+  const facts = [m.author && `By ${m.author}`, m.license, m.stats.triangles ? `${m.stats.triangles.toLocaleString()} triangles` : '', m.size ? `${(m.size / 1048576).toFixed(1)} MB` : ''].filter(Boolean).join(' · ');
+  box.hidden = false;
+  box.innerHTML = `<div>${mPic(m)}</div><div>
+    <h3>${esc(m.name)}</h3><div class="sub">${esc(m.game || 'Unknown game')}${facts ? ' · ' + esc(facts) : ''}</div>
+    ${m.description ? `<p>${esc(m.description)}</p>` : ''}
+    ${m.problem ? `<p class="prob">${esc(m.problem)}</p>` : `<ul>${m.notes.map((n) => `<li>${esc(n)}</li>`).join('')}${m.inGame === 'on' ? '' : '<li>Not in the game yet: Apply installs it. If the game is running, it shows after you restart the game.</li>'}</ul>`}
+    ${m.source ? `<p class="mnote">Source: <code>${esc(m.source)}</code></p>` : ''}
+    ${m.problem ? '' : `<label class="msize">Size <input type="range" id="mSize" min="50" max="130" step="1" value="${Math.round((m.myScale || m.scale) * 100)}" aria-label="Size"><b id="mSizeV">${Math.round((m.myScale || m.scale) * 100)}%</b><button class="btn" id="mSizeReset"${m.myScale ? '' : ' disabled'}><span>Default</span></button></label><p class="mnote">100% is the Slayer's own skeleton; the default makes the character as tall as a Slayer. Changes show at once in the game. Weapons stay on the Slayer's own hands, so far from 100% they sit a little off the character's hands.</p>`}
+    <div class="acts"><button class="btn primary" id="mApply"${m.problem || active ? ' disabled' : ''}><span>${active ? 'Active' : 'Apply'}</span></button><button class="btn danger" id="mRemove"><span>Remove from library</span></button></div></div>`;
+}
+function mRender() { mRenderState(); mRenderGrid(); mRenderDetail(); }
+let mBusy = false;
+async function modelsLoad() {
+  if (mBusy) return; mBusy = true;
+  const r = await api('/api/models'); mBusy = false;
+  if (!r.ok) return;
+  MS.status = r.status; MS.selected = r.selected; MS.canConvert = r.canConvert;
+  $('#mLibNote').innerHTML = `Characters live in <code>${esc(r.library)}</code>, one folder each: copy a folder there to add a character someone else converted. To convert a model yourself, give its file below (a humanoid standing in a T-pose or A-pose).${r.canConvert ? '' : ' Converting needs Python 3 with numpy and Pillow on this PC.'}`;
+  if (document.activeElement && document.activeElement.id === 'mSize') return mRenderState();   // not while the slider is held
+  const sig = JSON.stringify([r.models, r.selected]);
+  if (MS.pick && !r.models.some((m) => m.id === MS.pick)) MS.pick = null;
+  if (!MS.pick && r.selected) MS.pick = r.selected;
+  if (sig !== MS.sig) { MS.sig = sig; MS.models = r.models; mRender(); } else mRenderState();
+}
+$('#mGrid').addEventListener('click', (e) => { const c = e.target.closest('.mcard'); if (!c) return; SFX.select(true); MS.pick = c.dataset.id; mRenderGrid(); mRenderDetail(); });
+$('#mSearch').addEventListener('input', mRenderGrid);
+$('#mDetail').addEventListener('click', async (e) => {
+  const btn = e.target.closest('button'); if (!btn || btn.disabled || btn.classList.contains('busy')) return;
+  const m = MS.models.find((x) => x.id === MS.pick); if (!m) return;
+  if (btn.id === 'mApply') {
+    btn.classList.add('busy');
+    const r = await api('/api/models/apply', { id: m.id });
+    btn.classList.remove('busy');
+    if (!r.ok) { SFX.error(); toast('Not applied', r.error || 'That did not work.', 'error', 8000); return; }
+    SFX.give(); toast(`Playing as ${r.name}`, (r.status && r.status.detail) || '', 'applied', 6000);
+    MS.sig = ''; modelsLoad();
+  } else if (btn.id === 'mRemove') {
+    // deleting the character's files: a second press says yes
+    if (!MS.armed) { btn.classList.add('arm'); btn.lastChild.textContent = 'Press again to delete its files'; MS.armed = setTimeout(mRenderDetail, 3500); return; }
+    btn.classList.add('busy');
+    const r = await api('/api/models/remove', { id: m.id });
+    if (!r.ok) { SFX.error(); toast('Not removed', r.error || 'That did not work.', 'error', 7000); mRenderDetail(); return; }
+    toast('Character removed', `${m.name} is out of the library.`, 'ok', 4000);
+    MS.pick = null; MS.sig = ''; modelsLoad();
+  }
+});
+// size: sent a moment after the slider stops, so dragging does not flood the panel
+let mSizeTimer = 0;
+$('#mDetail').addEventListener('input', (e) => {
+  if (e.target.id !== 'mSize') return;
+  const id = MS.pick, v = Number(e.target.value);
+  $('#mSizeV').textContent = v + '%'; $('#mSizeReset').disabled = false;
+  clearTimeout(mSizeTimer);
+  mSizeTimer = setTimeout(async () => { const r = await api('/api/models/scale', { id, scale: v / 100 }); if (r.ok) { const m = MS.models.find((x) => x.id === id); if (m) m.myScale = v / 100; MS.sig = ''; } }, 250);
+});
+$('#mDetail').addEventListener('click', async (e) => {
+  if (!e.target.closest('#mSizeReset')) return;
+  const r = await api('/api/models/scale', { id: MS.pick, scale: null });
+  if (r.ok) { MS.sig = ''; modelsLoad(); }
+});
+$('#mReset').onclick = async (e) => {
+  const btn = e.currentTarget; if (btn.classList.contains('busy')) return;
+  btn.classList.add('busy');
+  const r = await api('/api/models/reset', {});
+  btn.classList.remove('busy');
+  if (!r.ok) { SFX.error(); toast('Not changed', r.error || 'That did not work.', 'error', 7000); return; }
+  SFX.select(true); toast('Your own Slayer is back', '', 'ok', 4000);
+  MS.sig = ''; modelsLoad();
+};
+$('#mConvert').onclick = async (e) => {
+  const btn = e.currentTarget; if (btn.classList.contains('busy')) return;
+  const file = $('#mFile').value.trim(), name = $('#mName').value.trim();
+  if (!file || !name) { SFX.error(); toast('Give the file and a name', 'The model file\'s full path, and what the character is called.', 'error', 5000); return; }
+  btn.classList.add('busy'); btn.lastChild.textContent = 'Converting (can take a minute)...';
+  const r = await api('/api/models/convert', { file, name, game: $('#mGame').value, author: $('#mAuthor').value, description: $('#mDesc').value, oodle: $('#mOodle').value });
+  btn.classList.remove('busy'); btn.lastChild.textContent = 'Convert and add';
+  if (!r.ok) {
+    if (/Oodle/i.test(r.error || '')) $('#mOodleRow').hidden = false;
+    SFX.error(); toast('Not added', r.error || 'The converter did not answer.', 'error', 12000); return;
+  }
+  SFX.give(); toast('Character added', `${name} is in the library: pick it and press Apply.`, 'applied', 6000);
+  for (const id of ['mFile', 'mName', 'mGame', 'mAuthor', 'mDesc']) $('#' + id).value = '';
+  MS.pick = r.id; MS.sig = ''; modelsLoad();
+};
+// characters to download
+let mCatAt = 0;
+async function catalogLoad(force) {
+  if (!force && Date.now() - mCatAt < 60000) return;
+  mCatAt = Date.now();
+  const r = await api('/api/models/catalog');
+  if (!r.ok) { $('#mCat').innerHTML = ''; $('#mCatNote').textContent = r.error || 'The list of characters could not be fetched.'; return; }
+  $('#mCatNote').textContent = r.items.length ? 'Ready-made characters, already converted for Dauntless: one press and they are in your library.' : 'No characters to download yet.';
+  $('#mCat').innerHTML = r.items.map((m) => `<div class="mrow"><img alt="" loading="lazy" src="/models/preview/${encodeURIComponent(m.id)}.png?from=list&t=${encodeURIComponent(TOKEN)}" onerror="this.style.visibility='hidden'">
+    <div class="who"><b>${esc(m.name)}</b><span>${esc(m.game || 'Unknown game')}</span><span>${esc([m.author && 'By ' + m.author, m.license, (m.size / 1048576).toFixed(1) + ' MB'].filter(Boolean).join(' · '))}</span></div>
+    <button class="btn${m.have && !m.update ? '' : ' primary'}" data-get="${esc(m.id)}"${m.have && !m.update ? ' disabled' : ''}><span>${m.update ? 'Update' : m.have ? 'In library' : 'Download'}</span></button></div>`).join('');
+}
+$('#mCat').addEventListener('click', async (e) => {
+  const btn = e.target.closest('button[data-get]'); if (!btn || btn.disabled || btn.classList.contains('busy')) return;
+  btn.classList.add('busy'); btn.lastChild.textContent = 'Downloading...';
+  const r = await api('/api/models/download', { id: btn.dataset.get });
+  btn.classList.remove('busy');
+  if (!r.ok) { btn.lastChild.textContent = 'Download'; SFX.error(); toast('Not downloaded', r.error || 'That did not work.', 'error', 9000); return; }
+  SFX.give(); toast('Character downloaded', `${r.name} is in your library: pick it and press Apply.`, 'applied', 6000);
+  MS.pick = r.id; MS.sig = ''; await modelsLoad(); catalogLoad(true);
+});
+$('nav > button[data-tab="models"]').addEventListener('click', () => { modelsLoad(); catalogLoad(false); });
+setInterval(() => { if (activeTab() === 'models' && !document.hidden) modelsLoad(); }, 3000);
 
 /* ================================================= rules */
 function renderRules() {

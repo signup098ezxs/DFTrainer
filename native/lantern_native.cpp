@@ -16,6 +16,7 @@
 #include <windows.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
 #include <wchar.h>
@@ -339,16 +340,230 @@ static void publish(Pass& s) {
     LeaveCriticalSection(&g_jsonLock);
 }
 
+// ---------------------------------------------------------------------------- Model Swaps (3.9.43)
+// Shows another character's mesh in place of YOUR Slayer, on your screen only (Lantern's Model Swaps tab). The mesh is
+// in a pak of its own under /Game/Lantern/ModelSwaps/ and is bound to the player skeleton, so the Slayer's own
+// animation drives it. Looks only: this sets a mesh and a material on the Slayer's body component and hides the head,
+// hair, beard, armour and accessory components. Armour stays equipped; nothing is sent to the server; no stat,
+// collision, movement or animation changes; other players, NPCs and behemoths are never touched.
+// Why here and not in Lua: UE4SS 3.0.1 cannot pass arguments to this game's functions (calls are silent no-ops).
+// What comes from the Lua mod (ModelSwaps), through the ms_* functions below, called on the game's thread:
+//   the engine's LoadAsset_Blocking function and its library object, and the name of the mesh to show.
+namespace MS {
+    static volatile LONG on = 0;                 // modelswap.json says a character is chosen (files thread)
+    static uint64_t acc = 0; static void* fnLoad = 0; static void* cdo = 0; static uint32_t nameIdx = 0;
+    static char status[160] = "off"; static volatile LONG statusSeq = 0;
+    static void say(const char* s) { if (strcmp(status, s)) { strncpy(status, s, 159); InterlockedIncrement(&statusSeq); logf_("model swap: %s", s); } }
+
+    // engine functions, found once (they belong to engine classes, which are never unloaded)
+    static void* fRoot = 0, *fChildren = 0, *fOwner = 0, *fIsVisible = 0, *fSetVisible = 0, *fSetMesh = 0, *fSetMat = 0, *fGetMat = 0;
+    static void call(void* obj, void* fn, void* parms) { ((void (*)(void*, void*, void*))(g_base + A::ProcessEvent))(obj, fn, parms); }
+    static void* cls_of(void* o) { return at<void*>((uintptr_t)o + A::Object_Class); }
+    static uint32_t name_idx(void* o) { return at<uint32_t>((uintptr_t)o + A::Object_Name); }
+
+    // what a component or its owner is, by name (one engine string per different name, kept)
+    enum { K_OTHER = 1, K_BODY, K_SLOT, K_GEAR };
+    struct NameKind { uint32_t idx; uint8_t kind; };
+    static NameKind names[512]; static int nNames = 0;
+    static uint8_t kind_of(void* o, bool owner) {
+        uint32_t idx = name_idx(o) | (owner ? 0x80000000u : 0);
+        for (int i = 0; i < nNames; i++) if (names[i].idx == idx) return names[i].kind;
+        wchar_t b[96]; name_w(o, b, 96);
+        uint8_t k = K_OTHER;
+        if (owner) { if (!wcsncmp(b, L"armour_", 7) || !wcsncmp(b, L"accessory_", 10)) k = K_GEAR; }
+        else if (!wcsncmp(b, L"CharacterMesh0", 14)) k = K_BODY;
+        else if (!wcsncmp(b, L"Head Slot", 9) || !wcsncmp(b, L"Hair Slot", 9) || !wcsncmp(b, L"FacialHairSlot", 14)) k = K_SLOT;
+        if (nNames < 512) names[nNames++] = { idx, k };
+        return k;
+    }
+
+    // this Slayer (cleared when your character changes: a new town, a hunt, a respawn)
+    // The character is drawn by a mesh component of its own, added to your Slayer and following the body's pose
+    // (the engine's "master pose"). Only that component is scaled, so a character can have its own height while the
+    // Slayer's body, its hitbox capsule and the camera (which hang on the body) keep their size: the body is only
+    // not drawn. Weapons and the lantern stay on the body's own hand, so on a much smaller character they sit a
+    // little off its hands.
+    // If this build cannot do that (no "keep animating while hidden" offset from the Lua mod, or no way to add a
+    // component), the older way is used: the mesh goes on the body itself, at the Slayer's size.
+    static volatile LONG scaleMilli = 1000;      // modelswap.json "scale" x 1000 (files thread)
+    static uint32_t tickOff = 0;                 // where a mesh component keeps VisibilityBasedAnimTickOption (from the Lua mod)
+    static void* fAdd = 0, *fAttach = 0, *fMaster = 0, *fScale = 0, *fDestroy = 0;
+    static void* pawn = 0, *comp = 0, *origMesh = 0, *origMat = 0, *ourMat = 0; static bool applied = false, own = false;
+    static uint8_t origTick = 0; static bool tickSet = false; static float compScale = 0;
+    static void* hid[512]; static int nHid = 0;
+    static void* kids[1024];
+    static ULONGLONG retryAt = 0;
+
+    static void* get_obj(void* o, void* fn) { void* p[2] = { 0, 0 }; call(o, fn, p); return p[0]; }
+    static bool is_visible(void* c) { uint8_t p[8] = { 0 }; call(c, fIsVisible, p); return p[0] != 0; }
+    static void set_visible(void* c, bool v) { uint8_t p[8] = { (uint8_t)v, 0 }; call(c, fSetVisible, p); }
+    static void set_mesh(void* c, void* mesh) { struct { void* m; uint8_t reinit; } p = { mesh, 0 }; call(c, fSetMesh, &p); }
+    static void set_mat(void* c, void* m) { struct { int32_t i; void* m; } p = { 0, m }; call(c, fSetMat, &p); }
+    static void* get_mat(void* c) { struct { int32_t i; void* m; } p = { 0, 0 }; call(c, fGetMat, &p); return p.m; }
+    static void set_scale(void* c, float v) { float p[4] = { v, v, v, 0 }; call(c, fScale, p); }
+    static int children(void* root) {   // every component under the Slayer's root, into kids (our own buffer: nothing to free)
+        struct { uint8_t all; TArrayRaw arr; } p = { 1, { kids, 0, 1024 } };
+        call(root, fChildren, &p);
+        return p.arr.Data == kids ? p.arr.Num : -1;   // the engine moved the list: more than 1024, not a Slayer
+    }
+    static void* load() {   // the mesh the Lua mod named: found if the game has it in memory, loaded from the pak if not
+        struct { int32_t weakIdx, weakSerial, tag, pad; uint32_t name, number; wchar_t* sub; int32_t subNum, subMax; void* ret; } p =
+            { -1, 0, 0, 0, nameIdx, 0, 0, 0, 0, 0 };
+        call(cdo, fnLoad, &p);
+        return p.ret;
+    }
+    static bool object_ok(void* o, void* cls) {   // still a live object of that class (kept pointers are checked before use)
+        MEMORY_BASIC_INFORMATION mi;
+        if (!o || !VirtualQuery(o, &mi, sizeof(mi)) || mi.State != MEM_COMMIT || (mi.Protect & (PAGE_NOACCESS | PAGE_GUARD))) return false;
+        return !(at<uint32_t>((uintptr_t)o + A::Object_Flags) & 0x60000000) && (!cls || cls_of(o) == cls);
+    }
+    static bool in_kids(void* c, int n) { for (int i = 0; i < n; i++) if (kids[i] == c) return true; return false; }
+    // a mesh component of the plain kind, made on the Slayer and hung on its body (same place, its own scale)
+    static void* add_component(void* body, void* cls, float scale) {
+        struct alignas(16) { void* cls; uint8_t manual; uint8_t pad[7]; float rot[4]; float loc[4]; float scl[4]; uint8_t deferred; uint8_t pad2[7]; void* ret; } p;
+        memset(&p, 0, sizeof(p)); p.cls = cls; p.manual = 1; p.rot[3] = 1; p.scl[0] = p.scl[1] = p.scl[2] = scale;
+        call(pawn, fAdd, &p);
+        if (!p.ret) return 0;
+        struct { void* parent; uint32_t name, number; uint8_t loc, rot, scl, weld; uint8_t ret[12]; } a = { body, 0, 0, 0, 0, 0, 0, { 0 } };   // no socket, keep relative
+        call(p.ret, fAttach, &a);
+        return p.ret;
+    }
+
+    static void forget() { applied = false; own = false; comp = 0; nHid = 0; origMesh = origMat = ourMat = 0; tickSet = false; compScale = 0; }
+    static void restore(void* body, int n) {
+        if (comp && in_kids(comp, n)) { void* p[2] = { comp, 0 }; call(comp, fDestroy, p); }   // our own component: gone
+        if (body && tickSet) at<uint8_t>((uintptr_t)body + tickOff) = origTick;
+        if (body && applied && !own) {
+            // the Slayer's own body mesh, if the game still has it; else the body returns at the next loading screen
+            if (object_ok(origMesh, 0)) set_mesh(body, origMesh);
+            set_mat(body, object_ok(origMat, 0) ? origMat : 0);
+        }
+        for (int i = 0; i < n; i++) for (int k = 0; k < nHid; k++) if (kids[i] == hid[k]) { set_visible(kids[i], true); break; }
+        forget();
+    }
+    static void hide(void* c) {
+        if (!is_visible(c)) return;
+        set_visible(c, false);
+        bool have = false; for (int j = 0; j < nHid && !have; j++) have = hid[j] == c;
+        if (!have && nHid < 512) hid[nHid++] = c;
+    }
+
+    static void pass(void* arg) {
+        void* world = arg;
+        void* gi = at<void*>((uintptr_t)world + A::World_GameInstance);
+        TArrayRaw* lp = gi ? &at<TArrayRaw>((uintptr_t)gi + 0x38) : 0;
+        void* pc = (lp && lp->Data && lp->Num > 0 && lp->Data[0]) ? at<void*>((uintptr_t)lp->Data[0] + 0x30) : 0;
+        void* me = pc ? at<void*>((uintptr_t)pc + A::PC_Pawn) : 0;
+        if (me != pawn) { pawn = me; forget(); retryAt = 0; }   // the old character is gone with its parts
+        if (!pawn) return;
+        if (!on && !applied && !nHid) return;
+        if (!fRoot) fRoot = find_function(cls_of(pawn), L"K2_GetRootComponent");
+        void* root = fRoot ? get_obj(pawn, fRoot) : 0;
+        if (!root) return;
+        if (!fChildren) {
+            void* c = cls_of(root);
+            fChildren = find_function(c, L"GetChildrenComponents"); fOwner = find_function(c, L"GetOwner");
+            fIsVisible = find_function(c, L"IsVisible"); fSetVisible = find_function(c, L"SetVisibility");
+            if (!fChildren || !fOwner || !fIsVisible || !fSetVisible) { fChildren = 0; say("this game build has no way to list the Slayer's parts"); return; }
+        }
+        int n = children(root);
+        if (n <= 0) return;
+        void* body = 0, *slot = 0;
+        for (int i = 0; i < n; i++) {
+            if (!kids[i]) continue;
+            uint8_t k = kind_of(kids[i], false);
+            if (k == K_BODY && !body && get_obj(kids[i], fOwner) == pawn) body = kids[i];
+            if (k == K_SLOT && !slot && get_obj(kids[i], fOwner) == pawn) slot = kids[i];
+        }
+        if (!body) return;   // not a Slayer (yet)
+        if (!fSetMesh) {
+            void* c = cls_of(body);
+            fSetMesh = find_function(c, L"SetSkeletalMesh"); fSetMat = find_function(c, L"SetMaterial"); fGetMat = find_function(c, L"GetMaterial");
+            if (!fSetMesh || !fSetMat || !fGetMat) { fSetMesh = 0; say("this game build has no way to set the Slayer's mesh"); return; }
+            fAdd = find_function(cls_of(pawn), L"AddComponentByClass");
+            fAttach = find_function(c, L"K2_AttachToComponent"); fMaster = find_function(c, L"SetMasterPoseComponent");
+            fScale = find_function(c, L"SetRelativeScale3D"); fDestroy = find_function(c, L"K2_DestroyComponent");
+        }
+        if (!on) { restore(body, n); say("off"); return; }
+        if (!fnLoad || !cdo || !nameIdx) { say("waiting for the game mod (is the ModelSwaps mod switched on?)"); return; }
+        ULONGLONG now = GetTickCount64();
+        if (now < retryAt) return;
+        void* mesh = load();
+        if (!mesh) { retryAt = now + 5000; if (applied || nHid) restore(body, n); say("the character's files are not in the game (restart the game after installing it)"); return; }
+        float scale = scaleMilli / 1000.0f;
+        bool canOwn = tickOff > 0x80 && tickOff < 0x2000 && fAdd && fAttach && fMaster && fScale && fDestroy && slot;
+        if (applied && own && !in_kids(comp, n)) { comp = 0; applied = false; }   // our component went away (the game rebuilt the Slayer)
+        if (!applied) {
+            if (canOwn) {
+                comp = add_component(body, cls_of(slot), scale);
+                if (comp) {
+                    set_mesh(comp, mesh);
+                    struct { void* master; uint8_t force; } m = { body, 0 }; call(comp, fMaster, &m);
+                    compScale = scale; own = true; applied = true;
+                    logf_("model swap: shown on its own part, size x%.3f", scale);
+                }
+            }
+            if (!applied) {   // the older way: on the body itself
+                // where the component keeps its mesh: the one place that changes to ours when it is set (to keep the Slayer's own for later)
+                uintptr_t b = (uintptr_t)body; void* before[64];
+                for (int i = 0; i < 64; i++) before[i] = at<void*>(b + 0x400 + i * 8);
+                origMat = get_mat(body);
+                set_mesh(body, mesh);
+                origMesh = 0;
+                for (int i = 0; i < 64; i++) if (at<void*>(b + 0x400 + i * 8) == mesh && before[i] != mesh) { origMesh = before[i]; break; }
+                if (origMesh && cls_of(origMesh) != cls_of(mesh)) origMesh = 0;
+                set_mat(body, 0);            // drop the Slayer's skin material: the mesh's own shows
+                ourMat = get_mat(body);
+                own = false; applied = true;
+                logf_("model swap: shown on the body, at the Slayer's size (the Slayer's own mesh %s, its material %s)", origMesh ? "kept for later" : "not found", origMat ? "kept" : "none");
+            }
+        } else if (own) {
+            set_mesh(comp, mesh);        // nothing happens when it is still ours
+            if (scale != compScale) { set_scale(comp, scale); compScale = scale; }
+        } else {
+            set_mesh(body, mesh);
+            if (ourMat && get_mat(body) != ourMat) set_mat(body, 0);   // the game put its skin material back
+        }
+        if (own) {
+            // the body drives the pose: it keeps animating while it is not drawn (0 = always tick pose and refresh bones)
+            uint8_t& t = at<uint8_t>((uintptr_t)body + tickOff);
+            if (!tickSet) { origTick = t; tickSet = true; }
+            if (t != 0) t = 0;
+            hide(body);
+        }
+        for (int i = 0; i < n; i++) {
+            void* c = kids[i]; if (!c || c == body || c == comp) continue;
+            uint8_t k = kind_of(c, false);
+            void* owner = get_obj(c, fOwner);
+            if ((k == K_SLOT && owner == pawn) || (owner && owner != pawn && kind_of(owner, true) == K_GEAR)) hide(c);
+        }
+        say("shown");
+    }
+}
+// the Lua mod hands over numbers one hex digit at a time (a loaded library's functions are all Lua can call here)
+#define MS_DIGIT(n) extern "C" __declspec(dllexport) int ms_h##n(void*) { MS::acc = (MS::acc << 4) | 0x##n; return 0; }
+MS_DIGIT(0) MS_DIGIT(1) MS_DIGIT(2) MS_DIGIT(3) MS_DIGIT(4) MS_DIGIT(5) MS_DIGIT(6) MS_DIGIT(7)
+MS_DIGIT(8) MS_DIGIT(9) MS_DIGIT(a) MS_DIGIT(b) MS_DIGIT(c) MS_DIGIT(d) MS_DIGIT(e) MS_DIGIT(f)
+extern "C" __declspec(dllexport) int ms_fn(void*)   { MS::fnLoad = (void*)MS::acc; MS::acc = 0; return 0; }
+extern "C" __declspec(dllexport) int ms_cdo(void*)  { MS::cdo = (void*)MS::acc; MS::acc = 0; return 0; }
+extern "C" __declspec(dllexport) int ms_name(void*) { MS::nameIdx = (uint32_t)MS::acc; MS::acc = 0; MS::retryAt = 0; return 0; }
+extern "C" __declspec(dllexport) int ms_tick(void*) { MS::tickOff = (uint32_t)MS::acc; MS::acc = 0; return 0; }
+
 // ---------------------------------------------------------------------------- the engine tick (the game's thread)
 static void (*orig_Tick)(void*, float, bool) = 0;
 static long g_ticks = 0;
+static bool g_trackerOk = true;
 static void hook_Tick(void* engine, float dt, bool idle) {
     orig_Tick(engine, dt, idle);
-    // every 5th frame (12 a second at 60 fps; DF's bar reads every 15th): the card follows hits closely
-    if (!g_on || ++g_ticks % 5) return;
+    ++g_ticks;
     g_gameThread = GetCurrentThreadId();
     void* world = at<void*>(g_base + A::GWorld);
     if (!world) return;
+    // model swap: every 10th frame (your Slayer's parts are checked 6 times a second at 60 fps)
+    if ((MS::on || MS::applied || MS::nHid) && g_ticks % 10 == 3)
+        if (!guarded(MS::pass, world)) { MS::forget(); MS::pawn = 0; }   // a bad read: start over next time
+    // every 5th frame (12 a second at 60 fps; DF's bar reads every 15th): the card follows hits closely
+    if (!g_on || !g_trackerOk || g_ticks % 5) return;
     static Pass s; memset(&s, 0, sizeof(s)); s.world = world;
     if (!guarded(collect, &s)) { g_namesFor = 0; return; }   // a bad read: this pass is dropped, names looked up again
     if (!s.game) return;
@@ -363,6 +578,15 @@ static DWORD WINAPI files_thread(void*) {
     // one name: only your own game writes it (the Lua mod reads it to know the tracker is running)
     swprintf(track, MAX_PATH + 64, L"%ls\\track\\native.json", g_dir);
     swprintf(tmp, MAX_PATH + 72, L"%ls.tmp", track);
+    // Model Swaps: its settings and status live in the ModelSwaps mod's folder (this DLL is in Lantern's mod folder
+    // next to it, or, in a test build, in the ModelSwaps folder itself)
+    wchar_t msDir[MAX_PATH + 32], msCfg[MAX_PATH + 64], msStatus[MAX_PATH + 64], msTmp[MAX_PATH + 72];
+    swprintf(msCfg, MAX_PATH + 64, L"%ls\\modelswap.json", g_dir);
+    if (GetFileAttributesW(msCfg) != INVALID_FILE_ATTRIBUTES) wcscpy(msDir, g_dir); else swprintf(msDir, MAX_PATH + 32, L"%ls\\..\\ModelSwaps", g_dir);
+    swprintf(msCfg, MAX_PATH + 64, L"%ls\\modelswap.json", msDir);
+    swprintf(msStatus, MAX_PATH + 64, L"%ls\\native-status.json", msDir);
+    swprintf(msTmp, MAX_PATH + 72, L"%ls.tmp", msStatus);
+    LONG msSeq = -1; ULONGLONG msWrite = 0;
     LONG lastSeq = -1; ULONGLONG lastWrite = 0, lastRead = 0; bool wrote = false;
     for (;;) {
         Sleep(50);
@@ -373,6 +597,23 @@ static DWORD WINAPI files_thread(void*) {
             if (f) { size_t n = fread(t, 1, sizeof(t) - 1, f); t[n] = 0; fclose(f); }
             LONG on = strstr(t, "\"native\":true") != 0;   // the panel sets it while Lantern's card is on
             if (on != g_on) { g_on = on; logf_("toggles: native %s", on ? "on" : "off"); }
+            char m[1024] = ""; f = _wfopen(msCfg, L"rb");
+            if (f) { size_t n = fread(m, 1, sizeof(m) - 1, f); m[n] = 0; fclose(f); }
+            LONG mon = strstr(m, "\"on\":true") != 0 && strstr(m, "\"mesh\":\"/Game/Lantern/ModelSwaps/") != 0;
+            if (mon != MS::on) { MS::on = mon; logf_("model swap: %s", mon ? "a character is chosen" : "switched off"); }
+            const char* sc = strstr(m, "\"scale\":"); double sv = sc ? atof(sc + 8) : 1.0;
+            if (!(sv >= 0.5 && sv <= 1.5)) sv = 1.0;
+            MS::scaleMilli = (LONG)(sv * 1000 + 0.5);
+        }
+        if (MS::statusSeq != msSeq || now - msWrite >= 2000) {   // for the panel: what the game is showing
+            LONG seq = MS::statusSeq; char st[160]; strncpy(st, MS::status, 159); st[159] = 0;
+            for (char* c = st; *c; c++) if (*c == '"' || *c == '\\') *c = '\'';
+            FILE* f = _wfopen(msTmp, L"wb");
+            if (f) {
+                fprintf(f, "{\"time\":%lld,\"on\":%s,\"shown\":%s,\"status\":\"%s\"}", (long long)time(0), MS::on ? "true" : "false", strcmp(st, "shown") ? "false" : "true", st);
+                fclose(f);
+                if (MoveFileExW(msTmp, msStatus, MOVEFILE_REPLACE_EXISTING)) { msSeq = seq; msWrite = now; }
+            }
         }
         if (!g_on || !g_noteGame) {
             if (wrote) { DeleteFileW(track); wrote = false; }
@@ -407,7 +648,9 @@ static DWORD WINAPI init_thread(void*) {
     if (!readable(g_base + A::LoadMapListenCall, 5) || !readable(g_base + A::GameEngineTick, 4) || !readable(g_base + A::GWorld, 8) ||
         memcmp((void*)(g_base + A::LoadMapListenCall), listenCall, 5) != 0) { logf_("not the player's 1.14.7 game (a hunt server copy, which DF patches there, or another build): off"); return 0; }
     static const uint8_t tickStart[4] = { 0x48, 0x8B, 0xC4, 0x48 };
-    if (memcmp((void*)(g_base + A::GameEngineTick), tickStart, 4) != 0) { logf_("the engine tick is already hooked (Dauntless Forever's Boss Health Bar is on?): off"); return 0; }
+    // already hooked (Dauntless Forever's Boss Health Bar is on): the tracker stays off, as before; Model Swaps still
+    // runs, hooked behind the bar's own hook
+    if (memcmp((void*)(g_base + A::GameEngineTick), tickStart, 4) != 0) { g_trackerOk = false; logf_("the engine tick is already hooked (Dauntless Forever's Boss Health Bar is on?): tracking off, Model Swaps still available"); }
     InitializeCriticalSection(&g_jsonLock);
     AddVectoredExceptionHandler(1, on_exception);
     MH_STATUS s = MH_Initialize();

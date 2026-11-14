@@ -41,6 +41,10 @@ const SLAYERS = require('./slayers.js');
 const OMNIS_MOD = 'BetterOmnis';   // the BetterOmnis switch on Dauntless Forever's Mods page (see "BetterOmnis" below)
 const OMNIS_SRC = path.join(HERE, 'mod', OMNIS_MOD);
 const OMNIS = require('./omnis.js');
+const MODELS_MOD = 'ModelSwaps';   // the Model Swaps game mod (see "Model Swaps" below)
+const MODELS_SRC = path.join(HERE, 'mod', MODELS_MOD);
+const MODELS = require('./modelswaps.js');
+const MODELS_LIB = path.join(process.env.DFT_ROOT || HERE, 'models');   // the character library: one folder per character
 // the game mod this panel ships (its main.lua says "local MOD_VERSION"): copies of the game started before an update
 // keep running the old one (hunt servers stay up between hunts), so the panel says when that is the case
 const MOD_VERSION = (() => { try { return (/local MOD_VERSION\s*=\s*"([^"]+)"/.exec(fs.readFileSync(path.join(__dirname, 'mod', 'DFTrainer', 'Scripts', 'main.lua'), 'utf8')) || [])[1] || ''; } catch { return ''; } })();
@@ -107,6 +111,7 @@ function placesUncached() {
     pkg, gameDir, node: (cfg.Node && fs.existsSync(cfg.Node)) ? cfg.Node : process.execPath,
     ue4ssDll: ue && path.join(ue, 'UE4SS.dll'), modsDir: ue && path.join(ue, 'Mods'), modDir: ue && path.join(ue, 'Mods', MOD_NAME),
     slayersDir: ue && path.join(ue, 'Mods', SLAYERS_MOD), omnisDir: ue && path.join(ue, 'Mods', OMNIS_MOD),
+    modelsDir: ue && path.join(ue, 'Mods', MODELS_MOD),
     dataDir: path.join(pkg, 'data'), requestLog: path.join(pkg, 'logs', 'requests.jsonl'),
   };
 }
@@ -887,6 +892,96 @@ async function omnisSync(running) {
   finally { omnisBusy = false; }
 }
 
+// ---------------------------------------------------------------- Model Swaps
+// Another character's model in place of your own Slayer, on your screen only (modelswaps.js: the library and the files;
+// native\lantern_native.cpp does the work in the game; the ModelSwaps mod links the two). settings.modelSwap is the
+// chosen character's id, or nothing for your own Slayer. This keeps the game in step with it, on each state tick:
+//   - the ModelSwaps mod folder is there and switched on (only once Lantern's own mod is set up: its folder has the
+//     native library);
+//   - the chosen character's pak is in the game's Paks folder (a new file, nothing replaced; the game reads the
+//     folder when it starts, so a character installed while it runs shows after a restart);
+//   - modelswap.json in the mod folder names the character (read while the game runs: switching between characters
+//     already in the game, and going back to your own Slayer, happen at once);
+//   - paks of characters no longer in the library are taken out once no copy of the game runs.
+// Nothing here touches the save or the game's own files.
+async function modelsInstall(p) {
+  if (!p.modelsDir || !p.modDir || !fs.existsSync(path.join(p.modDir, 'Scripts', 'main.lua'))) return false;   // Lantern's mod is not set up
+  const fresh = !fs.existsSync(p.modelsDir);
+  for (const rel of modFiles(MODELS_SRC)) {
+    const a = path.join(MODELS_SRC, rel), b = path.join(p.modelsDir, rel);
+    let same = false; try { same = fs.readFileSync(a).equals(fs.readFileSync(b)); } catch {}
+    if (!same) { fs.mkdirSync(path.dirname(b), { recursive: true }); fs.copyFileSync(a, b); }
+  }
+  fs.mkdirSync(path.join(p.modelsDir, 'logs'), { recursive: true });
+  return fresh;
+}
+let modelsKey = '', modelsRetry = 0, modelsBusy = false;
+const modelsLast = { pak: 'on', name: '' };   // what the last look at the files found
+let modelsStatus = { state: 'off', detail: '' };   // for GET /api/state, the tab and panel.log
+const modelsSet = (state, detail = '') => {
+  if (modelsStatus.state !== state || modelsStatus.detail !== detail) panelLog(`Model Swaps: ${state}${detail ? ' - ' + detail : ''}`);
+  modelsStatus = { state, detail, id: settings.modelSwap || null };
+};
+async function modelsSync(running) {
+  if (modelsBusy) return;
+  const p = places();
+  if (!p.pkg || !p.gameDir || !p.modelsDir || !p.modDir) return;
+  const id = LIC.ok() && MODELS.ID.test(String(settings.modelSwap || '')) ? settings.modelSwap : null;   // without a key: your own Slayer
+  const live = MODELS.status(p.modelsDir);
+  // the files are looked at again when the choice, a switch, the game, the library or the game's pak changed, or at
+  // the retry time; what the game says it shows is read on every tick (a small file)
+  const paks = MODELS.paksDir(p.gameDir);
+  const key = [id, JSON.stringify(settings.modelSwapScale || {}), running, statKey(path.join(p.modsDir, 'mods.txt')), statKey(path.join(p.modDir, 'Scripts', 'main.lua')), fs.existsSync(p.modelsDir),
+    statKey(MODELS_LIB), id ? statKey(path.join(MODELS_LIB, id, 'model.json')) + statKey(path.join(paks, MODELS.pakName(id))) : ''].join('|');
+  if (key !== modelsKey || (modelsRetry && Date.now() >= modelsRetry)) {
+    modelsBusy = true; modelsKey = key; modelsRetry = 0;
+    try {
+      const setUp = fs.existsSync(path.join(p.modDir, 'Scripts', 'main.lua'));
+      if (!setUp) { modelsSet(id ? 'blocked' : 'off', id ? 'Lantern\'s game mod is not set up: press Set up first' : ''); return; }
+      await modelsInstall(p);
+      if (id && !modListed(p, MODELS_MOD)) {
+        const r = await runTool(p, 'ue4ss.cjs', ['mod', MODELS_MOD, 'on']);
+        if (!r.ok) { modelsRetry = Date.now() + 30000; modelsSet('error', r.error || 'the mod could not be switched on'); return; }
+      }
+      const m = id ? MODELS.read(MODELS_LIB, id) : null;
+      if (m && m.problem) {   // a damaged or outdated character: your own Slayer
+        MODELS.writeConfig(p.modelsDir, null);
+        modelsSet('error', `${m.name}: ${m.problem}`);
+        return;
+      }
+      let pak = 'on';
+      if (m) {
+        pak = MODELS.inGame(p.gameDir, m);
+        if (pak !== 'on') {
+          try { MODELS.install(p.gameDir, m); pak = running ? 'restart' : 'on'; modelsKey = ''; }
+          catch (e) { pak = 'busy'; modelsRetry = Date.now() + 15000; panelLog(`Model Swaps: ${m.name}'s files could not be put in the game yet (${e.code || e.message})`); }
+        }
+      }
+      // its size: the character's own, or the one you chose for it in the tab (settings.modelSwapScale[id])
+      const mine = Number((settings.modelSwapScale || {})[id]);
+      MODELS.writeConfig(p.modelsDir, m ? id : null, m ? (mine >= 0.5 && mine <= 1.5 ? mine : m.scale) : 1);
+      // paks of characters that left the library: out, once nothing has them open
+      const game = running || await OMNIS.gameRunning();
+      const ids = MODELS.list(MODELS_LIB).filter((x) => !x.problem).map((x) => x.id);
+      for (const stray of MODELS.strays(p.gameDir, ids)) {
+        if (game !== false) { modelsRetry = modelsRetry || Date.now() + 30000; break; }
+        try { MODELS.removePak(p.gameDir, stray); panelLog(`Model Swaps: took ${stray} out of the game (not in the library)`); } catch {}
+      }
+      modelsLast.pak = pak; modelsLast.name = m ? m.name : '';
+    } catch (e) { modelsRetry = Date.now() + 30000; modelsSet('error', e.message); return; }
+    finally { modelsBusy = false; }
+  }
+  if (modelsStatus.state === 'error' || modelsStatus.state === 'blocked') return;   // until the files are looked at again
+  if (id && !modsMode(p).on) return modelsSet('modsoff', 'Modded mode is off in Dauntless Forever: switch it on (Mods page) and restart the game');
+  if (!id) return modelsSet('off', live.live && live.shown ? 'going back to your own Slayer' : '');
+  const name = modelsLast.name || id;
+  if (modelsLast.pak === 'busy') return modelsSet('waiting', `${name} is installed once the game is fully closed`);
+  if (!running || !live.live) return modelsSet('ready', modelsLast.pak === 'restart' ? `${name} shows the next time you start the game` : `${name} shows when you play`);
+  if (live.shown) return modelsSet('shown', name);
+  if (modelsLast.pak === 'restart' || /restart the game/.test(live.status)) return modelsSet('restart', `${name} shows after you restart the game`);
+  modelsSet('waiting', live.status || `${name}: waiting for your character`);
+}
+
 // ---------------------------------------------------------------- Host Mode relay fix: retired (3.9.37)
 // 3.9.32-3.9.36 patched one line of DF's backend\recorder-1147.js (addison2k/DauntlessForever#12) and kept DF's
 // original as recorder-1147.js.lantern-original. DF is fixing it itself, so Lantern no longer patches. On a PC it patched,
@@ -1086,7 +1181,7 @@ async function buildState() {
     escalation: running && inEscalation,
     rulesPending: rulesPending(p),
     overlay: { ...overlaySettings(), restoreBossbar: undefined, bossbarBefore: undefined, running: overlayAlive() },
-    slayers: slayersStatus, omnis: omnisStatus,
+    slayers: slayersStatus, omnis: omnisStatus, modelSwap: modelsStatus,
     queue: queue.map((j) => ({ what: describe(j) })), history,
     deliveries: deliveries.filter((d) => d.status === 'saved').map((d) => ({ what: d.what, at: d.at })),
   };
@@ -1109,6 +1204,7 @@ async function tickState() {
     ensureOverlay(s.running);
     slayersSync(s.running).catch(() => {});
     omnisSync(s.running).catch(() => {});
+    modelsSync(s.running).catch(() => {});
     try { hostFixUndo(); } catch {}
     try { friendUndo(); } catch {}
   }
@@ -1394,6 +1490,84 @@ const routes = {
   'POST /api/owner/revoke': async (b) => LIC.revoke(b),
   'POST /api/owner/refresh': async () => { LIC.fetchRevoked(); return { ok: true }; },
 
+  // Model Swaps: the library, and which character shows in place of your Slayer (see "Model Swaps" above)
+  'GET /api/models': async () => {
+    const p = places();
+    return {
+      ok: true, selected: settings.modelSwap || null, status: modelsStatus, library: MODELS_LIB, canConvert: !!(await MODELS.python()),
+      models: MODELS.list(MODELS_LIB).map((m) => ({ id: m.id, name: m.name, game: m.game, author: m.author, description: m.description, source: m.source, license: m.license,
+        notes: m.notes, stats: m.stats, size: m.size || 0, scale: m.scale || 1, height: m.height || 0, myScale: Number((settings.modelSwapScale || {})[m.id]) || null, preview: !!m.preview, problem: m.problem, inGame: !m.problem && p.gameDir ? MODELS.inGame(p.gameDir, m) : 'off' })),
+    };
+  },
+  // ready-made characters from Lantern's repository (modelswaps.js "characters to download")
+  'GET /api/models/catalog': async () => {
+    try {
+      const have = new Map(MODELS.list(MODELS_LIB).filter((m) => !m.problem).map((m) => [m.id, m.sha256]));
+      const rows = await MODELS.catalog(RELEASE.repo);
+      return { ok: true, items: rows.map((r) => ({ ...r, sha256: undefined, have: have.has(r.id), update: have.has(r.id) && have.get(r.id) !== r.sha256 })) };
+    } catch (e) { return { ok: false, error: e.message }; }
+  },
+  'POST /api/models/download': async (b) => {
+    fs.mkdirSync(MODELS_LIB, { recursive: true });
+    try {
+      const r = await MODELS.download(RELEASE.repo, MODELS_LIB, String(b.id || ''));
+      modelsKey = ''; note('ok', 'Character downloaded', `${r.name} is in the library.`);
+      return r;
+    } catch (e) { panelLog(`Model Swaps: download failed: ${e.message}`); return { ok: false, error: `The character could not be downloaded: ${e.message}` }; }
+  },
+  'POST /api/models/apply': async (b) => {
+    const p = places(); if (!p.pkg) return { ok: false, error: 'Package not found.' };
+    const m = MODELS.read(MODELS_LIB, String(b.id || ''));
+    if (m.problem) return { ok: false, error: `${m.name} cannot be used: ${m.problem}` };
+    if (!p.modDir || !fs.existsSync(path.join(p.modDir, 'Scripts', 'main.lua'))) {   // the first time: the mod loader and Lantern's mod (game closed)
+      const r = await setup();
+      if (!r.ok) return { ok: false, error: `Model Swaps needs Lantern's game mod, which is not set up yet. ${r.error}` };
+    }
+    settings.modelSwap = m.id; saveSettings(); modelsKey = '';
+    const running = await backendUp();
+    await modelsSync(running).catch(() => {});
+    if (['error', 'blocked'].includes(modelsStatus.state)) return { ok: false, error: modelsStatus.detail || 'The character could not be set up in the game.' };
+    note('applied', `Model swap: ${m.name}`, modelsStatus.detail || '');
+    return { ok: true, name: m.name, status: modelsStatus };
+  },
+  // the size a character is drawn at (0.5 to 1.5 of the Slayer's skeleton); nothing = the character's own
+  'POST /api/models/scale': async (b) => {
+    const id = String(b.id || ''), v = Number(b.scale);
+    if (!MODELS.ID.test(id)) return { ok: false, error: 'Not a character.' };
+    settings.modelSwapScale = settings.modelSwapScale || {};
+    if (b.scale == null) delete settings.modelSwapScale[id];
+    else if (v >= 0.5 && v <= 1.5) settings.modelSwapScale[id] = Math.round(v * 100) / 100;
+    else return { ok: false, error: 'A size between 50% and 150%.' };
+    saveSettings(); modelsKey = '';
+    await modelsSync(await backendUp()).catch(() => {});
+    return { ok: true };
+  },
+  'POST /api/models/reset': async () => {
+    delete settings.modelSwap; saveSettings(); modelsKey = '';
+    await modelsSync(await backendUp()).catch(() => {});
+    note('applied', 'Model swap off', 'Your own Slayer is back.');
+    return { ok: true, status: modelsStatus };
+  },
+  'POST /api/models/remove': async (b) => {
+    const id = String(b.id || '');
+    try { MODELS.remove(MODELS_LIB, id); } catch (e) { return { ok: false, error: e.message }; }
+    if (settings.modelSwap === id) { delete settings.modelSwap; saveSettings(); }
+    modelsKey = '';
+    return { ok: true };
+  },
+  'POST /api/models/convert': async (b) => {
+    const p = places(); if (!p.gameDir) return { ok: false, error: 'The game folder is not known yet.' };
+    fs.mkdirSync(MODELS_LIB, { recursive: true });
+    const oodle = String(b.oodle || settings.modelSwapOodle || '').trim().replace(/^"|"$/g, '');
+    if (oodle && !/oo2core[^\\/]*\.dll$/i.test(oodle)) return { ok: false, error: 'The Oodle library is a file named oo2core_..._win64.dll.' };
+    const r = await MODELS.convert({ lib: MODELS_LIB, file: b.file, name: b.name, game: b.game, author: b.author, description: b.description, source: b.source, license: b.license,
+      paks: MODELS.paksDir(p.gameDir), oodle: oodle && fs.existsSync(oodle) ? oodle : '', cache: path.join(process.env.DFT_ROOT || HERE, 'modelswaps-cache') });
+    if (r.ok && oodle && fs.existsSync(oodle)) { settings.modelSwapOodle = oodle; saveSettings(); }
+    if (r.ok) { modelsKey = ''; note('ok', 'Character added', `${String(b.name || r.id)} is in the library.`); }
+    else panelLog(`Model Swaps: convert failed: ${r.error}${r.detail ? ' | ' + r.detail : ''}`);
+    return r;
+  },
+
   'POST /api/rules': async (b) => {
     const p = places(); if (!p.pkg) return { ok: false, error: 'Package not found.' };
     return { ok: true, rules: writeRules(p, b || {}) };
@@ -1417,6 +1591,16 @@ const server = http.createServer(async (req, res) => {
       try { data = fs.readFileSync(path.join(HERE, 'ui', 'fonts', font[1] + '.woff')); } catch { return send(res, 404, 'Not found', 'text/plain'); }
       res.writeHead(200, { 'Content-Type': 'font/woff', 'Cache-Control': 'public, max-age=31536000, immutable' });
       return res.end(data);
+    }
+    // a character's preview picture (an <img> cannot send headers, so the token comes in the address)
+    const pic = /^\/models\/preview\/([a-z0-9_]{1,32})\.png$/.exec(url.pathname);
+    if (req.method === 'GET' && pic) {
+      if (url.searchParams.get('t') !== TOKEN) return send(res, 403, 'Forbidden', 'text/plain');
+      let data;
+      if (url.searchParams.get('from') === 'list') { try { data = await MODELS.remotePreview(RELEASE.repo, pic[1]); } catch { return send(res, 404, 'Not found', 'text/plain'); } }   // not downloaded yet
+      else try { data = fs.readFileSync(path.join(MODELS_LIB, pic[1], 'preview.png')); } catch { return send(res, 404, 'Not found', 'text/plain'); }
+      if (data.length > 4e6 || data.readUInt32BE(0) !== 0x89504e47) return send(res, 404, 'Not found', 'text/plain');   // only a PNG is sent as one
+      return send(res, 200, data, 'image/png');
     }
     if (req.method === 'GET' && url.pathname === '/api/events') {
       // EventSource cannot send headers, so the token comes in the address here
